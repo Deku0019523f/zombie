@@ -1,9 +1,9 @@
 // Armes : tir, rechargement temporisé, changement d'arme.
 import { WEAPONS } from './config.js';
 import { state } from './state.js';
-import { input } from './input.js';
+import { input, isFiring } from './input.js';
 import { sfx } from './audio.js';
-import { makeEl } from './dom.js';
+import { addShake } from './effects.js';
 
 const def = () => WEAPONS[state.current];
 const cur = () => state.weapons[state.current];
@@ -16,6 +16,13 @@ export function switchWeapon(id) {
   state.cooldown = 0.15;
   sfx.switch();
   return true;
+}
+
+// Passe à l'arme débloquée suivante (bouton tactile / touche E).
+export function cycleWeapon() {
+  const ids = Object.keys(WEAPONS).filter((id) => state.weapons[id].unlocked);
+  const next = ids[(ids.indexOf(state.current) + 1) % ids.length];
+  return switchWeapon(next);
 }
 
 export function startReload() {
@@ -49,21 +56,23 @@ function shoot() {
 
   w.mag--;
   state.cooldown = d.rate;
+  state.muzzle = 0.06;
+  if (d.pellets > 1) addShake(2.5);
   const p = state.player;
+  const ox = p.x + Math.cos(p.angle) * (d.gunLen + 6);
+  const oy = p.y + Math.sin(p.angle) * (d.gunLen + 6);
   for (let i = 0; i < d.pellets; i++) {
     const off = d.pellets > 1
       ? (i / (d.pellets - 1) - 0.5) * d.spread * 2 + (Math.random() - 0.5) * 0.08
       : (Math.random() - 0.5) * d.spread;
     const a = p.angle + off;
     state.bullets.push({
-      x: p.x + Math.cos(p.angle) * 18,
-      y: p.y + Math.sin(p.angle) * 18,
+      x: ox, y: oy,
       vx: Math.cos(a) * d.speed,
       vy: Math.sin(a) * d.speed,
       life: d.life,
       dmg: d.damage,
       dead: false,
-      el: makeEl('entity bullet'),
     });
   }
   sfx[d.sound]();
@@ -86,6 +95,6 @@ export function updateWeapons(dt) {
     return;
   }
 
-  const wants = def().auto ? input.firing : input.clickBuffer > 0;
-  if (wants) shoot();
+  // Maintenir le bouton / clic / Espace = tir continu, limité par la cadence de l'arme.
+  if (isFiring() || input.clickBuffer > 0) shoot();
 }

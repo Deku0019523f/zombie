@@ -1,57 +1,51 @@
 import { PLAYER, WAVES, ZOMBIES } from './config.js';
 import { state } from './state.js';
-import { makeEl, place } from './dom.js';
 import { rand } from './util.js';
 import { sfx } from './audio.js';
 import { maybeDrop } from './pickups.js';
+import { addDecal, addShake, spawnBlood } from './effects.js';
 
 export function spawnZombie(type) {
   const def = ZOMBIES[type];
   const { w, h } = state;
-  const m = def.size / 2 + 2;
+  const m = def.size / 2 + 6;
   const side = Math.floor(Math.random() * 4);
   let x;
   let y;
-  if (side === 0) { x = -m; y = rand(0, h); }
-  else if (side === 1) { x = w + m; y = rand(0, h); }
-  else if (side === 2) { x = rand(0, w); y = -m; }
+  if (side === 0) { x = -m; y = rand(30, h); }
+  else if (side === 1) { x = w + m; y = rand(30, h); }
+  else if (side === 2) { x = rand(0, w); y = 20 - m; }
   else { x = rand(0, w); y = h + m; }
 
-  const el = makeEl(`entity zombie ${def.cls}`);
-  el.style.width = `${def.size}px`;
-  el.style.height = `${def.size}px`;
-  let fill = null;
-  if (def.hp > 1) {
-    const bar = makeEl('hpbar', el);
-    fill = makeEl('hpfill', bar);
-  }
   const bonus = Math.min(state.wave, WAVES.speedBonusCap) * WAVES.speedBonusPerWave;
   state.zombies.push({
-    type, x, y, el, fill,
+    type, x, y,
     r: def.size / 2, size: def.size,
     hp: def.hp, maxHp: def.hp,
     speed: rand(def.speed[0], def.speed[1]) + bonus,
     damage: def.damage, score: def.score,
     hitTimer: 0, dead: false,
+    ph: rand(0, 6), fx: 1,   // phase d'animation, sens du regard
   });
 }
 
 export function damageZombie(z, dmg, vx, vy) {
   z.hp -= dmg;
   z.hitTimer = 0.08;
-  z.el.classList.add('hit');
-  z.x += vx * 0.01;           // léger recul
-  z.y += vy * 0.01;
-  if (z.fill) z.fill.style.width = `${Math.max(0, (z.hp / z.maxHp) * 100)}%`;
+  const l = Math.hypot(vx, vy) || 1;
+  z.x += (vx / l) * 2.5;      // léger recul
+  z.y += (vy / l) * 2.5;
+  spawnBlood(z.x, z.y, 3, 50);
   if (z.hp <= 0) killZombie(z);
   else sfx.hit();
 }
 
 function killZombie(z) {
   z.dead = true;
-  z.el.remove();
   state.score += z.score;
   state.kills++;
+  spawnBlood(z.x, z.y, z.type === 'boss' ? 30 : 9, 90);
+  addDecal(z.x, z.y + z.r * 0.4, z.r * (z.type === 'boss' ? 1.6 : 1.1));
   sfx.kill();
   maybeDrop(z);
 }
@@ -61,6 +55,8 @@ export function hurtPlayer(dmg) {
   p.hp = Math.max(0, p.hp - dmg);
   p.hitTimer = PLAYER.hitCooldown;
   state.hurtFlash = 0.25;
+  addShake(4);
+  spawnBlood(p.x, p.y, 6, 60);
   sfx.hurt();
   if (p.hp <= 0) state.dead = true;
 }
@@ -76,6 +72,7 @@ export function updateZombies(dt) {
     const dist = Math.hypot(dx, dy) || 1;
     z.x += (dx / dist) * z.speed * dt;
     z.y += (dy / dist) * z.speed * dt;
+    if (Math.abs(dx) > 2) z.fx = dx > 0 ? 1 : -1;
   }
 
   // Séparation : les zombies ne se superposent pas en une seule tache.
@@ -99,11 +96,7 @@ export function updateZombies(dt) {
   }
 
   for (const z of zs) {
-    if (z.hitTimer > 0) {
-      z.hitTimer -= dt;
-      if (z.hitTimer <= 0) z.el.classList.remove('hit');
-    }
+    if (z.hitTimer > 0) z.hitTimer -= dt;
     if (p.hitTimer <= 0 && Math.hypot(p.x - z.x, p.y - z.y) < p.r + z.r) hurtPlayer(z.damage);
-    place(z.el, z.x, z.y, z.size);
   }
 }

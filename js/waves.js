@@ -8,7 +8,7 @@ import { t } from './i18n.js';
 import { rand } from './util.js';
 
 function buildQueue(n) {
-  const total = WAVES.baseCount + n * WAVES.perWave;
+  const total = Math.round(WAVES.baseCount + n * WAVES.perWave);
   const pTank = n >= 4 ? Math.min(0.2, 0.04 * (n - 2)) : 0;
   const pRunner = n >= 2 ? Math.min(0.35, 0.06 * n) : 0;
   const list = [];

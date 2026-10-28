@@ -1,21 +1,22 @@
-// Entrées clavier / souris / tactile (joystick gauche, visée + tir à droite).
+// Entrées : clavier, souris, tactile (joystick gauche + bouton de tir rouge à visée automatique).
 import { $ } from './dom.js';
+import { state } from './state.js';
 import { WEAPONS } from './config.js';
 
 export const input = {
   keys: new Set(),
   mouse: { x: 0, y: 0 },
-  aim: { x: 0, y: 0 },
-  aimSource: 'mouse',
+  aimSource: 'auto',  // 'auto' = vise le zombie le plus proche ; 'mouse' = vise la souris
   firing: false,
-  clickBuffer: 0,     // mémorise un clic pendant 150 ms (armes semi-auto)
+  clickBuffer: 0,     // mémorise un appui pendant 150 ms (armes semi-auto)
   joy: { x: 0, y: 0 },
 };
 
-const JOY_R = 50;
+const JOY_R = 40;
 let joyId = null;
-let aimId = null;
-let joyOrigin = { x: 0, y: 0 };
+let fireId = null;
+
+export const isFiring = () => input.firing || input.keys.has('Space');
 
 export function resetInput() {
   input.keys.clear();
@@ -24,12 +25,12 @@ export function resetInput() {
   input.joy.x = 0;
   input.joy.y = 0;
   joyId = null;
-  aimId = null;
-  const joy = $('joy');
-  if (joy) joy.classList.remove('show');
+  fireId = null;
+  const knob = $('joyKnob');
+  if (knob) knob.style.transform = 'translate(0px,0px)';
+  const fire = $('btnFire');
+  if (fire) fire.classList.remove('down');
 }
-
-export const getAim = () => (input.aimSource === 'touch' ? input.aim : input.mouse);
 
 export function getMove() {
   const k = input.keys;
@@ -46,15 +47,16 @@ export function getMove() {
   return { x: input.joy.x, y: input.joy.y };
 }
 
-// handlers : onReload, onSwitch(id), onPause, onConfirm, onGesture
-export function initInput(arena, h) {
+// handlers : onGesture, onReload, onSwitch(id), onCycle, onPause, onConfirm
+export function initInput(stage, canvas, h) {
   const joy = $('joy');
   const knob = $('joyKnob');
+  const fire = $('btnFire');
   const weaponIds = Object.keys(WEAPONS);
 
-  const pos = (e) => {
-    const r = arena.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width };
+  const logical = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) * state.w) / r.width, y: ((e.clientY - r.top) * state.h) / r.height };
   };
 
   // ---- Clavier (e.code = position physique : ZQSD sur AZERTY = WASD) ----
@@ -64,7 +66,9 @@ export function initInput(arena, h) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(c)) e.preventDefault();
     input.keys.add(c);
     if (e.repeat) return;
+    if (c === 'Space') input.clickBuffer = 0.15;
     if (c === 'KeyR') h.onReload();
+    else if (c === 'KeyE') h.onCycle();
     else if (c === 'KeyP' || c === 'Escape') h.onPause();
     else if (c === 'Digit1' || c === 'Numpad1') h.onSwitch(weaponIds[0]);
     else if (c === 'Digit2' || c === 'Numpad2') h.onSwitch(weaponIds[1]);
@@ -73,74 +77,78 @@ export function initInput(arena, h) {
   });
   window.addEventListener('keyup', (e) => input.keys.delete(e.code));
 
-  // ---- Pointeur (souris + tactile) ----
-  arena.addEventListener('contextmenu', (e) => e.preventDefault());
-
-  arena.addEventListener('pointerdown', (e) => {
+  // ---- Souris : vise au curseur, clic = tir ----
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
     h.onGesture();
-    const p = pos(e);
-    if (e.pointerType === 'mouse') {
-      if (e.button !== 0) return;
-      input.aimSource = 'mouse';
-      input.mouse.x = p.x;
-      input.mouse.y = p.y;
-      input.firing = true;
-      input.clickBuffer = 0.15;
-    } else if (p.x < p.w / 2 && joyId === null) {
-      joyId = e.pointerId;
-      joyOrigin = { x: p.x, y: p.y };
-      joy.style.left = `${p.x - JOY_R}px`;
-      joy.style.top = `${p.y - JOY_R}px`;
-      knob.style.transform = 'translate(0px,0px)';
-      joy.classList.add('show');
-    } else if (aimId === null) {
-      aimId = e.pointerId;
-      input.aimSource = 'touch';
-      input.aim.x = p.x;
-      input.aim.y = p.y;
-      input.firing = true;
-      input.clickBuffer = 0.15;
-    } else {
-      return;
-    }
-    try { arena.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
+    input.aimSource = 'mouse';
+    Object.assign(input.mouse, logical(e));
+    input.firing = true;
+    input.clickBuffer = 0.15;
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    input.aimSource = 'mouse';
+    Object.assign(input.mouse, logical(e));
+  });
+  const mouseUp = (e) => { if (e.pointerType === 'mouse') input.firing = false; };
+  canvas.addEventListener('pointerup', mouseUp);
+  canvas.addEventListener('pointercancel', mouseUp);
+
+  // ---- Tactile : joystick (moitié gauche de l'écran) ----
+  const updateJoy = (e) => {
+    const r = joy.getBoundingClientRect();
+    let dx = e.clientX - (r.left + r.width / 2);
+    let dy = e.clientY - (r.top + r.height / 2);
+    const d = Math.hypot(dx, dy);
+    if (d > JOY_R) { dx = (dx / d) * JOY_R; dy = (dy / d) * JOY_R; }
+    const mag = Math.hypot(dx, dy) / JOY_R;
+    if (mag < 0.12) { input.joy.x = 0; input.joy.y = 0; }
+    else { input.joy.x = dx / JOY_R; input.joy.y = dy / JOY_R; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+  };
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;
+    if (e.target.closest && e.target.closest('button, .overlay')) return;
+    h.onGesture();
+    const r = stage.getBoundingClientRect();
+    if (joyId !== null || e.clientX - r.left > r.width * 0.55) return;
+    joyId = e.pointerId;
+    updateJoy(e);
+    try { stage.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
     e.preventDefault();
   });
-
-  arena.addEventListener('pointermove', (e) => {
-    const p = pos(e);
-    if (e.pointerType === 'mouse') {
-      input.aimSource = 'mouse';
-      input.mouse.x = p.x;
-      input.mouse.y = p.y;
-    } else if (e.pointerId === joyId) {
-      let dx = p.x - joyOrigin.x;
-      let dy = p.y - joyOrigin.y;
-      const d = Math.hypot(dx, dy);
-      if (d > JOY_R) { dx = (dx / d) * JOY_R; dy = (dy / d) * JOY_R; }
-      const mag = Math.hypot(dx, dy) / JOY_R;
-      if (mag < 0.15) { input.joy.x = 0; input.joy.y = 0; }
-      else { input.joy.x = dx / JOY_R; input.joy.y = dy / JOY_R; }
-      knob.style.transform = `translate(${dx}px,${dy}px)`;
-    } else if (e.pointerId === aimId) {
-      input.aim.x = p.x;
-      input.aim.y = p.y;
-    }
-  });
-
-  const end = (e) => {
-    if (e.pointerType === 'mouse') {
-      input.firing = false;
-    } else if (e.pointerId === joyId) {
-      joyId = null;
-      input.joy.x = 0;
-      input.joy.y = 0;
-      joy.classList.remove('show');
-    } else if (e.pointerId === aimId) {
-      aimId = null;
-      input.firing = false;
-    }
+  stage.addEventListener('pointermove', (e) => { if (e.pointerId === joyId) updateJoy(e); });
+  const joyEnd = (e) => {
+    if (e.pointerId !== joyId) return;
+    joyId = null;
+    input.joy.x = 0;
+    input.joy.y = 0;
+    knob.style.transform = 'translate(0px,0px)';
   };
-  arena.addEventListener('pointerup', end);
-  arena.addEventListener('pointercancel', end);
+  stage.addEventListener('pointerup', joyEnd);
+  stage.addEventListener('pointercancel', joyEnd);
+
+  // ---- Tactile : bouton de tir rouge (maintenir = tirer, visée automatique) ----
+  fire.addEventListener('pointerdown', (e) => {
+    h.onGesture();
+    fireId = e.pointerId;
+    input.aimSource = 'auto';
+    input.firing = true;
+    input.clickBuffer = 0.15;
+    fire.classList.add('down');
+    try { fire.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  const fireEnd = (e) => {
+    if (e.pointerId !== fireId) return;
+    fireId = null;
+    input.firing = false;
+    fire.classList.remove('down');
+  };
+  fire.addEventListener('pointerup', fireEnd);
+  fire.addEventListener('pointercancel', fireEnd);
 }

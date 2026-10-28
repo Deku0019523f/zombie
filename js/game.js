@@ -7,6 +7,7 @@ import { updateBullets } from './bullets.js';
 import { updateZombies } from './zombies.js';
 import { updatePickups } from './pickups.js';
 import { updateWaves, startWave } from './waves.js';
+import { updateEffects } from './effects.js';
 import { showOverlay, hideOverlay } from './ui.js';
 import { getBest, setBest } from './storage.js';
 import { sfx } from './audio.js';
@@ -69,6 +70,7 @@ export function update(dt) {
   updateZombies(dt);
   updatePickups(dt);
   updateWaves(dt);
+  updateEffects(dt);
   state.hurtFlash = Math.max(0, state.hurtFlash - dt);
   if (state.dead) endGame();
 }
