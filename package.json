@@ -1,0 +1,11 @@
+{
+  "name": "zombie-survival",
+  "version": "2.0.0",
+  "description": "Jeu de survie contre des vagues de zombies (HTML/CSS/JS, modules ES)",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve .",
+    "test": "node tests/smoke.mjs"
+  },
+  "license": "MIT"
+}

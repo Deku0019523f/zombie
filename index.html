@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#07111c">
+<title>Zombie Survival</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main class="app">
+  <header>
+    <h1>🧟 ZOMBIE <span>SURVIVAL</span></h1>
+    <div class="header-actions">
+      <button id="btnLang" class="ghost" type="button" title="Langue / Language">EN</button>
+      <button id="btnMute" class="ghost" type="button" aria-label="Son">🔊</button>
+      <button id="btnPause" class="ghost" type="button" aria-label="Pause">⏸</button>
+      <button id="restart" type="button" data-i18n="restart">RECOMMENCER</button>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="stat">
+      <small data-i18n="health">❤️ SANTÉ</small>
+      <strong id="health">100</strong>
+      <div class="bar"><i id="healthFill"></i></div>
+    </div>
+    <div class="stat"><small data-i18n="score">🏆 SCORE</small><strong id="score">0</strong></div>
+    <div class="stat"><small data-i18n="wave">🌊 VAGUE</small><strong id="wave">1</strong></div>
+    <div class="stat"><small data-i18n="best">⭐ RECORD</small><strong id="best">0</strong></div>
+  </section>
+
+  <div class="stage">
+    <div class="arena" id="arena">
+      <div class="entity player" id="player"></div>
+      <div class="joy" id="joy"><div class="joy-knob" id="joyKnob"></div></div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <div class="overlay" id="overlay">
+      <div class="ov-card">
+        <h2 id="ovTitle"></h2>
+        <p id="ovText"></p>
+        <p id="ovExtra" class="ov-extra"></p>
+        <button id="ovBtn" type="button"></button>
+      </div>
+    </div>
+  </div>
+
+  <section class="weapons">
+    <button class="weapon" data-weapon="pistol" type="button"><b class="wkey">1</b><span class="wname"></span><span class="wammo"></span></button>
+    <button class="weapon" data-weapon="shotgun" type="button"><b class="wkey">2</b><span class="wname"></span><span class="wammo"></span></button>
+    <button class="weapon" data-weapon="smg" type="button"><b class="wkey">3</b><span class="wname"></span><span class="wammo"></span></button>
+    <button class="weapon reload" id="btnReload" type="button">↻ R</button>
+  </section>
+
+  <section class="controls">
+    <div class="panel">
+      <h3 data-i18n="howto">COMMENT JOUER</h3>
+      <p data-i18n="move"></p>
+      <p data-i18n="aim"></p>
+      <p data-i18n="shoot"></p>
+      <p data-i18n="reloadKey"></p>
+      <p data-i18n="weaponKeys"></p>
+      <p data-i18n="pauseKey"></p>
+      <p data-i18n="touch"></p>
+    </div>
+    <div class="panel">
+      <h3 data-i18n="mission">ÉTAT DE LA MISSION</h3>
+      <p id="message"></p>
+      <p data-i18n="tip"></p>
+    </div>
+  </section>
+</main>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
