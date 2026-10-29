@@ -1,14 +1,17 @@
 // Point d'entrée : branche le DOM, les entrées et la boucle de jeu.
 import { stage, canvas, $ } from './dom.js';
 import { state } from './state.js';
+import { WEAPONS } from './config.js';
 import { initInput, resetInput } from './input.js';
-import { initGame, startGame, togglePause, confirm, update } from './game.js';
+import { initGame, startGame, togglePause, confirm, update, choosePerk } from './game.js';
 import { switchWeapon, cycleWeapon, startReload } from './weapons.js';
+import { throwGrenade } from './combat.js';
 import { clampPlayer } from './player.js';
-import { renderHud, refreshTexts } from './ui.js';
+import { renderHud, refreshTexts, setPerkHandler } from './ui.js';
 import { initRender, resizeCanvas, render } from './render.js';
 import { toggleLanguage } from './i18n.js';
 import { sfx, toggleMute } from './audio.js';
+import { runLoader } from './loader.js';
 
 initRender();
 new ResizeObserver(() => {
@@ -16,13 +19,21 @@ new ResizeObserver(() => {
   clampPlayer();
 }).observe(stage);
 
+const weaponIds = Object.keys(WEAPONS);
+setPerkHandler(choosePerk);
+
 initInput(stage, canvas, {
   onGesture: () => sfx.unlock(),
   onReload: () => { if (state.phase === 'playing') startReload(); },
-  onSwitch: (id) => { if (state.phase === 'playing') switchWeapon(id); },
+  // Touches 1/2/3 : changer d'arme en jeu, choisir une amélioration sur l'écran d'amélioration.
+  onSwitch: (id) => {
+    if (state.phase === 'playing') switchWeapon(id);
+    else if (state.phase === 'perk') choosePerk(weaponIds.indexOf(id));
+  },
   onCycle: () => { if (state.phase === 'playing') cycleWeapon(); },
+  onGrenade: () => throwGrenade(),
   onPause: togglePause,
-  onConfirm: confirm,
+  onConfirm: () => { if (!$('loader')) confirm(); },
 });
 
 // Boutons : on retire le focus pour que Espace / Entrée ne les réactivent pas.
@@ -32,6 +43,7 @@ click('ovBtn', confirm);
 click('btnRestart', startGame);
 click('btnReload', () => { if (state.phase === 'playing') startReload(); });
 click('btnWeapon', () => { if (state.phase === 'playing') cycleWeapon(); });
+click('btnGrenade', () => throwGrenade());
 click('btnMute', () => { toggleMute(); refreshTexts(); });
 click('btnLang', () => { toggleLanguage(); refreshTexts(); });
 
@@ -43,6 +55,14 @@ document.addEventListener('visibilitychange', () => {
 
 initGame();
 refreshTexts();
+runLoader(); // sprites PNG optionnels : passer leurs chemins ici (voir MESHY.md)
+
+// Outil de débogage (uniquement avec ?debug dans l'URL) : permet de tester des situations précises.
+if (new URLSearchParams(location.search).has('debug')) {
+  Promise.all([import('./waves.js'), import('./zombies.js'), import('./pickups.js')]).then(([w, z, p]) => {
+    window.__dbg = { state, startWave: w.startWave, spawnZombie: z.spawnZombie, spawnPickup: p.spawnPickup, choosePerk };
+  });
+}
 
 let previous = performance.now();
 function frame(now) {

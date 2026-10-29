@@ -32,6 +32,10 @@ font-weight:bold;text-shadow:0 1px 2px #000}
 .pause{pointer-events:auto;width:34px;height:34px;border-radius:9px;background:#0009;color:#fff;
 font-size:15px;border:1px solid #fff3;margin-left:auto}
 
+.combo{font-size:11px;color:#fde047;font-weight:bold;min-height:13px;letter-spacing:.3px}
+.buffs{position:absolute;top:52px;left:10px;z-index:3;font-weight:bold;font-size:14px;
+text-shadow:0 1px 2px #000;pointer-events:none;white-space:pre}
+
 /* Message de vague */
 .toast{position:absolute;top:54px;left:50%;transform:translateX(-50%);padding:7px 16px;
 background:#0b1119e8;border:1px solid #facc15;border-radius:20px;color:#facc15;font-weight:bold;
@@ -52,8 +56,11 @@ background:radial-gradient(circle at 35% 30%,#fff,#cfd6df 60%,#8b95a3);box-shado
 .small-row{display:flex;gap:10px}
 .round{pointer-events:auto;border-radius:50%;background:#0b1119cc;color:#fff;border:2px solid #ffffff55;
 display:flex;align-items:center;justify-content:center}
-.round.small{width:42px;height:42px;font-size:19px}
+.round.small{position:relative;overflow:hidden;width:42px;height:42px;font-size:19px}
 .round.busy{border-color:#facc15;color:#facc15}
+.round.ready{border-color:#facc15}
+.cd{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+background:conic-gradient(#000b var(--cd,0%),#0000 0)}
 .fire{pointer-events:auto;width:78px;height:78px;border-radius:50%;
 background:radial-gradient(circle at 35% 30%,#ff6b6b,#dc2626 60%,#8f1414);color:#fff;
 border:3px solid #ffffff88;box-shadow:0 0 18px #ef444488,0 3px 8px #000a;font-size:36px;
@@ -81,6 +88,19 @@ background:#05080dcc;z-index:6;padding:20px}
 .primary:active{transform:translateY(2px);box-shadow:0 2px 0 #7c4a03}
 .secondary{background:#1b2735;color:#e2e8f0;border:1px solid #ffffff33;font-size:14px;padding:11px}
 .hidden{display:none!important}
+
+/* Écran d'amélioration */
+.perk-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.perk{display:flex;align-items:center;gap:12px;text-align:left;width:100%;padding:12px 14px;border-radius:12px;
+background:linear-gradient(#263449,#18222f);color:#fff;border:1px solid #ffffff33;box-shadow:0 3px 0 #0007}
+.perk:active{transform:translateY(2px);box-shadow:0 1px 0 #0007}
+.perk .pi{font-size:30px;line-height:1}
+.perk .pt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.perk b{font-size:16px;color:#facc15}
+.perk small{font-size:12px;color:#cbd5e1}
+.perk em{font-size:11px;color:#a3e635;font-style:normal;font-weight:bold}
+.perk kbd{font-size:11px;color:#94a3b8;border:1px solid #ffffff33;border-radius:5px;padding:1px 6px}
+@media (pointer:coarse){.perk kbd{display:none}}
 .ov-tools{display:flex;gap:10px;justify-content:center;margin-top:14px}
 .tool{background:#1b2735;color:#e2e8f0;border:1px solid #ffffff33;border-radius:9px;padding:9px 14px;font-size:14px;font-weight:bold}
 
@@ -89,3 +109,25 @@ background:#05080dcc;z-index:6;padding:20px}
   .joy{width:88px;height:88px}
   .fire{width:66px;height:66px;font-size:30px}
 }
+
+/* Écran de chargement : illustration plein cadre + barre de progression */
+.loader{position:absolute;inset:0;z-index:9;background:#05080d;display:flex;flex-direction:column;
+justify-content:flex-end;transition:opacity .5s}
+.loader.done{opacity:0;pointer-events:none}
+.loader-art{position:absolute;inset:0;background-size:cover;background-position:center top;
+animation:kenburns 8s ease-out both}
+.loader-art::after{content:"";position:absolute;inset:0;background:linear-gradient(#0000 55%,#05080dcc 100%)}
+@keyframes kenburns{from{transform:scale(1.06)}to{transform:scale(1)}}
+.loader-bottom{position:relative;padding:0 28px calc(env(safe-area-inset-bottom,0px) + 28px);text-align:center}
+.loader-bar{height:6px;background:#ffffff22;border-radius:4px;overflow:hidden;border:1px solid #ffffff22}
+.loader-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f59e0b,#ef6a3c);transition:width .2s}
+.loader-bottom p{margin:10px 0 0;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#cbd5e1;
+text-shadow:0 1px 3px #000}
+
+/* Menu principal : illustration assombrie en fond, titre en deux tons */
+.overlay.menu{background:linear-gradient(#05080dcc,#05080df0),url(../assets/cover.jpg) center bottom/auto 165% no-repeat}
+.ov-kicker{margin:0 0 14px;font-size:12px;letter-spacing:5px;color:#f0b35a!important}
+.overlay.menu .ov-card h2{display:flex;flex-direction:column;line-height:1;margin:0 0 18px;
+font-family:"Arial Black","Trebuchet MS",Arial,sans-serif;font-size:clamp(38px,12vw,56px);color:#f7ecd5;
+text-shadow:0 3px 10px #000a;letter-spacing:0}
+.overlay.menu .ov-card h2 .accent{color:#ef5a3c}
