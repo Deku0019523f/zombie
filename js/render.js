@@ -1,15 +1,16 @@
 // Rendu canvas : décor pixel art, sprites, balles, particules, effets de lumière.
 // Aucune logique de jeu ici : on lit uniquement `state`.
 import { state } from './state.js';
-import { WEAPONS, LOGICAL_WIDTH } from './config.js';
+import { WEAPONS, LOGICAL_WIDTH, AI, GRENADE } from './config.js';
 import { sprites, buildSprites } from './sprites.js';
 import { stage, canvas } from './dom.js';
 import { PICKUP_SIZE } from './pickups.js';
+import { computeSolids } from './layout.js';
 
 const ctx = canvas.getContext('2d');
 let pxScale = 1;
 let bg = null;
-let decor = { barrel: { x: 308, y: 140 }, police: { x: 290, y: 560, rot: -0.12 } };
+let decor = { barrel: { x: 308, y: 136 }, police: { x: 196, y: 580, rot: -0.1 } };
 
 function rng(seed) {
   let s = seed % 2147483647;
@@ -172,20 +173,20 @@ function buildBackground() {
     g.fill();
   }
 
-  // décor
+  // décor non solide
   drawFence(g, W - 100, 44, W + 4, 112);
   drawSign(g, W - 42, 78);
-  drawCar(g, 70, 86, -0.28, '#7d2b27', '#5a1f1c', false);
-  drawBarrel(g, W - 52, 146);
-  drawCrate(g, W - 38, 156, 22);
-  drawCrate(g, 122, H - 150, 26);
-  drawCrate(g, 146, H - 130, 20);
-  drawCrate(g, 20, 150, 22);
-  decor = {
-    barrel: { x: W - 52, y: 146 - 10 },
-    police: { x: 196, y: H - 56, rot: -0.1 },
-  };
-  drawCar(g, decor.police.x, decor.police.y, decor.police.rot, '#d6dce2', '#aab2ba', true);
+
+  // obstacles solides (les mêmes que ceux utilisés pour les collisions)
+  for (const s of state.solids) {
+    if (s.kind === 'car') drawCar(g, s.x, s.y, s.rot, '#7d2b27', '#5a1f1c', false);
+    else if (s.kind === 'crate') drawCrate(g, s.x, s.y, s.s);
+    else if (s.kind === 'firebarrel') { drawBarrel(g, s.x, s.y); decor.barrel = { x: s.x, y: s.y - 10 }; }
+    else if (s.kind === 'police') {
+      drawCar(g, s.x, s.y, s.rot, '#d6dce2', '#aab2ba', true);
+      decor.police = { x: s.x, y: s.y, rot: s.rot };
+    }
+  }
 
   // vignette
   const grd = g.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.78);
@@ -202,6 +203,7 @@ export function resizeCanvas() {
   const scale = cw / LOGICAL_WIDTH;
   state.w = LOGICAL_WIDTH;
   state.h = Math.max(300, Math.round(ch / scale));
+  state.solids = computeSolids(state.w, state.h);
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
   pxScale = canvas.width / LOGICAL_WIDTH;
@@ -222,6 +224,13 @@ function glow(x, y, r, color, a) {
   g.addColorStop(1, color.replace('A', 0));
   ctx.fillStyle = g;
   ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+
+function glowAdd(x, y, r, color, a) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  glow(x, y, r, color, a);
+  ctx.restore();
 }
 
 function drawFire(t) {
@@ -250,15 +259,35 @@ function drawPoliceLights(t) {
   const at = (ox, oy) => [x + ox * c - oy * s, y + ox * s + oy * c];
   const [rx, ry] = at(-7, -4);
   const [bx, by] = at(-7, 4);
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  glow(rx, ry, 30, 'rgba(255,40,40,A)', blue ? 0.08 : 0.55);
-  glow(bx, by, 30, 'rgba(50,110,255,A)', blue ? 0.55 : 0.08);
-  ctx.restore();
+  glowAdd(rx, ry, 30, 'rgba(255,40,40,A)', blue ? 0.08 : 0.55);
+  glowAdd(bx, by, 30, 'rgba(50,110,255,A)', blue ? 0.55 : 0.08);
   ctx.fillStyle = blue ? '#7a1818' : '#ff3b3b';
   ctx.fillRect(rx - 2, ry - 2, 4, 4);
   ctx.fillStyle = blue ? '#4aa0ff' : '#1a2a6a';
   ctx.fillRect(bx - 2, by - 2, 4, 4);
+}
+
+// Baril explosif rouge : on tire dessus (3 PV) pour qu'il explose.
+function drawBomb(b, t) {
+  const { x, y } = b;
+  shadow(ctx, x, y + 11, 10, 4, 0.4);
+  ctx.fillStyle = b.flash > 0 ? '#ffffff' : '#a3261c';
+  ctx.fillRect(x - 8, y - 10, 16, 21);
+  ctx.fillStyle = '#c9392e';
+  ctx.fillRect(x - 8, y - 10, 5, 21);
+  ctx.fillStyle = '#3a0f0b';
+  ctx.fillRect(x - 8, y - 10, 16, 3);
+  ctx.fillRect(x - 8, y + 8, 16, 3);
+  for (let i = 0; i < 4; i++) {          // bande de danger
+    ctx.fillStyle = i % 2 ? '#15151a' : '#facc15';
+    ctx.fillRect(x - 8 + i * 4, y - 3, 4, 6);
+  }
+  if (b.hp < 3) {                         // fissures quand il est abîmé
+    ctx.fillStyle = '#1a0806';
+    ctx.fillRect(x - 2, y - 8, 1, 6);
+    ctx.fillRect(x + 3, y + 2, 1, 5);
+  }
+  glowAdd(x, y - 12, 12, 'rgba(255,60,40,A)', 0.25 + 0.2 * Math.sin(t * 6 + x));
 }
 
 function drawPlayer(t) {
@@ -274,7 +303,9 @@ function drawPlayer(t) {
   ctx.fill();
   ctx.stroke();
 
-  if (p.hitTimer > 0 && Math.floor(t * 18) % 2 === 0) ctx.globalAlpha = 0.5;
+  if (state.buffs.rage > 0) glowAdd(p.x, p.y, 34, 'rgba(255,120,30,A)', 0.4 + 0.1 * Math.sin(t * 20));
+
+  if (p.hitTimer > 0 && state.buffs.shield <= 0 && Math.floor(t * 18) % 2 === 0) ctx.globalAlpha = 0.5;
   const fr = p.moving ? Math.floor(t * 9) % 2 : 0;
   ctx.drawImage(sprites.player[fr], p.x - 12, p.y - 17);
   ctx.globalAlpha = 1;
@@ -295,10 +326,7 @@ function drawPlayer(t) {
   if (state.muzzle > 0) {
     const mx = p.x + Math.cos(p.angle) * (d.gunLen + 7);
     const my = p.y - 1 + Math.sin(p.angle) * (d.gunLen + 7);
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    glow(mx, my, 24, 'rgba(255,190,80,A)', 0.6);
-    ctx.restore();
+    glowAdd(mx, my, 24, 'rgba(255,190,80,A)', 0.6);
     ctx.fillStyle = '#fff6c0';
     ctx.beginPath();
     ctx.arc(mx, my, 3.5, 0, Math.PI * 2);
@@ -308,27 +336,67 @@ function drawPlayer(t) {
     ctx.arc(mx + Math.cos(p.angle) * 3, my + Math.sin(p.angle) * 3, 2.2, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // bouclier : bulle bleue (clignote à la fin)
+  const sh = state.buffs.shield;
+  if (sh > 0 && (sh > 2 || Math.floor(t * 8) % 2 === 0)) {
+    ctx.fillStyle = 'rgba(80,180,255,0.16)';
+    ctx.strokeStyle = 'rgba(140,210,255,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 21 + Math.sin(t * 9) * 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
 }
 
 function drawZombie(z, t) {
   const set = sprites.zombie[z.type];
-  const speedF = z.type === 'runner' ? 11 : z.type === 'boss' ? 4 : 5.5;
-  const s = set[Math.floor(t * speedF + z.ph) % 2];
+  const speedF = z.type === 'runner' ? 11 : z.type === 'boss' ? 4 : z.type === 'exploder' ? 8 : 5.5;
+  const frozen = state.buffs.freeze > 0;
+  const s = set[Math.floor(t * speedF * (frozen ? 0.35 : 1) + z.ph) % 2];
   const img = z.hitTimer > 0 ? s.flash : s.img;
   const w = img.width;
   const h = img.height;
   shadow(ctx, z.x, z.y + h * 0.45, w * 0.42, h * 0.1, 0.4);
-  if (z.type === 'boss') {
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    glow(z.x, z.y, 48, 'rgba(255,40,30,A)', 0.28 + Math.sin(t * 6) * 0.08);
-    ctx.restore();
+
+  if (z.type === 'boss') glowAdd(z.x, z.y, 48, 'rgba(255,40,30,A)', 0.28 + Math.sin(t * 6) * 0.08);
+  if (z.type === 'exploder') {      // pulse de plus en plus vite quand le joueur est proche
+    const near = Math.hypot(state.player.x - z.x, state.player.y - z.y) < 90;
+    glowAdd(z.x, z.y, 28, 'rgba(255,90,20,A)', 0.14 + 0.16 * Math.sin(t * (near ? 18 : 7)));
   }
+  if (z.type === 'charger' && z.st === 'tele') {   // ligne d'avertissement avant la charge
+    const prog = 1 - z.tT / AI.charger.telegraph;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,50,50,${0.25 + 0.5 * prog})`;
+    ctx.lineWidth = 3 + prog * 6;
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(z.x, z.y);
+    ctx.lineTo(z.x + z.dx * 200, z.y + z.dy * 200);
+    ctx.stroke();
+    ctx.restore();
+    glowAdd(z.x, z.y, 34, 'rgba(255,40,40,A)', 0.2 + 0.4 * prog);
+  }
+
   ctx.save();
   ctx.translate(z.x, z.y);
   ctx.scale(z.fx, 1);
+  if (z.type === 'charger' && z.st === 'dash') ctx.globalAlpha = 0.92;
   ctx.drawImage(img, -w / 2, -h / 2);
   ctx.restore();
+
+  if (z.type === 'spitter' && z.charge) glowAdd(z.x, z.y - h * 0.25, 16, 'rgba(190,255,60,A)', 0.55);
+  if (z.type === 'charger' && z.st === 'tele') {   // « ! » au-dessus de la tête
+    ctx.fillStyle = '#ff3b3b';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', z.x, z.y - h / 2 - 3);
+  }
+  if (frozen) {
+    ctx.fillStyle = 'rgba(140,210,255,0.28)';
+    ctx.fillRect(z.x - w / 2, z.y - h / 2, w, h);
+  }
   if (z.maxHp > 1 && z.hp < z.maxHp) {
     const bw = Math.max(22, w * 0.8);
     const bx = z.x - bw / 2;
@@ -340,18 +408,34 @@ function drawZombie(z, t) {
   }
 }
 
+const POWER_STYLE = {
+  rage: { c: '#f97316', e: '⚡' },
+  shield: { c: '#38bdf8', e: '🛡️' },
+  freeze: { c: '#7dd3fc', e: '❄️' },
+  nuke: { c: '#facc15', e: '☢️' },
+};
+
 function drawPickup(pk, t) {
   if (pk.life < 3 && Math.floor(pk.life * 5) % 2 === 0) return;
   const bob = Math.sin(t * 5 + pk.x) * 1.6;
   const x = pk.x;
   const y = pk.y + bob;
   const S = PICKUP_SIZE;
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  glow(x, y, 20, pk.kind === 'health' ? 'rgba(255,70,90,A)' : 'rgba(250,200,60,A)', 0.4);
-  ctx.restore();
+  const ps = POWER_STYLE[pk.kind];
+  glowAdd(x, y, ps ? 26 : 20, ps ? 'rgba(255,220,120,A)' : pk.kind === 'health' ? 'rgba(255,70,90,A)' : 'rgba(250,200,60,A)', ps ? 0.5 : 0.4);
   shadow(ctx, x, pk.y + 9, 7, 2.5, 0.35);
-  if (pk.kind === 'health') {
+  if (ps) {
+    ctx.fillStyle = '#0b1119';
+    ctx.fillRect(x - S / 2 - 1, y - S / 2 - 1, S + 2, S + 2);
+    ctx.strokeStyle = ps.c;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - S / 2, y - S / 2, S, S);
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(ps.e, x, y + 1);
+  } else if (pk.kind === 'health') {
     ctx.fillStyle = '#f4f4f5';
     ctx.fillRect(x - S / 2, y - S / 2, S, S);
     ctx.fillStyle = '#d1d5db';
@@ -373,6 +457,44 @@ function drawPickup(pk, t) {
   }
 }
 
+function drawGrenade(g) {
+  const k = Math.min(1, g.t / g.dur);
+  const x = g.x0 + (g.x1 - g.x0) * k;
+  const y = g.y0 + (g.y1 - g.y0) * k;
+  const h = Math.sin(Math.PI * k) * 30;
+  shadow(ctx, x, y + 2, 4, 2, 0.35);
+  // zone d'impact
+  ctx.strokeStyle = `rgba(255,200,80,${0.25 + 0.3 * k})`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.arc(g.x1, g.y1, GRENADE.radius * state.stats.blast, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#4b5a2e';
+  ctx.beginPath();
+  ctx.arc(x, y - h, 3.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#c9d29a';
+  ctx.fillRect(x - 1, y - h - 5, 2, 2);
+}
+
+function drawBlast(b) {
+  const p = Math.min(1, b.t / 0.4);
+  const e = 1 - (1 - p) * (1 - p);
+  const r = b.r * (0.35 + 0.65 * e);
+  const a = 1 - p;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  glow(b.x, b.y, r * 1.1, 'rgba(255,170,60,A)', 0.85 * a);
+  ctx.restore();
+  ctx.strokeStyle = `rgba(255,240,200,${a})`;
+  ctx.lineWidth = 3 * a + 1;
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
 // ---------- Frame ----------
 
 export function render(t) {
@@ -389,15 +511,16 @@ export function render(t) {
 
   ctx.drawImage(bg, 0, 0, state.w, state.h);
 
-  // taches de sang
+  // taches (sang, brûlures)
   for (const d of state.decals) {
-    ctx.fillStyle = `rgba(110,12,12,${d.a})`;
+    ctx.fillStyle = `rgba(${d.col},${d.a})`;
     ctx.beginPath();
     ctx.ellipse(d.x, d.y, d.r, d.r * 0.55, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   for (const pk of state.pickups) drawPickup(pk, t);
+  for (const b of state.barrels) drawBomb(b, t);
 
   // zombies et joueur triés par profondeur (y)
   const p = state.player;
@@ -406,6 +529,21 @@ export function render(t) {
   for (; i < zs.length && zs[i].y <= p.y; i++) drawZombie(zs[i], t);
   drawPlayer(t);
   for (; i < zs.length; i++) drawZombie(zs[i], t);
+
+  // acide des cracheurs
+  for (const a of state.acid) {
+    glowAdd(a.x, a.y, 12, 'rgba(150,255,60,A)', 0.5);
+    ctx.fillStyle = '#b6f13a';
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#eaffb0';
+    ctx.beginPath();
+    ctx.arc(a.x - 0.8, a.y - 0.8, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const g of state.grenades) drawGrenade(g);
 
   // balles (traînées)
   ctx.lineCap = 'round';
@@ -423,17 +561,53 @@ export function render(t) {
   // particules
   for (const q of state.particles) {
     ctx.globalAlpha = Math.max(0, Math.min(1, q.life / q.max + 0.2));
-    ctx.fillStyle = '#b01818';
+    ctx.fillStyle = q.col;
     ctx.fillRect(q.x, q.y, q.size, q.size);
   }
   ctx.globalAlpha = 1;
+
+  for (const b of state.blasts) drawBlast(b);
 
   // feu du baril et gyrophares (par-dessus)
   drawFire(t);
   drawPoliceLights(t);
 
+  // vague « NUIT » : on ne voit qu'autour du joueur (le feu et les gyrophares restent visibles)
+  if (state.darkAmt > 0.02) {
+    const g = ctx.createRadialGradient(p.x, p.y, 40, p.x, p.y, 150);
+    g.addColorStop(0, 'rgba(2,4,10,0)');
+    g.addColorStop(1, `rgba(2,4,10,${0.88 * state.darkAmt})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, state.w, state.h);
+    drawFire(t);
+    drawPoliceLights(t);
+    for (const b of state.barrels) glowAdd(b.x, b.y - 12, 14, 'rgba(255,60,40,A)', 0.5);
+  }
+
+  // textes flottants (points gagnés)
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  for (const f of state.floaters) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life / 0.4));
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+
   ctx.restore();
 
+  if (state.buffs.freeze > 0) {            // voile bleuté pendant le gel
+    ctx.fillStyle = `rgba(120,200,255,${state.buffs.freeze > 1 ? 0.1 : 0.05})`;
+    ctx.fillRect(0, 0, state.w, state.h);
+  }
+  if (state.flash > 0) {                   // flash blanc de la bombe nucléaire
+    ctx.fillStyle = `rgba(255,255,240,${Math.min(1, state.flash)})`;
+    ctx.fillRect(0, 0, state.w, state.h);
+  }
   // flash rouge quand on est touché
   if (state.hurtFlash > 0) {
     const a = Math.min(0.5, state.hurtFlash * 2);
