@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Rendu GLB → planche PNG</title>
+<body style="margin:0;background:#222">
+<script>
+// Rendu autonome (WebGL, sans dépendance) d'un modèle glTF/GLB animé avec squelette (ex. export Meshy AI / Mixamo).
+// Appelé par tools/render-glb.mjs : window.renderSheet(options) → dataURL PNG (bande horizontale de N images, fond transparent).
+'use strict';
+
+// ---------- petites fonctions mat4 (colonne-major, comme glTF) ----------
+const M = {
+  id: () => new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]),
+  mul(a, b) {
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+      o[c*4+r] = a[r]*b[c*4] + a[4+r]*b[c*4+1] + a[8+r]*b[c*4+2] + a[12+r]*b[c*4+3];
+    }
+    return o;
+  },
+  trs(t, q, s) {
+    const [x, y, z, w] = q;
+    const o = new Float32Array(16);
+    o[0] = (1 - 2*(y*y + z*z)) * s[0]; o[1] = 2*(x*y + z*w) * s[0]; o[2] = 2*(x*z - y*w) * s[0];
+    o[4] = 2*(x*y - z*w) * s[1]; o[5] = (1 - 2*(x*x + z*z)) * s[1]; o[6] = 2*(y*z + x*w) * s[1];
+    o[8] = 2*(x*z + y*w) * s[2]; o[9] = 2*(y*z - x*w) * s[2]; o[10] = (1 - 2*(x*x + y*y)) * s[2];
+    o[12] = t[0]; o[13] = t[1]; o[14] = t[2]; o[15] = 1;
+    return o;
+  },
+  inv(m) {
+    const o = new Float32Array(16);
+    const [a00,a01,a02,a03,a10,a11,a12,a13,a20,a21,a22,a23,a30,a31,a32,a33] = m;
+    const b00=a00*a11-a01*a10, b01=a00*a12-a02*a10, b02=a00*a13-a03*a10, b03=a01*a12-a02*a11, b04=a01*a13-a03*a11, b05=a02*a13-a03*a12;
+    const b06=a20*a31-a21*a30, b07=a20*a32-a22*a30, b08=a20*a33-a23*a30, b09=a21*a32-a22*a31, b10=a21*a33-a23*a31, b11=a22*a33-a23*a32;
+    let d = b00*b11 - b01*b10 + b02*b09 + b03*b08 - b04*b07 + b05*b06;
+    d = 1 / d;
+    o[0]=(a11*b11-a12*b10+a13*b09)*d; o[1]=(a02*b10-a01*b11-a03*b09)*d; o[2]=(a31*b05-a32*b04+a33*b03)*d; o[3]=(a22*b04-a21*b05-a23*b03)*d;
+    o[4]=(a12*b08-a10*b11-a13*b07)*d; o[5]=(a00*b11-a02*b08+a03*b07)*d; o[6]=(a32*b02-a30*b05-a33*b01)*d; o[7]=(a20*b05-a22*b02+a23*b01)*d;
+    o[8]=(a10*b10-a11*b08+a13*b06)*d; o[9]=(a01*b08-a00*b10-a03*b06)*d; o[10]=(a30*b04-a31*b02+a33*b00)*d; o[11]=(a21*b02-a20*b04-a23*b00)*d;
+    o[12]=(a11*b07-a10*b09-a12*b06)*d; o[13]=(a00*b09-a01*b07+a02*b06)*d; o[14]=(a31*b01-a30*b03-a32*b00)*d; o[15]=(a20*b03-a21*b01+a22*b00)*d;
+    return o;
+  },
+  ortho(l, r, b, t, n, f) {
+    const o = new Float32Array(16);
+    o[0] = 2/(r-l); o[5] = 2/(t-b); o[10] = -2/(f-n);
+    o[12] = -(r+l)/(r-l); o[13] = -(t+b)/(t-b); o[14] = -(f+n)/(f-n); o[15] = 1;
+    return o;
+  },
+  lookAt(e, c, up) {
+    const z = norm(sub(e, c)); const x = norm(cross(up, z)); const y = cross(z, x);
+    return new Float32Array([x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, -dot(x,e),-dot(y,e),-dot(z,e),1]);
+  },
+};
+const sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const norm = (a) => { const l = Math.hypot(...a) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+
+function slerp(a, b, t) {
+  let d = a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3];
+  const s = d < 0 ? -1 : 1; d *= s;
+  let k0 = 1 - t, k1 = t;
+  if (d < 0.9995) { const th = Math.acos(d), sn = Math.sin(th); k0 = Math.sin((1 - t) * th) / sn; k1 = Math.sin(t * th) / sn; }
+  const o = [0, 1, 2, 3].map((i) => k0 * a[i] + s * k1 * b[i]);
+  const l = Math.hypot(...o); return o.map((v) => v / l);
+}
+
+// ---------- lecture GLB ----------
+const CT = { 5120: [Int8Array, 1], 5121: [Uint8Array, 1], 5122: [Int16Array, 2], 5123: [Uint16Array, 2], 5125: [Uint32Array, 4], 5126: [Float32Array, 4] };
+const NC = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
+
+function parseGlb(buf) {
+  const dv = new DataView(buf);
+  if (dv.getUint32(0, true) !== 0x46546C67) throw new Error('Pas un fichier GLB');
+  let off = 12, json = null, bin = null;
+  while (off < buf.byteLength) {
+    const len = dv.getUint32(off, true), type = dv.getUint32(off + 4, true);
+    const data = buf.slice(off + 8, off + 8 + len);
+    if (type === 0x4E4F534A) json = JSON.parse(new TextDecoder().decode(data));
+    else if (type === 0x004E4942) bin = data;
+    off += 8 + len;
+  }
+  return { json, bin };
+}
+
+function readAccessor(g, idx) {
+  const a = g.json.accessors[idx], bv = g.json.bufferViews[a.bufferView];
+  const [Arr, size] = CT[a.componentType], n = NC[a.type];
+  const base = (bv.byteOffset || 0) + (a.byteOffset || 0);
+  const stride = bv.byteStride || n * size;
+  const out = new Arr(a.count * n);
+  const src = new DataView(g.bin);
+  for (let i = 0; i < a.count; i++) for (let c = 0; c < n; c++) {
+    const p = base + i * stride + c * size;
+    out[i*n + c] = size === 4 && Arr === Float32Array ? src.getFloat32(p, true)
+      : size === 4 ? src.getUint32(p, true) : size === 2 ? (Arr === Uint16Array ? src.getUint16(p, true) : src.getInt16(p, true))
+      : (Arr === Uint8Array ? src.getUint8(p) : src.getInt8(p));
+  }
+  return out;
+}
+
+// ---------- animation ----------
+function sampleAnim(g, anim, time, nodes) {
+  for (const ch of anim.channels) {
+    const s = anim.samplers[ch.sampler];
+    const ts = g._cache[s.input] || (g._cache[s.input] = readAccessor(g, s.input));
+    const vs = g._cache[s.output] || (g._cache[s.output] = readAccessor(g, s.output));
+    const n = vs.length / ts.length;
+    let i = 0;
+    while (i < ts.length - 2 && time >= ts[i + 1]) i++;
+    const t0 = ts[i], t1 = ts[Math.min(i + 1, ts.length - 1)];
+    const f = t1 > t0 ? Math.min(1, Math.max(0, (time - t0) / (t1 - t0))) : 0;
+    const a = Array.from(vs.slice(i*n, i*n + n)), b = Array.from(vs.slice(Math.min(i+1, ts.length-1)*n, Math.min(i+1, ts.length-1)*n + n));
+    const node = nodes[ch.target.node];
+    if (ch.target.path === 'rotation') node.rotation = slerp(a, b, f);
+    else node[ch.target.path] = a.map((v, k) => v + (b[k] - v) * f);
+  }
+}
+
+function worldMatrices(g, nodes) {
+  const world = new Array(nodes.length);
+  const parent = new Array(nodes.length).fill(-1);
+  nodes.forEach((n, i) => (n.children || []).forEach((c) => (parent[c] = i)));
+  const get = (i) => {
+    if (world[i]) return world[i];
+    const n = nodes[i];
+    const local = n.matrix ? new Float32Array(n.matrix) : M.trs(n.translation || [0,0,0], n.rotation || [0,0,0,1], n.scale || [1,1,1]);
+    return (world[i] = parent[i] < 0 ? local : M.mul(get(parent[i]), local));
+  };
+  nodes.forEach((_, i) => get(i));
+  return world;
+}
+
+// ---------- rendu ----------
+const VS = `
+attribute vec3 aPos; attribute vec3 aNor; attribute vec2 aUv; attribute vec4 aJ; attribute vec4 aW;
+uniform mat4 uJ[64]; uniform mat4 uVP;
+varying vec3 vN; varying vec2 vUv;
+void main(){
+  mat4 s = aW.x*uJ[int(aJ.x)] + aW.y*uJ[int(aJ.y)] + aW.z*uJ[int(aJ.z)] + aW.w*uJ[int(aJ.w)];
+  vec4 p = s * vec4(aPos,1.0);
+  vN = mat3(s) * aNor; vUv = aUv;
+  gl_Position = uVP * p;
+}`;
+const FS = `
+precision mediump float;
+uniform sampler2D uTex; uniform vec3 uTint; uniform float uSat;
+varying vec3 vN; varying vec2 vUv;
+void main(){
+  vec3 c = texture2D(uTex, vUv).rgb;
+  float l = dot(c, vec3(0.299,0.587,0.114));
+  c = mix(vec3(l), c, uSat) * uTint;
+  vec3 n = normalize(vN); if(!gl_FrontFacing) n = -n;
+  float d = max(dot(n, normalize(vec3(0.35,0.75,0.6))), 0.0);
+  float rim = pow(1.0 - max(n.z,0.0), 3.0) * 0.15;
+  gl_FragColor = vec4(c * (0.62 + 0.55*d) + rim, 1.0);
+}`;
+
+async function renderSheet(o) {
+  const g = { _cache: {} };
+  Object.assign(g, parseGlb(await (await fetch(o.model)).arrayBuffer()));
+  const j = g.json;
+  const nodes = j.nodes.map((n) => ({ ...n }));
+  const skin = j.skins[0];
+  const meshNodeIdx = nodes.findIndex((n) => n.mesh !== undefined);
+  const prim = j.meshes[nodes[meshNodeIdx].mesh].primitives[0];
+  const A = (name) => readAccessor(g, prim.attributes[name]);
+  const pos = A('POSITION'), nor = A('NORMAL'), uv = A('TEXCOORD_0'), jn = A('JOINTS_0'), wt = A('WEIGHTS_0');
+  const idx = readAccessor(g, prim.indices);
+  const ibm = readAccessor(g, skin.inverseBindMatrices);
+
+  const cv = document.createElement('canvas');
+  cv.width = o.cellW; cv.height = o.cellH;
+  const gl = cv.getContext('webgl', { alpha: true, premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: true });
+  if (!gl) throw new Error('WebGL indisponible');
+  const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  const pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  gl.useProgram(pr);
+
+  const buf = (data, name, size, target = gl.ARRAY_BUFFER) => {
+    const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, data, gl.STATIC_DRAW);
+    if (name) { const l = gl.getAttribLocation(pr, name); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, 0, 0); }
+  };
+  buf(pos, 'aPos', 3); buf(nor, 'aNor', 3); buf(uv, 'aUv', 2);
+  buf(Float32Array.from(jn), 'aJ', 4); buf(wt, 'aW', 4);
+  buf(Uint16Array.from(idx), null, 0, gl.ELEMENT_ARRAY_BUFFER);
+
+  // texture de couleur (images[textures[baseColor].source])
+  const bc = j.materials[prim.material || 0].pbrMetallicRoughness.baseColorTexture.index;
+  const im = j.images[j.textures[bc].source], bv = j.bufferViews[im.bufferView];
+  const blob = new Blob([g.bin.slice(bv.byteOffset || 0, (bv.byteOffset || 0) + bv.byteLength)], { type: im.mimeType });
+  const bmp = await createImageBitmap(blob, { resizeWidth: o.texSize, resizeQuality: 'high', imageOrientation: 'none' });
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+  // caméra orthographique fixe, légèrement en hauteur, vue de face (+Z)
+  const el = (o.elev * Math.PI) / 180, yaw = (o.yaw * Math.PI) / 180;
+  const dist = 10, cy = o.centerY;
+  const eye = [Math.sin(yaw) * Math.cos(el) * dist, cy + Math.sin(el) * dist, Math.cos(yaw) * Math.cos(el) * dist];
+  const view = M.lookAt(eye, [0, cy, 0], [0, 1, 0]);
+  const hh = o.viewH / 2, hw = hh * (o.cellW / o.cellH);
+  const vp = M.mul(M.ortho(-hw, hw, -hh, hh, 0.1, 50), view);
+  gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'uVP'), false, vp);
+  gl.uniform1i(gl.getUniformLocation(pr, 'uTex'), 0);
+  gl.uniform3fv(gl.getUniformLocation(pr, 'uTint'), o.tint);
+  gl.uniform1f(gl.getUniformLocation(pr, 'uSat'), o.sat);
+  gl.enable(gl.DEPTH_TEST); gl.viewport(0, 0, o.cellW, o.cellH);
+
+  const anim = j.animations.find((a) => a.name === o.anim);
+  if (!anim) throw new Error('Animation introuvable : ' + o.anim + ' (disponibles : ' + j.animations.map((a) => a.name).join(', ') + ')');
+  const dur = Math.max(...anim.samplers.map((s) => j.accessors[s.input].max[0]));
+  const out = document.createElement('canvas'); out.width = o.cellW * o.frames; out.height = o.cellH;
+  const octx = out.getContext('2d');
+  const hips = nodes.findIndex((n) => /Hips$/.test(n.name || ''));
+  let hip0 = null;
+
+  for (let f = 0; f < o.frames; f++) {
+    const time = (f / o.frames) * dur;
+    sampleAnim(g, anim, time, nodes);
+    if (o.inPlace && hips >= 0) {                    // supprime le déplacement horizontal du bassin (animation sur place)
+      if (!hip0) hip0 = nodes[hips].translation.slice();
+      nodes[hips].translation[0] = hip0[0]; nodes[hips].translation[2] = hip0[2];
+    }
+    const world = worldMatrices(g, nodes);
+    const invMesh = M.inv(world[meshNodeIdx]);
+    const jm = new Float32Array(64 * 16);
+    skin.joints.forEach((jIdx, k) => jm.set(M.mul(invMesh, M.mul(world[jIdx], ibm.subarray(k*16, k*16+16))), k * 16));
+    // le modèle est exprimé dans l'espace du nœud mesh ; on le replace dans l'espace monde (échelle racine incluse)
+    const jmw = new Float32Array(64 * 16);
+    for (let k = 0; k < skin.joints.length; k++) jmw.set(M.mul(world[meshNodeIdx], jm.subarray(k*16, k*16+16)), k * 16);
+    gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'uJ'), false, jmw);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.drawElements(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0);
+    octx.drawImage(cv, f * o.cellW, 0);
+  }
+  return { dataUrl: out.toDataURL('image/png'), animations: j.animations.map((a) => a.name), duration: dur };
+}
+window.renderSheet = renderSheet;
+</script>

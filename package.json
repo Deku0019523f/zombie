@@ -1,6 +1,6 @@
 {
   "name": "zombie-survival",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Jeu de survie contre des vagues de zombies (HTML/CSS/JS, modules ES)",
   "type": "module",
   "scripts": {
