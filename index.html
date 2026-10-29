@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b0e12">
-<title>Zombie Survival</title>
+<title>Dernier Rempart</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -20,17 +20,19 @@
       <span class="ico">🔫</span>
       <div class="ammo-col"><span><b id="ammo">12</b><small id="reserve">/∞</small></span><small id="wname" class="wname"></small></div>
     </div>
-    <div class="hud-item sc"><small data-i18n="score">SCORE</small><b id="score">0</b></div>
+    <div class="hud-item sc"><small data-i18n="score">SCORE</small><b id="score">0</b><div class="combo" id="combo"></div></div>
     <div class="hud-item wv"><small data-i18n="wave">VAGUE</small><b id="wave">1</b></div>
     <button id="btnPause" class="pause" type="button" aria-label="Pause">⏸</button>
   </header>
 
+  <div class="buffs" id="buffs"></div>
   <div class="toast" id="toast"></div>
 
   <div class="controls">
     <div class="joy" id="joy"><div class="joy-knob" id="joyKnob"></div></div>
     <div class="actions">
       <div class="small-row">
+        <button id="btnGrenade" class="round small" type="button" aria-label="Grenade">💣<i class="cd" id="grenadeCd"></i></button>
         <button id="btnWeapon" class="round small" type="button" aria-label="Arme">🔄</button>
         <button id="btnReload" class="round small" type="button" aria-label="Recharger">↻</button>
       </div>
@@ -38,8 +40,17 @@
     </div>
   </div>
 
+  <div class="loader" id="loader" aria-live="polite">
+    <div class="loader-art" style="background-image:url(assets/cover.jpg)"></div>
+    <div class="loader-bottom">
+      <div class="loader-bar"><i id="loaderFill"></i></div>
+      <p id="loaderText">Chargement…</p>
+    </div>
+  </div>
+
   <div class="overlay" id="overlay">
     <div class="ov-card">
+      <p id="ovKicker" class="ov-kicker hidden"></p>
       <h2 id="ovTitle"></h2>
       <p id="ovText"></p>
       <p id="ovExtra" class="ov-extra"></p>
@@ -50,6 +61,14 @@
         <button id="btnLang" class="tool" type="button">EN</button>
         <button id="btnMute" class="tool" type="button" aria-label="Son">🔊</button>
       </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="perkOverlay">
+    <div class="ov-card">
+      <h2 data-i18n="perkTitle">AMÉLIORATION</h2>
+      <p data-i18n="perkSub">Choisis un bonus pour la suite</p>
+      <div class="perk-list" id="perkList"></div>
     </div>
   </div>
 </div>

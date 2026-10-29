@@ -1,6 +1,7 @@
 import { PLAYER } from './config.js';
 import { state } from './state.js';
 import { getMove, input } from './input.js';
+import { pushOut } from './layout.js';
 import { clamp } from './util.js';
 
 function nearestZombie(p, maxDist) {
@@ -19,9 +20,13 @@ function nearestZombie(p, maxDist) {
 export function updatePlayer(dt) {
   const p = state.player;
   const m = getMove();
+  const speed = PLAYER.speed * state.stats.speed;
   p.moving = Math.hypot(m.x, m.y) > 0.05;
-  p.x = clamp(p.x + m.x * PLAYER.speed * dt, p.r, state.w - p.r);
-  p.y = clamp(p.y + m.y * PLAYER.speed * dt, p.r + 24, state.h - p.r);
+  p.x = clamp(p.x + m.x * speed * dt, p.r, state.w - p.r);
+  p.y = clamp(p.y + m.y * speed * dt, p.r + 24, state.h - p.r);
+  pushOut(p, state.solids, state.barrels);     // les obstacles bloquent le joueur
+  p.x = clamp(p.x, p.r, state.w - p.r);
+  p.y = clamp(p.y, p.r + 24, state.h - p.r);
 
   if (input.aimSource === 'mouse') {
     p.angle = Math.atan2(input.mouse.y - p.y, input.mouse.x - p.x);

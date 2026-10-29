@@ -63,6 +63,22 @@ function noise(dur, { vol = 0.3, freq = 1500, delay = 0 } = {}) {
 
 export const sfx = {
   unlock() { ensure(); },
+  boom() { noise(0.55, { vol: 0.55, freq: 700 }); tone(70, 0.45, { type: 'sawtooth', vol: 0.3, slide: -45 }); },
+  throw() { tone(280, 0.18, { type: 'triangle', vol: 0.12, slide: 220 }); },
+  spit() { tone(420, 0.16, { type: 'triangle', vol: 0.12, slide: -260 }); },
+  charge() { tone(110, 0.35, { type: 'sawtooth', vol: 0.18, slide: 90 }); },
+  shield() { tone(700, 0.08, { type: 'triangle', vol: 0.1 }); },
+  power() {
+    tone(500, 0.07, { type: 'square', vol: 0.15 });
+    tone(750, 0.07, { type: 'square', vol: 0.15, delay: 0.07 });
+    tone(1100, 0.12, { type: 'square', vol: 0.15, delay: 0.14 });
+  },
+  nuke() { noise(0.9, { vol: 0.6, freq: 500 }); tone(55, 0.8, { type: 'sawtooth', vol: 0.35, slide: -30 }); },
+  perk() {
+    tone(440, 0.08, { type: 'triangle', vol: 0.18 });
+    tone(660, 0.08, { type: 'triangle', vol: 0.18, delay: 0.08 });
+    tone(880, 0.16, { type: 'triangle', vol: 0.18, delay: 0.16 });
+  },
   pistol() { noise(0.08, { vol: 0.25, freq: 2500 }); tone(220, 0.08, { vol: 0.12, slide: -150 }); },
   shotgun() { noise(0.25, { vol: 0.45, freq: 1200 }); tone(110, 0.2, { type: 'sawtooth', vol: 0.2, slide: -70 }); },
   smg() { noise(0.05, { vol: 0.2, freq: 3000 }); tone(300, 0.05, { vol: 0.08, slide: -200 }); },

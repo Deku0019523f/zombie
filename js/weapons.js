@@ -1,4 +1,4 @@
-// Armes : tir, rechargement temporisé, changement d'arme.
+// Armes : tir, rechargement temporisé, changement d'arme. Tient compte des améliorations et de la rage.
 import { WEAPONS } from './config.js';
 import { state } from './state.js';
 import { input, isFiring } from './input.js';
@@ -29,7 +29,7 @@ export function startReload() {
   const d = def();
   const w = cur();
   if (state.reload > 0 || w.mag >= d.mag || w.reserve <= 0) return;
-  state.reload = d.reload;
+  state.reload = d.reload * state.stats.reload;
   sfx.reload();
 }
 
@@ -54,8 +54,9 @@ function shoot() {
     return;
   }
 
+  const rage = state.buffs.rage > 0;
   w.mag--;
-  state.cooldown = d.rate;
+  state.cooldown = d.rate * state.stats.rate * (rage ? 0.5 : 1);
   state.muzzle = 0.06;
   if (d.pellets > 1) addShake(2.5);
   const p = state.player;
@@ -71,7 +72,9 @@ function shoot() {
       vx: Math.cos(a) * d.speed,
       vy: Math.sin(a) * d.speed,
       life: d.life,
-      dmg: d.damage,
+      dmg: d.damage * state.stats.dmg * (rage ? 1.5 : 1),
+      pierce: state.stats.pierce,
+      hit: [],
       dead: false,
     });
   }

@@ -47,7 +47,7 @@ export function getMove() {
   return { x: input.joy.x, y: input.joy.y };
 }
 
-// handlers : onGesture, onReload, onSwitch(id), onCycle, onPause, onConfirm
+// handlers : onGesture, onReload, onSwitch(id), onCycle, onGrenade, onPause, onConfirm
 export function initInput(stage, canvas, h) {
   const joy = $('joy');
   const knob = $('joyKnob');
@@ -69,6 +69,7 @@ export function initInput(stage, canvas, h) {
     if (c === 'Space') input.clickBuffer = 0.15;
     if (c === 'KeyR') h.onReload();
     else if (c === 'KeyE') h.onCycle();
+    else if (c === 'KeyG') h.onGrenade();
     else if (c === 'KeyP' || c === 'Escape') h.onPause();
     else if (c === 'Digit1' || c === 'Numpad1') h.onSwitch(weaponIds[0]);
     else if (c === 'Digit2' || c === 'Numpad2') h.onSwitch(weaponIds[1]);
