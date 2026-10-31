@@ -1,7 +1,7 @@
 // Rendu canvas : décor pixel art, sprites, balles, particules, effets de lumière.
 // Aucune logique de jeu ici : on lit uniquement `state`.
 import { state } from './state.js';
-import { WEAPONS, LOGICAL_WIDTH, AI, GRENADE } from './config.js';
+import { WEAPONS, FIRE_MODES, LOGICAL_WIDTH, AI, GRENADE } from './config.js';
 import { sprites, buildSprites } from './sprites.js';
 import { stage, canvas } from './dom.js';
 import { PICKUP_SIZE } from './pickups.js';
@@ -303,6 +303,27 @@ function drawPlayer(t) {
   ctx.fill();
   ctx.stroke();
 
+  // portée de tir (cercle discret) et jauge du tir chargé
+  if (state.settings.range) {
+    ctx.save();
+    ctx.setLineDash([3, 6]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, d.range * state.stats.range, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (state.charge > 0) {
+    const k = Math.min(1, state.charge / FIRE_MODES.charge.time);
+    ctx.strokeStyle = k >= 1 ? `rgba(255,${120 + 100 * Math.sin(t * 30)},60,1)` : `rgba(255,${210 - 120 * k},80,0.95)`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 21, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2);
+    ctx.stroke();
+    glowAdd(p.x + Math.cos(p.angle) * (d.gunLen + 7), p.y + Math.sin(p.angle) * (d.gunLen + 7), 8 + 14 * k, 'rgba(255,150,60,A)', 0.3 + 0.5 * k);
+  }
+
   if (state.buffs.rage > 0) glowAdd(p.x, p.y, 34, 'rgba(255,120,30,A)', 0.4 + 0.1 * Math.sin(t * 20));
 
   if (p.hitTimer > 0 && state.buffs.shield <= 0 && Math.floor(t * 18) % 2 === 0) ctx.globalAlpha = 0.5;
@@ -545,18 +566,22 @@ export function render(t) {
 
   for (const g of state.grenades) drawGrenade(g);
 
-  // balles (traînées)
+  // balles (traînées) : s'estompent en fin de portée ; les tirs chargés sont plus gros et orangés
   ctx.lineCap = 'round';
   for (const b of state.bullets) {
-    ctx.strokeStyle = 'rgba(255,214,102,0.9)';
-    ctx.lineWidth = 2;
+    const fade = Math.min(1, (b.life / b.maxLife) * 4);
+    ctx.globalAlpha = 0.25 + 0.75 * fade;
+    ctx.strokeStyle = b.big ? 'rgba(255,140,60,0.95)' : 'rgba(255,214,102,0.9)';
+    ctx.lineWidth = b.big ? 3.5 : 2;
     ctx.beginPath();
-    ctx.moveTo(b.x - b.vx * 0.022, b.y - b.vy * 0.022);
+    ctx.moveTo(b.x - b.vx * (b.big ? 0.035 : 0.022), b.y - b.vy * (b.big ? 0.035 : 0.022));
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
-    ctx.fillStyle = '#fffbe6';
-    ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
+    ctx.fillStyle = b.big ? '#fff1d0' : '#fffbe6';
+    const sz = b.big ? 3 : 2;
+    ctx.fillRect(b.x - sz / 2, b.y - sz / 2, sz, sz);
   }
+  ctx.globalAlpha = 1;
 
   // particules
   for (const q of state.particles) {
