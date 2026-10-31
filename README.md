@@ -21,14 +21,15 @@ Puis ouvrir l'adresse affichée (sur téléphone : même réseau Wi-Fi). Le dép
 | Viser | automatique (zombie le plus proche) | souris (sinon visée auto) |
 | Recharger | bouton ↻ | R |
 | Changer d'arme | bouton 🔄 | 1 / 2 / 3 ou E (sur l'écran d'amélioration : choisir la carte) |
+| Mode de tir | pastille ronde (SEMI / AUTO / ×3 / ⚡) | F ou V |
 | Grenade | bouton 💣 | G |
 | Pause | bouton ⏸ | P ou Échap |
 
 ## Contenu
 
 - **Armes** : pistolet, fusil à pompe (vague 3), mitraillette (vague 5)
-- **Zombies** : walker, runner, tank, **cracheur** (acide à distance), **explosif**, **chargeur** (télégraphie puis fonce), boss (toutes les 5 vagues)
-- **Améliorations** : après chaque vague, 1 choix parmi 3 (dégâts, cadence, PV, perforation, vampirisme, aimant, grenade…)
+- **Zombies** : walker, runner, tank, **cracheur** (acide à distance), **explosif**, **chargéur** (télégraphie puis fonce), boss (toutes les 5 vagues)
+- **Améliorations** : après chaque vague, 1 choix parmi 3 (dégâts, cadence, PV, perforation, vampirisme, aimant, grenade, portée…)
 - **Décor interactif** : obstacles solides, barils explosifs en chaîne, grenade
 - **Bonus temporaires** : rage, bouclier, gel, bombe nucléaire ; **combo** jusqu'à x5
 - **Thèmes de vague** : horde, blindés, nuit, ravitaillement, blitz
@@ -43,5 +44,11 @@ npm test      # simulation headless de plusieurs minutes de jeu
 
 L'équilibrage (vitesse, PV, cadence, vagues, drops) se règle dans `js/config.js`. Détails de l'architecture dans `plan.md`, historique et état du projet dans `RAPPORT.md`.
 
-## Personnages personnalisés (Meshy AI)
-Les sprites peuvent être remplacés par des planches PNG sans toucher au code : voir `MESHY.md`.
+## Modes de jeu
+- **Campagne (Le parcours)** : 10 niveaux à débloquer, 1 à 3 étoiles par niveau (victoire / PV ≥ 50 % / PV ≥ 80 %), progression sauvegardée.
+- **Survie** : vagues sans fin, record sauvegardé.
+
+## Tir
+Les balles ont une portée limitée (cercle pointillé autour du joueur). Quatre modes de tir, au choix par arme :
+**semi-auto** (un tir par appui, plus précis), **auto** (maintenir), **rafale ×3**, **tir chargé** (maintenir puis relâcher : plus de dégâts, de portée et de perforation).
+Changer de mode : pastille ronde du HUD, touche **F** (ou V), ou menu Réglages.
