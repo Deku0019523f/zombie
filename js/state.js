@@ -16,6 +16,12 @@ export const state = {
   acid: [], grenades: [], blasts: [], barrels: [], solids: [],
 
   weapons: {}, current: 'pistol', cooldown: 0, reload: 0,
+  modes: {},             // mode de tir par arme (semi | auto | burst | charge), persistant
+  burst: { left: 0, timer: 0 }, charge: 0,
+  settings: { range: true },
+
+  // mode de jeu : 'survival' (infini) ou 'campaign' (niveau `level`, vague n°`waveNo` sur `level.waves`)
+  mode: 'survival', level: null, waveNo: 0, won: false, stars: 0, pendingWin: false, unlockedNew: false, starsUp: false,
 
   // vagues : intermission | spawning | cleared | perkwait
   waveState: 'intermission', intermission: 0, clearTimer: 0, queue: [], spawnTimer: 0,
@@ -69,6 +75,14 @@ export function resetState() {
   state.current = 'pistol';
   state.cooldown = 0;
   state.reload = 0;
+  state.burst = { left: 0, timer: 0 };
+  state.charge = 0;
+  state.waveNo = 0;
+  state.won = false;
+  state.pendingWin = false;
+  state.unlockedNew = false;
+  state.starsUp = false;
+  state.stars = 0;
   state.waveState = 'intermission';
   state.intermission = 0;
   state.clearTimer = 0;

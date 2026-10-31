@@ -15,6 +15,7 @@ export function computeStats(perks) {
     ammo: 1 + 0.5 * L('ammo'),                   // multiplicateur de réserve max
     armor: 1 - 0.15 * L('armor'),                // multiplicateur de dégâts subis
     grenadeCd: Math.pow(0.75, L('grenade')),     // multiplicateur de recharge de la grenade
+    range: 1 + 0.2 * L('range'),                 // multiplicateur de portée des balles
     blast: 1 + 0.12 * L('grenade'),              // multiplicateur du rayon d'explosion
   };
 }

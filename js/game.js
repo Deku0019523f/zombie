@@ -1,9 +1,10 @@
 // Cycle de vie du jeu : démarrage, pause, choix d'amélioration, fin de partie, mise à jour par frame.
 import { WAVES } from './config.js';
+import { levelById, starsFor, LEVELS } from './campaign.js';
 import { state, resetState } from './state.js';
 import { input, resetInput } from './input.js';
 import { updatePlayer } from './player.js';
-import { updateWeapons } from './weapons.js';
+import { updateWeapons, cancelFire, loadModes } from './weapons.js';
 import { updateBullets } from './bullets.js';
 import { updateZombies } from './zombies.js';
 import { updatePickups } from './pickups.js';
@@ -11,37 +12,68 @@ import { updateWaves, startWave } from './waves.js';
 import { updateEffects } from './effects.js';
 import { updateAcid, updateGrenades } from './combat.js';
 import { rollChoices, applyPerk } from './perks.js';
-import { showOverlay, hideOverlay, showPerks, hidePerks } from './ui.js';
-import { getBest, setBest } from './storage.js';
+import { toast } from './ui.js';
+import { t } from './i18n.js';
+import { showPerks, hidePerks } from './ui.js';
+import { showScreen, hideScreen, currentScreen, selectLevel, primaryAction } from './screens.js';
+import { getBest, setBest, getModes, getSettings, getProgress, setProgress } from './storage.js';
 import { sfx } from './audio.js';
 
 export function initGame() {
   state.best = getBest();
+  state.settings = getSettings();
+  loadModes(getModes());
   resetState();
   state.phase = 'ready';
-  showOverlay('ready');
+  showScreen('main');
 }
 
-export function startGame() {
+// Retour au menu principal (depuis la pause, la défaite ou la victoire).
+export function goMenu() {
+  hidePerks();
+  resetInput();
+  cancelFire();
+  state.best = getBest();
+  state.phase = 'ready';
+  showScreen('main');
+}
+
+// Lance une partie. mode : 'survival' (par défaut) ou 'campaign' (+ numéro de niveau).
+export function startGame(mode = 'survival', levelId = 1) {
   hidePerks();
   resetState();
   resetInput();
-  startWave(1);
+  cancelFire();
+  const level = mode === 'campaign' ? levelById(levelId) : null;
+  state.mode = level ? 'campaign' : 'survival';
+  state.level = level;
   state.phase = 'playing';
-  hideOverlay();
+  hideScreen();
+  if (level) {
+    selectLevel(level.id);
+    // équipement de départ : améliorations offertes selon le niveau
+    for (const id of rollChoices(level.kit)) applyPerk(id);
+    state.player.hp = state.stats.maxHp;
+    startWave(level.from);
+    toast(t('levelStart', level.id, t(`lvl_${level.id}_n`)), 2600);
+    if (level.kit) setTimeout(() => { if (state.phase === 'playing') toast(t('kitToast', level.kit), 2000); }, 2700);
+  } else {
+    startWave(1);
+  }
 }
 
 export function pauseGame() {
   if (state.phase !== 'playing') return;
   state.phase = 'paused';
   resetInput();
-  showOverlay('paused');
+  cancelFire();
+  showScreen('paused');
 }
 
 export function resumeGame() {
   if (state.phase !== 'paused') return;
   state.phase = 'playing';
-  hideOverlay();
+  hideScreen();
 }
 
 export function togglePause() {
@@ -49,10 +81,9 @@ export function togglePause() {
   else if (state.phase === 'paused') resumeGame();
 }
 
-// Entrée / Espace / bouton de l'overlay.
+// Entrée / Espace : action principale de l'écran affiché (menu, pause, victoire…).
 export function confirm() {
-  if (state.phase === 'ready' || state.phase === 'over') startGame();
-  else if (state.phase === 'paused') resumeGame();
+  if (currentScreen()) primaryAction();
 }
 
 // ---- Écran d'amélioration (entre deux vagues) ----
@@ -67,6 +98,7 @@ function openPerks() {
   state.perkChoices = choices;
   state.phase = 'perk';
   resetInput();
+  cancelFire();
   showPerks(choices);
 }
 
@@ -85,13 +117,36 @@ export function choosePerk(i) {
 function endGame() {
   state.phase = 'over';
   input.firing = false;
-  if (state.score > state.best) {
+  cancelFire();
+  if (state.mode === 'survival' && state.score > state.best) {
     state.best = state.score;
     state.newBest = true;
     setBest(state.best);
   }
   sfx.over();
-  showOverlay('over');
+  showScreen('over');
+}
+
+// Victoire d'un niveau de la campagne : étoiles, déblocage du niveau suivant, sauvegarde.
+function winLevel() {
+  state.pendingWin = false;
+  state.phase = 'over';
+  state.won = true;
+  input.firing = false;
+  cancelFire();
+  const lv = state.level;
+  const stars = starsFor(state.player.hp / state.stats.maxHp);
+  const p = getProgress();
+  state.stars = stars;
+  state.starsUp = stars > (p.stars[lv.id] || 0);
+  if (state.starsUp) p.stars[lv.id] = stars;
+  p.best[lv.id] = Math.max(p.best[lv.id] || 0, state.score);
+  const next = Math.min(lv.id + 1, LEVELS.length);
+  state.unlockedNew = lv.id < LEVELS.length && p.unlocked < next;
+  p.unlocked = Math.max(p.unlocked, next);
+  setProgress(p);
+  sfx.wave();
+  showScreen('victory');
 }
 
 // Minuteurs : bonus temporaires, combo, grenade, barils.
@@ -120,5 +175,6 @@ export function update(dt) {
   updateEffects(dt);
   state.hurtFlash = Math.max(0, state.hurtFlash - dt);
   if (state.dead) endGame();
+  else if (state.pendingWin) winLevel();
   else if (state.pendingPerk) openPerks();
 }

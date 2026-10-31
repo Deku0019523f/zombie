@@ -1,7 +1,6 @@
-// Écran de chargement : précharge l'illustration (et les sprites optionnels), puis se retire.
+// Écran de chargement : précharge l'illustration, puis se retire.
 import { $ } from './dom.js';
 import { t } from './i18n.js';
-import { loadExternalSprites } from './sprites.js';
 
 const MIN_MS = 1600; // durée minimale pour que l'illustration reste visible
 
@@ -24,7 +23,7 @@ export async function runLoader(assets = []) {
   let done = 0;
   const total = list.length + 1;
   const set = (p) => { fill.style.width = `${Math.round(p * 100)}%`; };
-  const results = await Promise.all([loadExternalSprites(), ...list.map((src) => loadImage(src).then((img) => {
+  const results = await Promise.all([...list.map((src) => loadImage(src).then((img) => {
     done++;
     set(done / total * 0.8);
     return img;

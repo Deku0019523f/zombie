@@ -8,8 +8,15 @@ import { toast } from './ui.js';
 import { t } from './i18n.js';
 import { rand } from './util.js';
 
-// Thème de la vague : normal au début et sur les vagues de boss, sinon tiré au hasard (jamais 2 fois de suite).
+// Nombre de boss de la vague : survie = un de plus toutes les 5 vagues ; campagne = sur la dernière vague du niveau.
+function bossCount(n) {
+  if (state.mode === 'campaign') return state.waveNo === state.level.waves ? state.level.boss : 0;
+  return n % WAVES.bossEvery === 0 ? n / WAVES.bossEvery : 0;
+}
+
+// Thème de la vague : campagne = défini par le niveau ; survie = normal au début et sur les boss, sinon aléatoire (jamais 2 fois de suite).
 function chooseTheme(n) {
+  if (state.mode === 'campaign') return state.level.themes[state.waveNo - 1] || 'normal';
   if (n <= 2 || n % WAVES.bossEvery === 0) return 'normal';
   const ids = Object.keys(THEMES).filter((id) => id !== state.theme);
   return ids[Math.floor(Math.random() * ids.length)];
@@ -36,13 +43,12 @@ function buildQueue(n, theme) {
   const total = Math.max(3, Math.round((WAVES.baseCount + n * WAVES.perWave) * (theme.count ?? 1)));
   const list = [];
   for (let i = 0; i < total; i++) list.push(pickType(n, theme));
-  if (n % WAVES.bossEvery === 0) {
-    for (let k = 0; k < n / WAVES.bossEvery; k++) list.push('boss');
-  }
+  for (let k = 0; k < bossCount(n); k++) list.push('boss');
   return list;
 }
 
 export function startWave(n) {
+  state.waveNo = state.mode === 'campaign' ? n - state.level.from + 1 : n;
   const id = chooseTheme(n);
   const theme = THEMES[id];
   state.wave = n;
@@ -53,10 +59,10 @@ export function startWave(n) {
   state.queue = buildQueue(n, theme);
   state.spawnTimer = 0.8;
 
-  const isBoss = n % WAVES.bossEvery === 0;
-  if (isBoss) toast(t('waveBoss', n), 2200);
-  else if (id === 'normal') toast(t('waveStart', n), 2000);
-  else toast(t('waveTheme', n, t(`theme_${id}`)), 2400);
+  const isBoss = bossCount(n) > 0;
+  if (isBoss) toast(t('waveBoss', state.waveNo), 2200);
+  else if (id === 'normal') toast(t('waveStart', state.waveNo), 2000);
+  else toast(t('waveTheme', state.waveNo, t(`theme_${id}`)), 2400);
   sfx.wave();
 
   if (theme.supply) spawnSupply(theme.supply);
@@ -89,7 +95,11 @@ export function updateWaves(dt) {
         state.waveState = 'cleared';
         state.clearTimer = WAVES.clearDelay;
         state.dark = false;
-        toast(t('waveClear', state.wave, bonus), 2200);
+        toast(t('waveClear', state.waveNo, bonus), 2200);
+        if (state.mode === 'campaign' && state.waveNo >= state.level.waves) {
+          state.waveState = 'won';           // dernière vague du niveau : victoire
+          state.clearTimer = 1.8;
+        }
       }
       break;
     case 'cleared':
@@ -99,7 +109,11 @@ export function updateWaves(dt) {
         state.pendingPerk = true;   // game.js ouvre l'écran d'amélioration
       }
       break;
-    default:                         // 'perkwait' : on attend le choix du joueur
+    case 'won':
+      state.clearTimer -= dt;
+      if (state.clearTimer <= 0) { state.waveState = 'ended'; state.pendingWin = true; }
+      break;
+    default:                         // 'perkwait' / 'ended' : on attend le choix du joueur
       break;
   }
 }
