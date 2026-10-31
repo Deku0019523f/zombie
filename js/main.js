@@ -3,14 +3,15 @@ import { stage, canvas, $ } from './dom.js';
 import { state } from './state.js';
 import { WEAPONS } from './config.js';
 import { initInput, resetInput } from './input.js';
-import { initGame, startGame, togglePause, confirm, update, choosePerk } from './game.js';
-import { switchWeapon, cycleWeapon, startReload } from './weapons.js';
+import { initGame, startGame, goMenu, resumeGame, togglePause, confirm, update, choosePerk } from './game.js';
+import { switchWeapon, cycleWeapon, cycleMode, modeOf, startReload } from './weapons.js';
 import { throwGrenade } from './combat.js';
 import { clampPlayer } from './player.js';
-import { renderHud, refreshTexts, setPerkHandler } from './ui.js';
+import { renderHud, refreshTexts, setPerkHandler, toast } from './ui.js';
+import { setScreenActions, backScreen } from './screens.js';
 import { initRender, resizeCanvas, render } from './render.js';
-import { toggleLanguage } from './i18n.js';
-import { sfx, toggleMute } from './audio.js';
+import { t } from './i18n.js';
+import { sfx } from './audio.js';
 import { runLoader } from './loader.js';
 
 initRender();
@@ -31,21 +32,36 @@ initInput(stage, canvas, {
     else if (state.phase === 'perk') choosePerk(weaponIds.indexOf(id));
   },
   onCycle: () => { if (state.phase === 'playing') cycleWeapon(); },
+  onMode: () => {
+    if (state.phase !== 'playing') return;
+    cycleMode();
+    toast(t('modeToast', t(`mode_${modeOf()}`)), 1400);
+  },
   onGrenade: () => throwGrenade(),
-  onPause: togglePause,
+  onPause: () => { if (state.phase === 'playing' || state.phase === 'paused') togglePause(); else backScreen(); },
   onConfirm: () => { if (!$('loader')) confirm(); },
 });
 
 // Boutons : on retire le focus pour que Espace / Entrée ne les réactivent pas.
 const click = (id, fn) => $(id).addEventListener('click', (e) => { sfx.unlock(); fn(); e.currentTarget.blur(); });
 click('btnPause', togglePause);
-click('ovBtn', confirm);
-click('btnRestart', startGame);
 click('btnReload', () => { if (state.phase === 'playing') startReload(); });
 click('btnWeapon', () => { if (state.phase === 'playing') cycleWeapon(); });
 click('btnGrenade', () => throwGrenade());
-click('btnMute', () => { toggleMute(); refreshTexts(); });
-click('btnLang', () => { toggleLanguage(); refreshTexts(); });
+click('btnMode', () => {
+  if (state.phase !== 'playing') return;
+  cycleMode();
+  toast(t('modeToast', t(`mode_${modeOf()}`)), 1400);
+});
+
+// Actions disponibles pour les écrans (menu, carte, pause, victoire…).
+setScreenActions({
+  gesture: () => sfx.unlock(),
+  start: (mode, level) => startGame(mode, level),
+  resume: resumeGame,
+  menu: goMenu,
+  refresh: refreshTexts,
+});
 
 // Pause automatique quand la page perd le focus.
 window.addEventListener('blur', () => { resetInput(); if (state.phase === 'playing') togglePause(); });
@@ -55,7 +71,7 @@ document.addEventListener('visibilitychange', () => {
 
 initGame();
 refreshTexts();
-runLoader(); // sprites PNG optionnels : passer leurs chemins ici (voir MESHY.md)
+runLoader();
 
 // Outil de débogage (uniquement avec ?debug dans l'URL) : permet de tester des situations précises.
 if (new URLSearchParams(location.search).has('debug')) {

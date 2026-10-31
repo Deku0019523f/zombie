@@ -9,23 +9,37 @@ export const PLAYER = {
   healPickup: 25,
 };
 
+// range = portée en pixels logiques (la balle disparaît au-delà) ; modes = modes de tir proposés, mode = mode par défaut.
 // unlock = vague à partir de laquelle l'arme est débloquée.
 // startReserve absent = munitions illimitées (pistolet). gunLen = longueur du canon à l'écran.
 export const WEAPONS = {
   pistol: {
     unlock: 1, mag: 12, reload: 1.0, rate: 0.22, damage: 1,
-    pellets: 1, spread: 0.03, speed: 460, life: 1.0, sound: 'pistol', gunLen: 12,
+    pellets: 1, spread: 0.03, speed: 460, range: 170, sound: 'pistol', gunLen: 12,
+    modes: ['semi', 'auto', 'burst', 'charge'], mode: 'semi',
   },
   shotgun: {
     unlock: 3, mag: 6, reload: 1.8, rate: 0.75, damage: 1,
-    pellets: 6, spread: 0.3, speed: 420, life: 0.45, sound: 'shotgun', gunLen: 18,
+    pellets: 6, spread: 0.3, speed: 420, range: 105, sound: 'shotgun', gunLen: 18,
+    modes: ['semi', 'auto', 'charge'], mode: 'semi',
     startReserve: 18, maxReserve: 36, pickup: 8,
   },
   smg: {
     unlock: 5, mag: 30, reload: 1.5, rate: 0.09, damage: 1,
-    pellets: 1, spread: 0.09, speed: 500, life: 0.8, sound: 'smg', gunLen: 15,
+    pellets: 1, spread: 0.09, speed: 500, range: 150, sound: 'smg', gunLen: 15,
+    modes: ['auto', 'burst', 'semi'], mode: 'auto',
     startReserve: 60, maxReserve: 150, pickup: 40,
   },
+};
+
+// Modes de tir. dmg = multiplicateur de dégâts, spread = multiplicateur de dispersion.
+//  semi  : un tir par appui, plus précis · auto : maintenir = tirer · burst : rafale de `count` balles puis pause
+//  charge : maintenir pour charger, relâcher pour tirer (dégâts, portée et perforation augmentent avec la charge)
+export const FIRE_MODES = {
+  semi:   { dmg: 1.2, spread: 0.5, rate: 1 },
+  auto:   { dmg: 1, spread: 1, rate: 1 },
+  burst:  { dmg: 1, spread: 0.6, rate: 1, count: 3, gap: 0.06, pause: 2.6 },
+  charge: { dmg: 1, spread: 0.6, rate: 1.4, time: 0.85, min: 0.18, dmgMax: 3.2, rangeMax: 1.55, pierceMax: 2, tight: 0.55 },
 };
 
 // size = diamètre de collision ; scale = facteur du sprite pixel art (12x16 px de base).
@@ -115,6 +129,7 @@ export const PERKS = {
   ammo:    { icon: '📦', max: 2 },
   armor:   { icon: '🛡️', max: 3 },
   grenade: { icon: '💣', max: 3 },
+  range:   { icon: '📡', max: 3 },
 };
 
 export const LOGICAL_WIDTH = 360;
