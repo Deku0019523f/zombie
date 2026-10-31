@@ -33,6 +33,7 @@
     <div class="actions">
       <div class="small-row">
         <button id="btnGrenade" class="round small" type="button" aria-label="Grenade">💣<i class="cd" id="grenadeCd"></i></button>
+        <button id="btnMode" class="round small mode" type="button" aria-label="Mode de tir">SEMI</button>
         <button id="btnWeapon" class="round small" type="button" aria-label="Arme">🔄</button>
         <button id="btnReload" class="round small" type="button" aria-label="Recharger">↻</button>
       </div>
@@ -48,21 +49,7 @@
     </div>
   </div>
 
-  <div class="overlay" id="overlay">
-    <div class="ov-card">
-      <p id="ovKicker" class="ov-kicker hidden"></p>
-      <h2 id="ovTitle"></h2>
-      <p id="ovText"></p>
-      <p id="ovExtra" class="ov-extra"></p>
-      <button id="ovBtn" class="primary" type="button"></button>
-      <button id="btnRestart" class="secondary hidden" type="button" data-i18n="restart">RECOMMENCER</button>
-      <p id="ovHint" class="ov-hint"></p>
-      <div class="ov-tools">
-        <button id="btnLang" class="tool" type="button">EN</button>
-        <button id="btnMute" class="tool" type="button" aria-label="Son">🔊</button>
-      </div>
-    </div>
-  </div>
+  <div class="overlay" id="overlay"><div class="ov-card" id="ovCard"></div></div>
 
   <div class="overlay hidden" id="perkOverlay">
     <div class="ov-card">
