@@ -2,14 +2,15 @@
 // Tout est construit en JS dans #ovCard ; les actions de jeu (démarrer, reprendre…) sont injectées par main.js.
 import { $ } from './dom.js';
 import { state } from './state.js';
-import { WEAPONS } from './config.js';
+import { WEAPONS, META } from './config.js';
+import { setMeta } from './stats.js';
 import { LEVELS, STAR_RULES } from './campaign.js';
 import { t, getLanguage, toggleLanguage } from './i18n.js';
 import { isMuted, toggleMute } from './audio.js';
-import { getProgress, clearProgress, setSettings } from './storage.js';
+import { getProgress, clearProgress, setSettings, getCoins, setCoins, getMeta, setMetaStore } from './storage.js';
 import { cycleMode, modeOf } from './weapons.js';
 
-export const VERSION = '2.4.0';
+export const VERSION = '2.5.0';
 
 let actions = {};
 export const setScreenActions = (a) => { actions = a; };
@@ -93,7 +94,7 @@ export function primaryAction() {
   else if (kind === 'paused') actions.resume();
   else if (kind === 'victory') (state.level && state.level.id < LEVELS.length ? actions.start('campaign', state.level.id + 1) : showScreen('campaign'));
   else if (kind === 'over') actions.start(state.mode, state.level && state.level.id);
-  else if (kind === 'settings' || kind === 'howto') backScreen();
+  else if (kind === 'settings' || kind === 'howto' || kind === 'workshop') backScreen();
 }
 
 function playSelected() {
@@ -106,11 +107,11 @@ export function renderScreen() {
   if (!kind) return;
   const ov = $('overlay');
   ov.classList.toggle('menu', kind === 'main');
-  ov.classList.toggle('full', kind === 'campaign' || kind === 'settings' || kind === 'howto');
+  ov.classList.toggle('full', kind === 'campaign' || kind === 'settings' || kind === 'howto' || kind === 'workshop');
   const card = $('ovCard');
   card.textContent = '';
   card.className = `ov-card ${kind}`;
-  const fn = { main, campaign, settings, howto, paused, over, victory }[kind];
+  const fn = { main, campaign, settings, howto, workshop, paused, over, victory }[kind];
   if (fn) fn(card);
 }
 
@@ -128,6 +129,10 @@ function main(card) {
   const s = button('secondary big', `♾ ${t('survival')}`, () => actions.start('survival'));
   s.appendChild(h('small', '', t('survivalSub', state.best)));
   card.appendChild(s);
+
+  const wsb = button('secondary big', `🛠 ${t('workshop')}`, () => showScreen('workshop', true));
+  wsb.appendChild(h('small', '', `${t('purse', getCoins())} · ${t('workshopSub')}`));
+  card.appendChild(wsb);
 
   const row = h('div', 'row2');
   row.appendChild(button('secondary', `⚙ ${t('settings')}`, () => showScreen('settings', true)));
@@ -196,7 +201,9 @@ function campaign(card) {
   if (l.themes.includes('night')) chips.appendChild(h('span', '', '🌙'));
   if (l.themes.includes('horde')) chips.appendChild(h('span', '', '🧟'));
   if (l.kit) chips.appendChild(h('span', 'good', t('kitTag', l.kit)));
+  if (l.obj) chips.appendChild(h('span', 'obj', t(`objTag_${l.obj}`)));
   brief.appendChild(chips);
+  if (l.obj && !locked) brief.appendChild(h('p', 'small obj-desc', t(`obj_${l.obj}`)));
   if (!locked && p.best[l.id]) brief.appendChild(h('p', 'small', t('bestLvl', p.best[l.id])));
   brief.appendChild(h('p', 'small', t('starRules')));
   const play = button('primary', `${t('playLevel')} ▶`, playSelected);
@@ -265,8 +272,45 @@ function howto(card) {
     r.appendChild(document.createTextNode(` — ${t(`mode_${m}_d`)}`));
     body.appendChild(r);
   }
+  body.appendChild(h('h4', '', t('howNew')));
+  body.appendChild(h('p', '', t('howNewText')));
   body.appendChild(h('h4', '', t('howTips')));
   body.appendChild(h('p', '', t('howTipsText')));
+  card.appendChild(body);
+}
+
+// ---- Atelier : améliorations permanentes achetées avec les pièces ----
+function workshop(card) {
+  header(card, `${t('workshop')}`, backScreen).appendChild(h('span', 'stars-total', t('purse', getCoins())));
+  const body = h('div', 'set-body');
+  body.appendChild(h('p', 'small', t('workshopSub')));
+  const meta = getMeta();
+  for (const [id, d] of Object.entries(META)) {
+    const lv = meta[id] || 0;
+    const maxed = lv >= d.max;
+    const cost = d.cost[lv];
+    const r = h('div', 'ws-row');
+    r.appendChild(h('span', 'ws-ico', d.icon));
+    const txt = h('div', 'ws-txt');
+    txt.appendChild(h('b', '', t(`meta_${id}_n`)));
+    txt.appendChild(h('small', '', t(`meta_${id}_d`)));
+    txt.appendChild(h('i', 'pips', '●'.repeat(lv) + '○'.repeat(d.max - lv)));
+    r.appendChild(txt);
+    const b = button('tool buy', maxed ? t('maxed') : `${cost} 🪙`, () => {
+      if (maxed) return;
+      const coins = getCoins();
+      if (coins < cost) { b.textContent = t('needCoins'); return; }
+      setCoins(coins - cost);
+      meta[id] = lv + 1;
+      setMetaStore(meta);
+      state.meta = meta;
+      setMeta(meta);
+      renderScreen();
+    });
+    if (maxed || getCoins() < cost) b.classList.add('off');
+    r.appendChild(b);
+    body.appendChild(r);
+  }
   card.appendChild(body);
 }
 
@@ -290,13 +334,17 @@ function over(card) {
   if (camp) {
     card.appendChild(h('p', 'ov-extra', levelLine()));
     card.appendChild(h('p', '', t('defeatText', state.level.id, state.waveNo, state.level.waves)));
+    if (state.deathCause === 'gen') card.appendChild(h('p', 'ov-extra', t('genLost')));
+    if (state.lastCoins > 0) card.appendChild(h('p', 'ov-coins', t('runCoins', state.lastCoins)));
     card.appendChild(button('primary', t('retry'), () => actions.start('campaign', state.level.id)));
     card.appendChild(button('secondary', t('toMap'), () => showScreen('campaign')));
   } else {
     card.appendChild(h('p', '', t('overText', state.score, state.wave)));
     card.appendChild(h('p', 'ov-extra', state.newBest ? t('newBest') : t('bestIs', state.best)));
+    if (state.lastCoins > 0) card.appendChild(h('p', 'ov-coins', t('runCoins', state.lastCoins)));
     card.appendChild(button('primary', t('again'), () => actions.start('survival')));
   }
+  card.appendChild(button('secondary', `🛠 ${t('toWorkshop')}`, () => showScreen('workshop', true)));
   card.appendChild(button('secondary', t('quit'), () => actions.menu()));
 }
 
@@ -309,6 +357,7 @@ function victory(card) {
   card.appendChild(h('p', '', t('victoryText', state.score, hp)));
   if (state.unlockedNew) card.appendChild(h('p', 'ov-extra', t('unlockedLvl', state.level.id + 1)));
   if (state.starsUp) card.appendChild(h('p', 'ov-extra', t('newStars')));
+  if (state.lastCoins > 0) card.appendChild(h('p', 'ov-coins', t('runCoins', state.lastCoins)));
   if (last) card.appendChild(h('p', '', t('campaignDoneText')));
   else card.appendChild(button('primary', `${t('nextLevel')} ▶`, () => actions.start('campaign', state.level.id + 1)));
   card.appendChild(button(last ? 'primary' : 'secondary', t('toMap'), () => { selected = Math.min(state.level.id + 1, LEVELS.length); showScreen('campaign'); }));
