@@ -1,8 +1,10 @@
 // Gestion des vagues : thèmes, composition, apparition, fin de vague, déblocage d'armes.
-import { WAVES, WEAPONS, THEMES, SPAWN_TABLE } from './config.js';
+import { WAVES, WEAPONS, THEMES, SPAWN_TABLE, COINS, OBJ } from './config.js';
 import { state } from './state.js';
 import { spawnZombie } from './zombies.js';
 import { spawnSupply } from './pickups.js';
+import { startWaveObjectives, endWaveObjectives } from './objectives.js';
+import { scheduleEvent } from './events.js';
 import { sfx } from './audio.js';
 import { toast } from './ui.js';
 import { t } from './i18n.js';
@@ -60,6 +62,8 @@ export function startWave(n) {
   state.spawnTimer = 0.8;
 
   const isBoss = bossCount(n) > 0;
+  scheduleEvent(n, isBoss);
+  startWaveObjectives(n, isBoss);
   if (isBoss) toast(t('waveBoss', state.waveNo), 2200);
   else if (id === 'normal') toast(t('waveStart', state.waveNo), 2000);
   else toast(t('waveTheme', state.waveNo, t(`theme_${id}`)), 2400);
@@ -89,9 +93,20 @@ export function updateWaves(dt) {
           spawnZombie(state.queue.shift());
           state.spawnTimer = Math.max(0.25, 1.1 - state.wave * 0.05) * state.spawnMult * rand(0.8, 1.2);
         }
+      } else if (state.zone) {
+        // Zone à tenir : la vague ne se termine pas avant ; des zombies continuent d'arriver au compte-gouttes.
+        state.zone.trickle -= dt;
+        if (state.zone.trickle <= 0 && state.zombies.length < OBJ.zone.trickleMax) {
+          state.zone.trickle = OBJ.zone.trickleEvery;
+          spawnZombie(pickType(state.wave, THEMES[state.theme] || {}));
+        }
       } else if (state.zombies.length === 0) {
         const bonus = WAVES.clearBonus * state.wave;
         state.score += bonus;
+        state.coins += (COINS.wave + COINS.wavePerNo * state.waveNo) * state.stats.coin;
+        endWaveObjectives();
+        state.darkT = 0;
+        state.eventT = 0;
         state.waveState = 'cleared';
         state.clearTimer = WAVES.clearDelay;
         state.dark = false;
