@@ -1,22 +1,29 @@
 // Caisses de soin / munitions et bonus temporaires (rage, bouclier, gel, bombe nucléaire).
-import { DROPS, POWER, WEAPONS } from './config.js';
+import { DROPS, POWER, WEAPONS, ELITE, INFUSE } from './config.js';
 import { state } from './state.js';
 import { sfx } from './audio.js';
 import { toast } from './ui.js';
 import { t } from './i18n.js';
-import { rand } from './util.js';
-import { hitsSolid } from './layout.js';
+import { freeSpot } from './spots.js';
 import { nuke } from './combat.js';
 
 export const PICKUP_SIZE = 18;
 
-export function spawnPickup(kind, x, y, life = DROPS.lifetime) {
-  state.pickups.push({ x, y, kind, life, dead: false });
+export function spawnPickup(kind, x, y, life = DROPS.lifetime, tier = 0) {
+  state.pickups.push({ x, y, kind, life, dead: false, tier });
+}
+
+// Munitions infusées (feu ou foudre). tier : 1 = commun, 2 = rare, 3 = épique.
+export function spawnInfuse(x, y, tier = 1, life = 16, kind = null) {
+  spawnPickup(kind || (Math.random() < 0.5 ? 'fire' : 'volt'), x, y, life, tier);
 }
 
 const hasLimitedAmmo = () => Object.values(state.weapons).some((w) => w.unlocked && w.reserve !== Infinity);
 
 export function maybeDrop(z) {
+  if (z.type === 'boss') spawnInfuse(z.x + 16, z.y, 3, 20);
+  else if (z.elite && Math.random() < ELITE.powerDrop) { spawnInfuse(z.x, z.y, Math.random() < 0.3 ? 3 : 2); return; }
+  else if ((z.type === 'tank' || z.type === 'charger') && Math.random() < 0.08) { spawnInfuse(z.x, z.y, 1); return; }
   if (Math.random() < (DROPS.power[z.type] ?? 0)) {
     const kind = POWER.kinds[Math.floor(Math.random() * POWER.kinds.length)];
     spawnPickup(kind, z.x, z.y, 14);
@@ -25,15 +32,6 @@ export function maybeDrop(z) {
   if (Math.random() > (DROPS[z.type] ?? 0.1)) return;
   const kind = hasLimitedAmmo() && Math.random() < DROPS.ammoShare ? 'ammo' : 'health';
   spawnPickup(kind, z.x, z.y);
-}
-
-function freeSpot() {
-  for (let i = 0; i < 40; i++) {
-    const x = rand(30, state.w - 30);
-    const y = rand(70, state.h - 130);
-    if (!hitsSolid(state.solids, x, y, 18)) return { x, y };
-  }
-  return { x: state.w / 2, y: state.h / 2 };
 }
 
 // Largage : des bonus tombent à des endroits aléatoires de l'arène (thème « LARGAGE »).
@@ -67,6 +65,18 @@ function collect(pk) {
     }
     toast(t('ammoPickup'), 1200);
     sfx.pickup();
+  } else if (k === 'fire' || k === 'volt') {
+    const tier = pk.tier || 1;
+    state.ammoFx = { kind: k, tier, t: INFUSE.dur[tier - 1] };
+    toast(t(`fx_${k}`, t(`rar_${INFUSE.rarity[tier - 1]}`)), 2000);
+    sfx.power();
+  } else if (k === 'drop') {                       // caisse larguee : un peu de tout
+    collect({ kind: 'health' });
+    if (hasLimitedAmmo()) collect({ kind: 'ammo' });
+    const pw = POWER.kinds.filter((x) => x !== 'nuke');
+    collect({ kind: pw[Math.floor(Math.random() * pw.length)] });
+    if (Math.random() < 0.6) collect({ kind: Math.random() < 0.5 ? 'fire' : 'volt', tier: 2 });
+    toast(t('dropToast'), 2000);
   } else {
     if (k === 'nuke') nuke();
     else state.buffs[k] = POWER[k].dur;

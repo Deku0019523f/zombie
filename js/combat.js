@@ -5,6 +5,7 @@ import { damageZombie, killZombie, hurtPlayer } from './zombies.js';
 import { addDecal, addShake, spawnBlood, spawnFire } from './effects.js';
 import { hitsSolid } from './layout.js';
 import { sfx } from './audio.js';
+import { damageGen } from './objectives.js';
 
 // Explosion circulaire : blesse les zombies, éventuellement le joueur, et enchaîne sur les barils.
 export function explode(x, y, radius, o = {}) {
@@ -16,10 +17,13 @@ export function explode(x, y, radius, o = {}) {
   spawnFire(x, y, 18);
   sfx.boom();
 
+  state.inBlast = (state.inBlast || 0) + 1;       // sert à la synergie « chaîne explosive »
   for (const z of state.zombies) {
     if (z.dead) continue;
     if (Math.hypot(z.x - x, z.y - y) < radius + z.r * 0.5) damageZombie(z, zDmg, z.x - x, z.y - y);
   }
+  state.inBlast--;
+  if (o.gen && state.gen && state.gen.hp > 0 && Math.hypot(state.gen.x - x, state.gen.y - y) < radius + state.gen.r) damageGen(o.gen);
   const p = state.player;
   if (pDmg > 0 && p.hitTimer <= 0 && Math.hypot(p.x - x, p.y - y) < radius + p.r * 0.5) hurtPlayer(pDmg);
   for (const b of state.barrels) {

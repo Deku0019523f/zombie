@@ -20,14 +20,21 @@ function burst(x, y, n, spd, cols, life = 1, size = 1) {
 export const spawnBlood = (x, y, n, spd = 70, cols = BLOOD) => burst(x, y, n, spd, cols);
 export const spawnFire = (x, y, n) => burst(x, y, n, 150, ['#ff7a1a', '#ffc21a', '#fff0a0', '#6b6b6b'], 1.6, 1.6);
 export const spawnSpark = (x, y) => burst(x, y, 3, 60, ['#ffe9a0', '#ffffff'], 0.6);
+export const spawnGibs = (x, y, n = 10) => burst(x, y, n, 170, ['#b01818', '#8b1010', '#5a0a0a', '#c9d3a2'], 1.3, 1.9);
+export const spawnColor = (x, y, n, cols, spd = 90) => burst(x, y, n, spd, cols, 1);
 
 // Tache persistante au sol. col = "r,g,b".
 export function addDecal(x, y, r, col = '110,12,12') {
   if (state.decals.length < 40) state.decals.push({ x, y, r, a: rand(0.35, 0.6), col });
 }
 
-export function addFloater(x, y, text, color = '#fff') {
-  if (state.floaters.length < 24) state.floaters.push({ x, y, text, color, life: 0.9, max: 0.9 });
+export function addFloater(x, y, text, color = '#fff', size = 9) {
+  if (state.floaters.length < 40) state.floaters.push({ x, y, text, color, size, life: 0.9, max: 0.9 });
+}
+
+// Micro-pause à l'impact (appliquée par la boucle de jeu).
+export function hitStop(v) {
+  state.hitStop = Math.max(state.hitStop, v);
 }
 
 export function addShake(v) {
@@ -50,6 +57,8 @@ export function updateEffects(dt) {
   }
   if (state.particles.some((p) => p.life <= 0)) state.particles = state.particles.filter((p) => p.life > 0);
 
+  for (const a of state.arcs) a.t -= dt;
+  if (state.arcs.some((a) => a.t <= 0)) state.arcs = state.arcs.filter((a) => a.t > 0);
   for (const b of state.blasts) b.t += dt;
   if (state.blasts.some((b) => b.t > 0.4)) state.blasts = state.blasts.filter((b) => b.t <= 0.4);
 
