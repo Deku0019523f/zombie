@@ -43,3 +43,10 @@ export const setModes = (m) => set('modes', JSON.stringify(m));
 // Réglages : { range: true }
 export const getSettings = () => ({ range: true, ...getJson('settings', {}) });
 export const setSettings = (s) => set('settings', JSON.stringify(s));
+
+// Pièces et améliorations permanentes de l'atelier : { vigor: 2, power: 1, ... }
+export const getCoins = () => Math.max(0, Math.floor(Number(get('coins', 0)) || 0));
+export const setCoins = (n) => set('coins', Math.max(0, Math.floor(n)));
+export const addCoins = (n) => { const v = getCoins() + Math.max(0, Math.floor(n)); setCoins(v); return v; };
+export const getMeta = () => getJson('meta', {});
+export const setMetaStore = (m) => set('meta', JSON.stringify(m));

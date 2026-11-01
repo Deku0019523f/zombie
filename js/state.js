@@ -19,6 +19,7 @@ export const state = {
   modes: {},             // mode de tir par arme (semi | auto | burst | charge), persistant
   burst: { left: 0, timer: 0 }, charge: 0,
   settings: { range: true },
+  meta: {},              // niveaux de l'atelier (permanents)
 
   // mode de jeu : 'survival' (infini) ou 'campaign' (niveau `level`, vague n°`waveNo` sur `level.waves`)
   mode: 'survival', level: null, waveNo: 0, won: false, stars: 0, pendingWin: false, unlockedNew: false, starsUp: false,
@@ -32,6 +33,14 @@ export const state = {
   buffs: { rage: 0, shield: 0, freeze: 0 },
   combo: { count: 0, timer: 0 },
   grenadeCd: 0, grenadeMax: 1,
+  dash: { cd: 0, t: 0, dx: 0, dy: 0, id: 0, trail: [] },
+  coins: 0, banked: false, lastCoins: 0, deathCause: '',
+  ammoFx: null,          // balles infusées : { kind: 'fire' | 'volt', tier: 1..3, t }
+  regenT: 0,             // temps depuis le dernier coup reçu (régénération)
+  eventT: 0, darkT: 0,   // minuteur d'événement surprise, durée du noir provoqué par un événement
+  gen: null, zone: null, surv: null, ally: null, // objectifs : générateur, zone à tenir, survivant, allié
+  arcs: [],              // éclairs (balles électriques)
+  hitStop: 0, streak: 0, inBlast: 0,
 
   // Effets visuels (la logique ne touche jamais au canvas)
   particles: [], decals: [], floaters: [],
@@ -52,6 +61,23 @@ export function resetState() {
   state.combo = { count: 0, timer: 0 };
   state.grenadeCd = 0;
   state.grenadeMax = 1;
+  state.dash = { cd: 0, t: 0, dx: 0, dy: 0, id: 0, trail: [] };
+  state.coins = 0;
+  state.banked = false;
+  state.lastCoins = 0;
+  state.deathCause = '';
+  state.ammoFx = null;
+  state.regenT = 0;
+  state.eventT = 0;
+  state.darkT = 0;
+  state.gen = null;
+  state.zone = null;
+  state.surv = null;
+  state.ally = null;
+  state.arcs = [];
+  state.hitStop = 0;
+  state.streak = 0;
+  state.inBlast = 0;
   state.solids = computeSolids(state.w, state.h);
   state.barrels = makeBarrels(state.w, state.h);
   state.player = {
@@ -69,7 +95,7 @@ export function resetState() {
     state.weapons[id] = {
       mag: d.mag,
       reserve: d.startReserve ?? Infinity,
-      unlocked: d.unlock === 1,
+      unlocked: d.unlock === 1 || (id === 'shotgun' && (state.meta.arsenal || 0) >= 1) || (id === 'smg' && (state.meta.arsenal || 0) >= 2),
     };
   }
   state.current = 'pistol';
