@@ -83,6 +83,24 @@ export const sfx = {
   shotgun() { noise(0.25, { vol: 0.45, freq: 1200 }); tone(110, 0.2, { type: 'sawtooth', vol: 0.2, slide: -70 }); },
   smg() { noise(0.05, { vol: 0.2, freq: 3000 }); tone(300, 0.05, { vol: 0.08, slide: -200 }); },
   hit() { tone(150, 0.05, { vol: 0.08 }); },
+  crit() { tone(900, 0.06, { type: 'square', vol: 0.1, slide: 500 }); },
+  dash() { noise(0.14, { vol: 0.2, freq: 2600 }); tone(300, 0.12, { type: 'triangle', vol: 0.1, slide: 400 }); },
+  dashReady() { tone(880, 0.05, { type: 'triangle', vol: 0.06 }); },
+  streak() {
+    tone(392, 0.09, { type: 'square', vol: 0.14 });
+    tone(523, 0.09, { type: 'square', vol: 0.14, delay: 0.09 });
+    tone(784, 0.2, { type: 'square', vol: 0.16, delay: 0.18 });
+  },
+  alert() { tone(220, 0.14, { type: 'sawtooth', vol: 0.18 }); tone(220, 0.14, { type: 'sawtooth', vol: 0.18, delay: 0.2 }); },
+  summon() { tone(160, 0.5, { type: 'sawtooth', vol: 0.16, slide: 220 }); },
+  zap() { noise(0.07, { vol: 0.18, freq: 5000 }); tone(1200, 0.05, { type: 'square', vol: 0.06, slide: -700 }); },
+  coin() { tone(1200, 0.05, { type: 'square', vol: 0.08 }); tone(1600, 0.08, { type: 'square', vol: 0.08, delay: 0.05 }); },
+  rescue() {
+    tone(523, 0.1, { type: 'triangle', vol: 0.18 });
+    tone(659, 0.1, { type: 'triangle', vol: 0.18, delay: 0.1 });
+    tone(784, 0.1, { type: 'triangle', vol: 0.18, delay: 0.2 });
+    tone(1046, 0.25, { type: 'triangle', vol: 0.18, delay: 0.3 });
+  },
   kill() { tone(180, 0.15, { type: 'sawtooth', vol: 0.12, slide: -120 }); },
   hurt() { tone(120, 0.25, { type: 'sawtooth', vol: 0.25, slide: -80 }); noise(0.12, { vol: 0.2, freq: 800 }); },
   reload() { tone(500, 0.05, { vol: 0.1 }); tone(700, 0.05, { vol: 0.1, delay: 0.12 }); },

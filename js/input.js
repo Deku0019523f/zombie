@@ -47,7 +47,7 @@ export function getMove() {
   return { x: input.joy.x, y: input.joy.y };
 }
 
-// handlers : onGesture, onReload, onSwitch(id), onCycle, onMode, onGrenade, onPause, onConfirm
+// handlers : onGesture, onReload, onSwitch(id), onCycle, onMode, onGrenade, onDash, onPause, onConfirm
 export function initInput(stage, canvas, h) {
   const joy = $('joy');
   const knob = $('joyKnob');
@@ -71,6 +71,7 @@ export function initInput(stage, canvas, h) {
     else if (c === 'KeyE') h.onCycle();
     else if (c === 'KeyF' || c === 'KeyV') h.onMode();
     else if (c === 'KeyG') h.onGrenade();
+    else if (c === 'ShiftLeft' || c === 'ShiftRight' || c === 'KeyQ') h.onDash();
     else if (c === 'KeyP' || c === 'Escape') h.onPause();
     else if (c === 'Digit1' || c === 'Numpad1') h.onSwitch(weaponIds[0]);
     else if (c === 'Digit2' || c === 'Numpad2') h.onSwitch(weaponIds[1]);

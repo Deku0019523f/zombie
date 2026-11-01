@@ -6,7 +6,7 @@ import { initInput, resetInput } from './input.js';
 import { initGame, startGame, goMenu, resumeGame, togglePause, confirm, update, choosePerk } from './game.js';
 import { switchWeapon, cycleWeapon, cycleMode, modeOf, startReload } from './weapons.js';
 import { throwGrenade } from './combat.js';
-import { clampPlayer } from './player.js';
+import { clampPlayer, startDash } from './player.js';
 import { renderHud, refreshTexts, setPerkHandler, toast } from './ui.js';
 import { setScreenActions, backScreen } from './screens.js';
 import { initRender, resizeCanvas, render } from './render.js';
@@ -38,6 +38,7 @@ initInput(stage, canvas, {
     toast(t('modeToast', t(`mode_${modeOf()}`)), 1400);
   },
   onGrenade: () => throwGrenade(),
+  onDash: () => { if (state.phase === 'playing') startDash(); },
   onPause: () => { if (state.phase === 'playing' || state.phase === 'paused') togglePause(); else backScreen(); },
   onConfirm: () => { if (!$('loader')) confirm(); },
 });
@@ -48,6 +49,7 @@ click('btnPause', togglePause);
 click('btnReload', () => { if (state.phase === 'playing') startReload(); });
 click('btnWeapon', () => { if (state.phase === 'playing') cycleWeapon(); });
 click('btnGrenade', () => throwGrenade());
+click('btnDash', () => { if (state.phase === 'playing') startDash(); });
 click('btnMode', () => {
   if (state.phase !== 'playing') return;
   cycleMode();
