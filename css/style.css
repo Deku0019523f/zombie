@@ -196,3 +196,34 @@ font-size:13px;color:#facc15;text-shadow:0 1px 2px #000;white-space:nowrap;lette
 /* Pastille du mode de tir (HUD) */
 .round.mode{font-size:10px;font-weight:bold;letter-spacing:.2px;color:#facc15;border-color:#facc1588}
 .round.mode.charging{background:#7c2d12}
+
+
+/* ---- v2.5 : annonces, esquive, objectifs, atelier ---- */
+.banner{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%) scale(.8);z-index:5;pointer-events:none;
+font-family:"Arial Black","Trebuchet MS",Arial,sans-serif;font-size:clamp(22px,7vw,34px);letter-spacing:1px;text-align:center;
+color:#fde047;text-shadow:0 3px 0 #7c2d12,0 0 18px #f59e0b;opacity:0;white-space:nowrap;max-width:98%}
+.banner.show{animation:bannerPop 1.7s ease-out both}
+.banner.alert{color:#fca5a5;text-shadow:0 3px 0 #450a0a,0 0 18px #ef4444}
+.banner.good{color:#bef264;text-shadow:0 3px 0 #1a2e05,0 0 18px #84cc16}
+.banner.obj{color:#7dd3fc;text-shadow:0 3px 0 #082f49,0 0 18px #0ea5e9;font-size:clamp(18px,5.5vw,26px)}
+@keyframes bannerPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}22%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
+.combo{position:relative}
+.combo:not(:empty)::after{content:"";display:block;height:2px;margin-top:1px;border-radius:2px;background:linear-gradient(90deg,#fde047 var(--ct,0%),#fde04733 0)}
+.coins{font-size:10px;color:#fcd34d;font-weight:bold;letter-spacing:.3px}
+.small-row{gap:8px}
+.round.small{width:40px;height:40px;font-size:18px}
+.perk.risk{border-color:#ef444499;background:linear-gradient(#3a1f26,#22141a)}
+.perk.risk em{color:#fca5a5}
+.perk.syn{border-color:#a78bfa;box-shadow:0 0 12px #a78bfa66,0 3px 0 #0007}
+.syn-tag{font-size:11px;color:#c4b5fd;font-weight:bold}
+.chips .obj{color:#7dd3fc;border-color:#0ea5e988}
+.obj-desc{color:#7dd3fc!important}
+.ov-coins{color:#fcd34d!important;font-weight:bold}
+.ws-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #ffffff14}
+.ws-ico{font-size:28px;width:34px;text-align:center}
+.ws-txt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.ws-txt b{color:#facc15;font-size:15px}
+.ws-txt small{font-size:11px;color:#cbd5e1}
+.pips{font-style:normal;font-size:11px;color:#a3e635;letter-spacing:2px}
+.tool.buy{min-width:84px}
+.tool.buy.off{opacity:.45}

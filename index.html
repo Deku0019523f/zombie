@@ -20,18 +20,20 @@
       <span class="ico">🔫</span>
       <div class="ammo-col"><span><b id="ammo">12</b><small id="reserve">/∞</small></span><small id="wname" class="wname"></small></div>
     </div>
-    <div class="hud-item sc"><small data-i18n="score">SCORE</small><b id="score">0</b><div class="combo" id="combo"></div></div>
+    <div class="hud-item sc"><small data-i18n="score">SCORE</small><b id="score">0</b><div class="combo" id="combo"></div><div class="coins" id="coins"></div></div>
     <div class="hud-item wv"><small data-i18n="wave">VAGUE</small><b id="wave">1</b></div>
     <button id="btnPause" class="pause" type="button" aria-label="Pause">⏸</button>
   </header>
 
   <div class="buffs" id="buffs"></div>
   <div class="toast" id="toast"></div>
+  <div class="banner" id="banner" aria-live="assertive"></div>
 
   <div class="controls">
     <div class="joy" id="joy"><div class="joy-knob" id="joyKnob"></div></div>
     <div class="actions">
       <div class="small-row">
+        <button id="btnDash" class="round small" type="button" aria-label="Esquive">💨<i class="cd" id="dashCd"></i></button>
         <button id="btnGrenade" class="round small" type="button" aria-label="Grenade">💣<i class="cd" id="grenadeCd"></i></button>
         <button id="btnMode" class="round small mode" type="button" aria-label="Mode de tir">SEMI</button>
         <button id="btnWeapon" class="round small" type="button" aria-label="Arme">🔄</button>
