@@ -1,9 +1,12 @@
 // Cycle de vie du jeu : démarrage, pause, choix d'amélioration, fin de partie, mise à jour par frame.
-import { WAVES } from './config.js';
+import { WAVES, COINS } from './config.js';
 import { levelById, starsFor, LEVELS } from './campaign.js';
 import { state, resetState } from './state.js';
 import { input, resetInput } from './input.js';
 import { updatePlayer } from './player.js';
+import { updateObjectives } from './objectives.js';
+import { updateEvents } from './events.js';
+import { setMeta } from './stats.js';
 import { updateWeapons, cancelFire, loadModes } from './weapons.js';
 import { updateBullets } from './bullets.js';
 import { updateZombies } from './zombies.js';
@@ -12,17 +15,34 @@ import { updateWaves, startWave } from './waves.js';
 import { updateEffects } from './effects.js';
 import { updateAcid, updateGrenades } from './combat.js';
 import { rollChoices, applyPerk } from './perks.js';
-import { toast } from './ui.js';
+import { toast, banner } from './ui.js';
 import { t } from './i18n.js';
 import { showPerks, hidePerks } from './ui.js';
 import { showScreen, hideScreen, currentScreen, selectLevel, primaryAction } from './screens.js';
-import { getBest, setBest, getModes, getSettings, getProgress, setProgress } from './storage.js';
+import { getBest, setBest, getModes, getSettings, getProgress, setProgress, getMeta, addCoins } from './storage.js';
 import { sfx } from './audio.js';
+
+// Verse les pièces de la partie dans la bourse (une seule fois par partie). Renvoie le montant gagné.
+export function bankRun(bonus = 0) {
+  if (state.banked) return 0;
+  state.banked = true;
+  const n = Math.floor(state.coins + bonus * state.stats.coin);
+  state.lastCoins = n;
+  if (n > 0) addCoins(n);
+  return n;
+}
+
+// Recharge les améliorations permanentes (au démarrage et après un achat à l'atelier).
+export function reloadMeta() {
+  state.meta = getMeta();
+  setMeta(state.meta);
+}
 
 export function initGame() {
   state.best = getBest();
   state.settings = getSettings();
   loadModes(getModes());
+  reloadMeta();
   resetState();
   state.phase = 'ready';
   showScreen('main');
@@ -30,6 +50,7 @@ export function initGame() {
 
 // Retour au menu principal (depuis la pause, la défaite ou la victoire).
 export function goMenu() {
+  if (state.phase === 'playing' || state.phase === 'paused') bankRun();
   hidePerks();
   resetInput();
   cancelFire();
@@ -40,7 +61,9 @@ export function goMenu() {
 
 // Lance une partie. mode : 'survival' (par défaut) ou 'campaign' (+ numéro de niveau).
 export function startGame(mode = 'survival', levelId = 1) {
+  if (state.phase === 'playing' || state.phase === 'paused') bankRun();
   hidePerks();
+  reloadMeta();
   resetState();
   resetInput();
   cancelFire();
@@ -52,12 +75,14 @@ export function startGame(mode = 'survival', levelId = 1) {
   if (level) {
     selectLevel(level.id);
     // équipement de départ : améliorations offertes selon le niveau
-    for (const id of rollChoices(level.kit)) applyPerk(id);
+    for (const id of rollChoices(level.kit + (state.meta.kit || 0), { safe: true })) applyPerk(id);
     state.player.hp = state.stats.maxHp;
     startWave(level.from);
     toast(t('levelStart', level.id, t(`lvl_${level.id}_n`)), 2600);
     if (level.kit) setTimeout(() => { if (state.phase === 'playing') toast(t('kitToast', level.kit), 2000); }, 2700);
   } else {
+    for (const id of rollChoices(state.meta.kit || 0, { safe: true })) applyPerk(id);   // « sac à dos » de l'atelier
+    state.player.hp = state.stats.maxHp;
     startWave(1);
   }
 }
@@ -106,15 +131,20 @@ export function choosePerk(i) {
   if (state.phase !== 'perk') return;
   const id = state.perkChoices[i];
   if (!id) return;
-  applyPerk(id);
+  const syn = applyPerk(id);
   sfx.perk();
   hidePerks();
+  for (const sid of syn) {                // synergie activée : annonce
+    banner(t('synActive', t(`syn_${sid}_n`)), 'good');
+    toast(t(`syn_${sid}_d`), 3200);
+  }
   state.phase = 'playing';
   state.waveState = 'intermission';
   state.intermission = WAVES.nextDelay;
 }
 
 function endGame() {
+  bankRun();
   state.phase = 'over';
   input.firing = false;
   cancelFire();
@@ -136,6 +166,7 @@ function winLevel() {
   cancelFire();
   const lv = state.level;
   const stars = starsFor(state.player.hp / state.stats.maxHp);
+  bankRun(COINS.winBase + COINS.winPerStar * stars);
   const p = getProgress();
   state.stars = stars;
   state.starsUp = stars > (p.stars[lv.id] || 0);
@@ -153,6 +184,20 @@ function winLevel() {
 function updateTimers(dt) {
   for (const k of Object.keys(state.buffs)) state.buffs[k] = Math.max(0, state.buffs[k] - dt);
   state.grenadeCd = Math.max(0, state.grenadeCd - dt);
+  const d = state.dash;
+  if (d.cd > 0) {
+    d.cd = Math.max(0, d.cd - dt);
+    if (d.cd === 0) sfx.dashReady();
+  }
+  if (state.ammoFx) {
+    state.ammoFx.t -= dt;
+    if (state.ammoFx.t <= 0) state.ammoFx = null;
+  }
+  // synergie « forteresse » : régénération lente quand on n'a pas été touché depuis 3 s
+  state.regenT += dt;
+  if (state.stats.regen > 0 && state.regenT > 3 && state.player.hp < state.stats.maxHp) {
+    state.player.hp = Math.min(state.stats.maxHp, state.player.hp + state.stats.regen * dt);
+  }
   const c = state.combo;
   if (c.count > 0) {
     c.timer -= dt;
@@ -163,6 +208,10 @@ function updateTimers(dt) {
 }
 
 export function update(dt) {
+  if (state.hitStop > 0) {                // micro-pause à l'impact : le temps passe presque à l'arrêt
+    state.hitStop -= dt;
+    dt *= 0.1;
+  }
   updateTimers(dt);
   updatePlayer(dt);
   updateWeapons(dt);
@@ -171,6 +220,8 @@ export function update(dt) {
   updateAcid(dt);
   updateGrenades(dt);
   updatePickups(dt);
+  updateObjectives(dt);
+  updateEvents(dt);
   updateWaves(dt);
   updateEffects(dt);
   state.hurtFlash = Math.max(0, state.hurtFlash - dt);
