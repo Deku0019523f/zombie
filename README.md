@@ -21,15 +21,15 @@ Puis ouvrir l'adresse affichée (sur téléphone : même réseau Wi-Fi). Le dép
 | Viser | automatique (zombie le plus proche) | souris (sinon visée auto) |
 | Recharger | bouton ↻ | R |
 | Changer d'arme | bouton 🔄 | 1 / 2 / 3 ou E (sur l'écran d'amélioration : choisir la carte) |
-| Mode de tir | pastille ronde (SEMI / AUTO / ×3 / ⚡) | F ou V |
 | Grenade | bouton 💣 | G |
+| Esquive | bouton 💨 | Maj ou Q |
 | Pause | bouton ⏸ | P ou Échap |
 
 ## Contenu
 
 - **Armes** : pistolet, fusil à pompe (vague 3), mitraillette (vague 5)
-- **Zombies** : walker, runner, tank, **cracheur** (acide à distance), **explosif**, **chargéur** (télégraphie puis fonce), boss (toutes les 5 vagues)
-- **Améliorations** : après chaque vague, 1 choix parmi 3 (dégâts, cadence, PV, perforation, vampirisme, aimant, grenade, portée…)
+- **Zombies** : walker, runner, tank, **cracheur** (acide à distance), **explosif**, **chargeur** (télégraphie puis fonce), **invocateur**, boss (toutes les 5 vagues) ; **élites ★** (rapide, blindé, soigneur, volatile)
+- **Améliorations** : après chaque vague, 1 choix parmi 3 (dégâts, cadence, PV, perforation, vampirisme, aimant, grenade…)
 - **Décor interactif** : obstacles solides, barils explosifs en chaîne, grenade
 - **Bonus temporaires** : rage, bouclier, gel, bombe nucléaire ; **combo** jusqu'à x5
 - **Thèmes de vague** : horde, blindés, nuit, ravitaillement, blitz
@@ -47,8 +47,19 @@ L'équilibrage (vitesse, PV, cadence, vagues, drops) se règle dans `js/config.j
 ## Modes de jeu
 - **Campagne (Le parcours)** : 10 niveaux à débloquer, 1 à 3 étoiles par niveau (victoire / PV ≥ 50 % / PV ≥ 80 %), progression sauvegardée.
 - **Survie** : vagues sans fin, record sauvegardé.
+- **Ville** : exploration d'une carte de 6 zones, points de contrôle (voir plus bas).
 
 ## Tir
 Les balles ont une portée limitée (cercle pointillé autour du joueur). Quatre modes de tir, au choix par arme :
 **semi-auto** (un tir par appui, plus précis), **auto** (maintenir), **rafale ×3**, **tir chargé** (maintenir puis relâcher : plus de dégâts, de portée et de perforation).
 Changer de mode : pastille ronde du HUD, touche **F** (ou V), ou menu Réglages.
+
+## Nouveautés v2.5
+- **Esquive** 💨 et **tirs critiques** (visez le centre du zombie), annonces de séries de kills, hit-stop.
+- **Événements surprise** en pleine vague (embuscade, panne de courant, caisse larguée).
+- **Objectifs** : défendre un générateur, tenir une zone, secourir un survivant (il devient un allié).
+- **Pièces 🪙 et Atelier** : améliorations permanentes entre les parties.
+- **Améliorations risquées** et **synergies** ; **balles infusées** 🔥 / 🌩️ de rareté variée.
+
+## Mode Ville (v3.0)
+Carte étendue de 6 zones (résidentiel, centre-ville, zone industrielle, hôpital, commissariat, station-service). La caméra suit le joueur, les voitures et barricades bloquent le passage, les zombies dorment jusqu'à vous voir ou entendre un tir. Les drapeaux 🚩 sont des points de contrôle (sauvegarde) ; le commissariat et l'usine cachent des armes ; la station-service ravitaille.
