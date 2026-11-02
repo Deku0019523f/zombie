@@ -1,4 +1,4 @@
-import { WAVES, ZOMBIES, AI, COMBO, ELITE, COINS, KB_RES, STREAKS } from './config.js';
+import { WAVES, ZOMBIES, AI, COMBO, ELITE, COINS, KB_RES, STREAKS, CITY } from './config.js';
 import { state } from './state.js';
 import { rand } from './util.js';
 import { sfx } from './audio.js';
@@ -193,14 +193,37 @@ export function updateZombies(dt) {
     const ux = toGen ? gp.ux : dx / dist;
     const uy = toGen ? gp.uy : dy / dist;
     const td = toGen ? gp.d : dist;
-    if (Math.abs(dx) > 2) z.fx = dx > 0 ? 1 : -1;
+    if (Math.abs(dx) > 2 && !(state.mode === 'city' && !z.aggro)) z.fx = dx > 0 ? 1 : -1;
     if (!z.entered && z.x > 0 && z.x < state.w && z.y > 20 && z.y < state.h) z.entered = true;
 
     let mx = 0;
     let my = 0;
     let spd = z.speed * slow;
 
-    if (z.type === 'spitter') {
+    // Mode ville : un zombie reste au repos (il erre près de son point d'apparition) tant qu'il n'a pas repéré le joueur.
+    let idle = false;
+    if (state.mode === 'city') {
+      if (!z.aggro && dist < CITY.aggro) z.aggro = true;
+      else if (z.aggro && dist > CITY.lose) z.aggro = false;
+      idle = !z.aggro;
+    }
+
+    if (idle) {
+      z.wT = (z.wT ?? 0) - dt;
+      const hx = z.hx ?? z.x;
+      const hy = z.hy ?? z.y;
+      if (z.wT <= 0) {
+        z.wT = rand(1.5, 4);
+        z.wa = Math.random() < 0.35 ? null : rand(0, Math.PI * 2);
+      }
+      if (Math.hypot(z.x - hx, z.y - hy) > 90) z.wa = Math.atan2(hy - z.y, hx - z.x);
+      if (z.wa !== null && z.wa !== undefined) {
+        mx = Math.cos(z.wa);
+        my = Math.sin(z.wa);
+        spd *= 0.35;
+        z.fx = mx >= 0 ? 1 : -1;
+      }
+    } else if (z.type === 'spitter') {
       const A = AI.spitter;
       if (dist > z.hold) { mx = ux; my = uy; }
       else if (dist < A.retreat && z.entered) { mx = -ux; my = -uy; spd *= 0.7; }
@@ -278,7 +301,7 @@ export function updateZombies(dt) {
           z.avoid = 1.4;
           z.stuckN++;
           if (z.stuckN >= 2) {                     // toujours bloqué : on le rapproche du centre de l'arène
-            z.x += (state.w / 2 - z.x) * 0.15;
+            z.x += ((state.mode === 'city' ? p.x : state.w / 2) - z.x) * 0.15;
             z.y += (p.y - z.y) * 0.15;
             z.stuckN = 0;
           }

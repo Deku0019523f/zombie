@@ -81,6 +81,7 @@ export function startWave(n) {
 }
 
 export function updateWaves(dt) {
+  if (state.mode === 'city') return;   // la ville n'a pas de vagues : la population dépend des zones
   switch (state.waveState) {
     case 'intermission':
       state.intermission -= dt;
