@@ -7,10 +7,12 @@ import { setMeta } from './stats.js';
 import { LEVELS, STAR_RULES } from './campaign.js';
 import { t, getLanguage, toggleLanguage } from './i18n.js';
 import { isMuted, toggleMute } from './audio.js';
-import { getProgress, clearProgress, setSettings, getCoins, setCoins, getMeta, setMetaStore } from './storage.js';
+import { getProgress, clearProgress, clearCity, setSettings, getCoins, setCoins, getMeta, setMetaStore } from './storage.js';
 import { cycleMode, modeOf } from './weapons.js';
+import { citySaveInfo } from './city.js';
+import { ZONE_ORDER } from './citymap.js';
 
-export const VERSION = '2.5.0';
+export const VERSION = '3.0.0';
 
 let actions = {};
 export const setScreenActions = (a) => { actions = a; };
@@ -129,6 +131,11 @@ function main(card) {
   const s = button('secondary big', `♾ ${t('survival')}`, () => actions.start('survival'));
   s.appendChild(h('small', '', t('survivalSub', state.best)));
   card.appendChild(s);
+
+  const ci = citySaveInfo();
+  const cb = button('secondary big', `🏙 ${t('city')}`, () => actions.start('city'));
+  cb.appendChild(h('small', '', ci ? t('cityCont', ci.cps, ci.total) : t('cityNew')));
+  card.appendChild(cb);
 
   const wsb = button('secondary big', `🛠 ${t('workshop')}`, () => showScreen('workshop', true));
   wsb.appendChild(h('small', '', `${t('purse', getCoins())} · ${t('workshopSub')}`));
@@ -249,6 +256,7 @@ function settings(card) {
   const reset = button('secondary danger', confirmReset ? t('resetConfirm') : t('resetProgress'), () => {
     if (!confirmReset) { confirmReset = true; renderScreen(); return; }
     clearProgress();
+    clearCity();
     confirmReset = false;
     selected = 1;
     renderScreen();
@@ -274,6 +282,8 @@ function howto(card) {
   }
   body.appendChild(h('h4', '', t('howNew')));
   body.appendChild(h('p', '', t('howNewText')));
+  body.appendChild(h('h4', '', t('howCity')));
+  body.appendChild(h('p', '', t('howCityText')));
   body.appendChild(h('h4', '', t('howTips')));
   body.appendChild(h('p', '', t('howTipsText')));
   card.appendChild(body);
@@ -328,7 +338,17 @@ function paused(card) {
   card.appendChild(button('secondary', t('quit'), () => actions.menu()));
 }
 
+function overCity(card) {
+  title(card, t('cityDown'));
+  card.appendChild(h('p', '', t('cityDownText', Object.keys(state.city.cps).length, ZONE_ORDER.length)));
+  if (state.lastCoins > 0) card.appendChild(h('p', 'ov-coins', t('runCoins', state.lastCoins)));
+  card.appendChild(button('primary', t('respawn'), () => actions.start('city')));
+  card.appendChild(button('secondary', `🛠 ${t('toWorkshop')}`, () => showScreen('workshop', true)));
+  card.appendChild(button('secondary', t('quit'), () => actions.menu()));
+}
+
 function over(card) {
+  if (state.mode === 'city' && state.city) return overCity(card);
   const camp = state.mode === 'campaign' && state.level;
   title(card, camp ? t('defeatTitle') : t('overTitle'));
   if (camp) {
