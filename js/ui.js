@@ -6,11 +6,12 @@ import { t, applyStaticTexts } from './i18n.js';
 import { renderScreen } from './screens.js';
 import { modeOf } from './weapons.js';
 import { synergyFor } from './perks.js';
+import { ZONES, ZONE_ORDER } from './citymap.js';
 
 const els = {
   health: $('health'), healthFill: $('healthFill'), score: $('score'), wave: $('wave'), combo: $('combo'),
   ammo: $('ammo'), reserve: $('reserve'), wname: $('wname'), btnReload: $('btnReload'),
-  buffs: $('buffs'), btnGrenade: $('btnGrenade'), grenadeCd: $('grenadeCd'),
+  waveLbl: $('waveLbl'), buffs: $('buffs'), btnGrenade: $('btnGrenade'), grenadeCd: $('grenadeCd'),
   toast: $('toast'), banner: $('banner'), coins: $('coins'),
   btnDash: $('btnDash'), dashCd: $('dashCd'),
   btnMode: $('btnMode'),
@@ -28,7 +29,13 @@ export function renderHud() {
   const pct = `${Math.round((p.hp / state.stats.maxHp) * 100)}%`;
   if (els.healthFill._w !== pct) { els.healthFill._w = pct; els.healthFill.style.width = pct; }
   setText(els.score, state.score);
-  setText(els.wave, state.mode === 'campaign' && state.level ? `${Math.max(1, state.waveNo)}/${state.level.waves}` : (state.wave || 1));
+  if (state.mode === 'city' && state.city) {
+    setText(els.waveLbl, ZONES[state.city.zone || 'res'].icon);
+    setText(els.wave, `🚩${Object.keys(state.city.cps).length}/${ZONE_ORDER.length}`);
+  } else {
+    setText(els.waveLbl, t('wave'));
+    setText(els.wave, state.mode === 'campaign' && state.level ? `${Math.max(1, state.waveNo)}/${state.level.waves}` : (state.wave || 1));
+  }
   setText(els.ammo, state.reload > 0 ? '…' : w.mag);
   setText(els.reserve, w.reserve === Infinity ? '/∞' : `/${w.reserve}`);
   const mode = modeOf();

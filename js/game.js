@@ -21,6 +21,8 @@ import { showPerks, hidePerks } from './ui.js';
 import { showScreen, hideScreen, currentScreen, selectLevel, primaryAction } from './screens.js';
 import { getBest, setBest, getModes, getSettings, getProgress, setProgress, getMeta, addCoins } from './storage.js';
 import { sfx } from './audio.js';
+import { updateCity, updateCamera, restoreCity, saveCity } from './city.js';
+import { ZONE_ORDER } from './citymap.js';
 
 // Verse les pièces de la partie dans la bourse (une seule fois par partie). Renvoie le montant gagné.
 export function bankRun(bonus = 0) {
@@ -64,15 +66,25 @@ export function startGame(mode = 'survival', levelId = 1) {
   if (state.phase === 'playing' || state.phase === 'paused') bankRun();
   hidePerks();
   reloadMeta();
-  resetState();
+  const isCity = mode === 'city';
+  resetState(isCity);
   resetInput();
   cancelFire();
   const level = mode === 'campaign' ? levelById(levelId) : null;
-  state.mode = level ? 'campaign' : 'survival';
+  state.mode = isCity ? 'city' : level ? 'campaign' : 'survival';
   state.level = level;
   state.phase = 'playing';
   hideScreen();
-  if (level) {
+  if (isCity) {
+    // reprise au dernier point de contrôle ; sans sauvegarde, « sac à dos » de l'atelier
+    if (!restoreCity()) {
+      for (const id of rollChoices(state.meta.kit || 0, { safe: true })) applyPerk(id);
+      saveCity();
+    }
+    state.player.hp = state.stats.maxHp;
+    updateCamera(0, true);
+    toast(t('cityStart', Object.keys(state.city.cps).length, ZONE_ORDER.length), 2600);
+  } else if (level) {
     selectLevel(level.id);
     // équipement de départ : améliorations offertes selon le niveau
     for (const id of rollChoices(level.kit + (state.meta.kit || 0), { safe: true })) applyPerk(id);
@@ -141,6 +153,7 @@ export function choosePerk(i) {
   state.phase = 'playing';
   state.waveState = 'intermission';
   state.intermission = WAVES.nextDelay;
+  if (state.mode === 'city') saveCity();
 }
 
 function endGame() {
@@ -222,8 +235,10 @@ export function update(dt) {
   updatePickups(dt);
   updateObjectives(dt);
   updateEvents(dt);
+  if (state.mode === 'city') updateCity(dt);
   updateWaves(dt);
   updateEffects(dt);
+  updateCamera(dt);
   state.hurtFlash = Math.max(0, state.hurtFlash - dt);
   if (state.dead) endGame();
   else if (state.pendingWin) winLevel();
