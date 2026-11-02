@@ -104,6 +104,17 @@ const dict = {
     meta_kit_n: 'Sac à dos', meta_kit_d: 'Commencez avec +1 amélioration aléatoire par niveau',
     meta_arsenal_n: 'Arsenal', meta_arsenal_d: 'Niv 1 : fusil à pompe dès le départ · Niv 2 : mitraillette aussi',
     howNew: 'Nouveautés', howNewText: 'Esquive 💨 (Maj / Q) : invulnérable un instant. Visez le centre d’un zombie : tir critique. Les élites ★ ont un pouvoir et lâchent des balles 🔥 / 🌩️. Des événements surprise éclatent en pleine vague. Gagnez des pièces 🪙 et dépensez-les à l’atelier.',
+
+    // --- v3.0 : ville ---
+    city: 'VILLE', cityNew: 'Explorer la ville', cityCont: (n, tot) => `Reprendre · 🚩 ${n}/${tot}`,
+    cityStart: (n, tot) => `La ville · points de contrôle ${n}/${tot}`,
+    zone_res: '🏘️ QUARTIER RÉSIDENTIEL', zone_centre: '🏙️ CENTRE-VILLE', zone_police: '🚓 COMMISSARIAT',
+    zone_indus: '🏭 ZONE INDUSTRIELLE', zone_hopital: '🏥 HÔPITAL — DANGER', zone_station: '⛽ STATION-SERVICE',
+    cpBanner: (n, tot) => `🚩 POINT DE CONTRÔLE ${n}/${tot}`, cpAgain: '🚩 Progression sauvegardée', cityFree: '🏙️ LA VILLE EST REPRISE !',
+    cache_shotgun: '🔫 FUSIL À POMPE TROUVÉ !', cache_smg: '🔫 MITRAILLETTE TROUVÉE !', cacheAmmo: '📦 Munitions récupérées',
+    supply_health: '+PV', supply_ammo: '+munitions', supply_both: '+PV +munitions',
+    cityDown: 'VOUS ÊTES TOMBÉ', cityDownText: (n, tot) => `Points de contrôle : ${n}/${tot}`, respawn: 'REPRENDRE AU POINT DE CONTRÔLE',
+    howCity: 'Ville', howCityText: 'Explorez 6 zones : quartier résidentiel, centre-ville, zone industrielle, hôpital (très dangereux), commissariat (fusil à pompe) et station-service (ravitaillement). Les zombies dorment jusqu’à ce qu’ils vous voient ou entendent un tir. Touchez un drapeau 🚩 pour sauvegarder : en cas de mort, vous reprenez là. Activez les 6 pour reprendre la ville.',
   },
   en: {
     restart: 'RESTART', score: 'SCORE', wave: 'WAVE', combo: 'COMBO',
@@ -208,6 +219,17 @@ const dict = {
     meta_kit_n: 'Backpack', meta_kit_d: 'Start with +1 random upgrade per level',
     meta_arsenal_n: 'Arsenal', meta_arsenal_d: 'Lv 1: shotgun from the start · Lv 2: SMG too',
     howNew: 'What’s new', howNewText: 'Dash 💨 (Shift / Q): briefly invulnerable. Aim for a zombie’s center: critical hit. Elites ★ have a power and drop 🔥 / 🌩️ rounds. Surprise events hit mid-wave. Earn coins 🪙 and spend them in the workshop.',
+
+    // --- v3.0: city ---
+    city: 'CITY', cityNew: 'Explore the city', cityCont: (n, tot) => `Resume · 🚩 ${n}/${tot}`,
+    cityStart: (n, tot) => `The city · checkpoints ${n}/${tot}`,
+    zone_res: '🏘️ RESIDENTIAL DISTRICT', zone_centre: '🏙️ DOWNTOWN', zone_police: '🚓 POLICE STATION',
+    zone_indus: '🏭 INDUSTRIAL ZONE', zone_hopital: '🏥 HOSPITAL — DANGER', zone_station: '⛽ GAS STATION',
+    cpBanner: (n, tot) => `🚩 CHECKPOINT ${n}/${tot}`, cpAgain: '🚩 Progress saved', cityFree: '🏙️ THE CITY IS RECLAIMED!',
+    cache_shotgun: '🔫 SHOTGUN FOUND!', cache_smg: '🔫 SMG FOUND!', cacheAmmo: '📦 Ammo collected',
+    supply_health: '+HP', supply_ammo: '+ammo', supply_both: '+HP +ammo',
+    cityDown: 'YOU WENT DOWN', cityDownText: (n, tot) => `Checkpoints: ${n}/${tot}`, respawn: 'RESUME AT CHECKPOINT',
+    howCity: 'City', howCityText: 'Explore 6 zones: residential district, downtown, industrial zone, hospital (very dangerous), police station (shotgun) and gas station (supplies). Zombies sleep until they see you or hear a shot. Touch a 🚩 flag to save: if you die, you resume there. Activate all 6 to reclaim the city.',
   },
 };
 
