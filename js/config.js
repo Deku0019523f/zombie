@@ -217,3 +217,16 @@ export const META = {
   kit:     { icon: '🎒', max: 3, cost: [80, 170, 300] },            // améliorations offertes au départ
   arsenal: { icon: '🔫', max: 2, cost: [120, 260] },                // armes débloquées dès le départ
 };
+
+// ---- v3.0 : mode « Ville » (carte étendue, caméra qui suit le joueur) ----
+// zw/zh = taille d'une zone ; cols x rows zones. aggro = distance à laquelle un zombie repère le joueur ;
+// lose = distance à laquelle il le perd ; noise = rayon alerté par un coup de feu ; spawnRing = anneau d'apparition autour du joueur.
+export const CITY = {
+  zw: 360, zh: 620, cols: 3, rows: 2,
+  aggro: 230, lose: 420, noise: 260,
+  spawnEvery: [1.1, 2.4], spawnRing: [300, 470],
+  fill: 0.7,                 // part de la densité placée au démarrage
+  perkFirst: 12, perkStep: 14, // une amélioration tous les N kills (N augmente)
+  supplyCd: 60, cpHeal: 0.35, camLerp: 7,
+  winBonus: 40,
+};

@@ -50,3 +50,8 @@ export const setCoins = (n) => set('coins', Math.max(0, Math.floor(n)));
 export const addCoins = (n) => { const v = getCoins() + Math.max(0, Math.floor(n)); setCoins(v); return v; };
 export const getMeta = () => getJson('meta', {});
 export const setMetaStore = (m) => set('meta', JSON.stringify(m));
+
+// Mode ville : sauvegarde au dernier point de contrôle { cp, cps, perks, weapons, kills, ... }
+export const getCity = () => getJson('city', null);
+export const setCity = (c) => set('city', JSON.stringify(c));
+export const clearCity = () => set('city', 'null');

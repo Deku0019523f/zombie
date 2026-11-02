@@ -2,10 +2,13 @@
 import { WEAPONS, LOGICAL_WIDTH } from './config.js';
 import { computeStats } from './stats.js';
 import { computeSolids, makeBarrels } from './layout.js';
+import { buildCityMap, WORLD_W, WORLD_H } from './citymap.js';
 
 export const state = {
   phase: 'ready',        // ready | playing | paused | perk | over
-  w: LOGICAL_WIDTH, h: 640, // taille logique de l'arène
+  w: LOGICAL_WIDTH, h: 640, // taille logique du monde (= de l'écran, sauf en mode ville)
+  vw: LOGICAL_WIDTH, vh: 640, // taille logique de l'écran (la caméra en montre cette portion)
+  cam: { x: 0, y: 0 }, city: null, bgDirty: false,
   best: 0,
   newBest: false,
   dead: false,
@@ -47,7 +50,8 @@ export const state = {
   shake: 0, muzzle: 0, hurtFlash: 0, flash: 0,
 };
 
-export function resetState() {
+// city = true : monde étendu de la ville (caméra qui suit le joueur) ; sinon arène de la taille de l'écran.
+export function resetState(city = false) {
   state.score = 0;
   state.kills = 0;
   state.wave = 0;
@@ -78,10 +82,29 @@ export function resetState() {
   state.hitStop = 0;
   state.streak = 0;
   state.inBlast = 0;
-  state.solids = computeSolids(state.w, state.h);
-  state.barrels = makeBarrels(state.w, state.h);
+  let start = null;
+  if (city) {
+    const m = buildCityMap();
+    state.w = WORLD_W;
+    state.h = WORLD_H;
+    state.solids = m.solids;
+    state.barrels = m.barrels;
+    start = m.start;
+    state.city = {
+      map: m, cp: 'res', cps: {}, zone: '', spawnT: 1, perkAt: 0, perksTaken: 0, won: false, filled: false,
+      supplies: m.supplies.map((s) => ({ ...s, cd: 0 })), caches: m.caches.map((c) => ({ ...c, taken: false })),
+    };
+  } else {
+    state.w = state.vw;
+    state.h = state.vh;
+    state.city = null;
+    state.solids = computeSolids(state.w, state.h);
+    state.barrels = makeBarrels(state.w, state.h);
+  }
+  state.cam = { x: 0, y: 0 };
+  state.bgDirty = true;
   state.player = {
-    x: state.w / 2, y: state.h * 0.58, r: 10,
+    x: start ? start.x : state.w / 2, y: start ? start.y : state.h * 0.58, r: 10,
     hp: state.stats.maxHp, angle: -Math.PI / 2, hitTimer: 0, moving: false,
   };
   state.zombies = [];
