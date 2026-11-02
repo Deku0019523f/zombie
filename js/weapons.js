@@ -6,6 +6,7 @@ import { input, isFiring } from './input.js';
 import { sfx } from './audio.js';
 import { addShake } from './effects.js';
 import { setModes } from './storage.js';
+import { alertNoise } from './city.js';
 
 const def = () => WEAPONS[state.current];
 const cur = () => state.weapons[state.current];
@@ -127,6 +128,7 @@ function discharge(m, power = 0) {
     });
   }
   sfx[d.sound]();
+  if (state.mode === 'city') alertNoise(p.x, p.y);
   if (w.mag === 0) startReload(); // rechargement automatique
 }
 

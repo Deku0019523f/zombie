@@ -56,7 +56,7 @@ export function initInput(stage, canvas, h) {
 
   const logical = (e) => {
     const r = canvas.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) * state.w) / r.width, y: ((e.clientY - r.top) * state.h) / r.height };
+    return { x: ((e.clientX - r.left) * state.vw) / r.width + state.cam.x, y: ((e.clientY - r.top) * state.vh) / r.height + state.cam.y };
   };
 
   // ---- Clavier (e.code = position physique : ZQSD sur AZERTY = WASD) ----
