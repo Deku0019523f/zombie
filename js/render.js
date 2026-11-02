@@ -6,6 +6,8 @@ import { sprites, buildSprites } from './sprites.js';
 import { stage, canvas } from './dom.js';
 import { PICKUP_SIZE } from './pickups.js';
 import { computeSolids } from './layout.js';
+import { buildCityBackground } from './cityart.js';
+import { WORLD_W, WORLD_H, ZONES, ZONE_ORDER } from './citymap.js';
 
 const ctx = canvas.getContext('2d');
 let pxScale = 1;
@@ -132,6 +134,7 @@ function drawBarrel(g, x, y) {
 }
 
 function buildBackground() {
+  if (state.city) { bg = buildCityBackground(state.city.map); return; }
   const W = state.w;
   const H = state.h;
   bg = document.createElement('canvas');
@@ -201,9 +204,13 @@ export function resizeCanvas() {
   const ch = stage.clientHeight || 640;
   const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
   const scale = cw / LOGICAL_WIDTH;
-  state.w = LOGICAL_WIDTH;
-  state.h = Math.max(300, Math.round(ch / scale));
-  state.solids = computeSolids(state.w, state.h);
+  state.vw = LOGICAL_WIDTH;
+  state.vh = Math.max(300, Math.round(ch / scale));
+  if (!state.city) {                       // en ville, le monde garde sa taille ; seule la caméra change
+    state.w = state.vw;
+    state.h = state.vh;
+    state.solids = computeSolids(state.w, state.h);
+  }
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
   pxScale = canvas.width / LOGICAL_WIDTH;
@@ -234,6 +241,7 @@ function glowAdd(x, y, r, color, a) {
 }
 
 function drawFire(t) {
+  if (state.city) return;
   const { x, y } = decor.barrel;
   ctx.save();
   glow(x, y - 6, 46, 'rgba(255,140,40,A)', 0.32 + Math.sin(t * 17) * 0.05);
@@ -252,6 +260,7 @@ function drawFire(t) {
 }
 
 function drawPoliceLights(t) {
+  if (state.city) return;
   const { x, y, rot } = decor.police;
   const blue = Math.floor(t * 4) % 2 === 0;
   const c = Math.cos(rot);
@@ -690,6 +699,93 @@ function drawArcs() {
   ctx.restore();
 }
 
+// ---------- Ville : drapeaux, ravitaillements, caches, mini-carte ----------
+
+function drawCityObjects(t) {
+  const c = state.city;
+  if (!c) return;
+  const cam = state.cam;
+  const vis = (o) => o.x > cam.x - 30 && o.x < cam.x + state.vw + 30 && o.y > cam.y - 40 && o.y < cam.y + state.vh + 40;
+  for (const cp of c.map.checkpoints) {
+    if (!vis(cp)) continue;
+    const on = !!c.cps[cp.id];
+    const cur = c.cp === cp.id;
+    shadow(ctx, cp.x, cp.y + 6, 9, 3, 0.4);
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillRect(cp.x - 1, cp.y - 26, 2, 32);
+    const wave = Math.sin(t * 4 + cp.x) * 2;
+    ctx.fillStyle = on ? '#22c55e' : '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(cp.x + 1, cp.y - 26);
+    ctx.lineTo(cp.x + 17 + wave, cp.y - 21);
+    ctx.lineTo(cp.x + 1, cp.y - 14);
+    ctx.fill();
+    glowAdd(cp.x, cp.y - 8, cur ? 34 : 24, on ? 'rgba(34,197,94,A)' : 'rgba(239,68,68,A)', cur ? 0.4 : 0.22);
+  }
+  for (const s of c.supplies) {
+    if (!vis(s)) continue;
+    const ready = s.cd <= 0;
+    shadow(ctx, s.x, s.y + 8, 9, 3, 0.35);
+    ctx.fillStyle = ready ? (s.kind === 'ammo' ? '#4d5a35' : '#f4f4f5') : '#3b3f45';
+    ctx.fillRect(s.x - 9, s.y - 9, 18, 18);
+    ctx.fillStyle = ready ? '#e11d48' : '#555';
+    if (s.kind !== 'ammo') { ctx.fillRect(s.x - 2, s.y - 6, 4, 12); ctx.fillRect(s.x - 6, s.y - 2, 12, 4); }
+    else { ctx.fillStyle = '#fbbf24'; for (let i = 0; i < 3; i++) ctx.fillRect(s.x - 5 + i * 4, s.y - 5, 2, 9); }
+    if (s.kind === 'both') { ctx.fillStyle = '#fbbf24'; ctx.fillRect(s.x + 3, s.y - 8, 4, 5); }
+    if (ready) glowAdd(s.x, s.y, 22, 'rgba(120,255,160,A)', 0.3 + 0.1 * Math.sin(t * 5));
+    else {
+      ctx.strokeStyle = 'rgba(255,255,255,.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 13, -Math.PI / 2, -Math.PI / 2 + (1 - s.cd / 60) * Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  for (const k of c.caches) {
+    if (k.taken || !vis(k)) continue;
+    const bob = Math.sin(t * 4) * 1.5;
+    shadow(ctx, k.x, k.y + 9, 11, 3, 0.4);
+    ctx.fillStyle = '#2f3a2a';
+    ctx.fillRect(k.x - 12, k.y - 8 + bob, 24, 16);
+    ctx.fillStyle = '#4d5a35';
+    ctx.fillRect(k.x - 12, k.y - 8 + bob, 24, 4);
+    ctx.fillStyle = '#facc15';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', k.x, k.y + 5 + bob);
+    glowAdd(k.x, k.y, 30, 'rgba(250,204,21,A)', 0.4 + 0.15 * Math.sin(t * 5));
+  }
+}
+
+function drawMinimap() {
+  const c = state.city;
+  if (!c) return;
+  const S = 0.05;
+  const w = WORLD_W * S;
+  const h = WORLD_H * S;
+  const x0 = state.vw - w - 8;
+  const y0 = 50;
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = 'rgba(5,8,13,.8)';
+  ctx.fillRect(x0 - 2, y0 - 2, w + 4, h + 4);
+  for (const id of ZONE_ORDER) {
+    const z = ZONES[id];
+    ctx.fillStyle = id === c.zone ? '#475569' : '#2b3340';
+    ctx.fillRect(x0 + z.col * 360 * S + 1, y0 + z.row * 620 * S + 1, 360 * S - 2, 620 * S - 2);
+  }
+  for (const cp of c.map.checkpoints) {
+    ctx.fillStyle = c.cps[cp.id] ? '#22c55e' : '#ef4444';
+    ctx.fillRect(x0 + cp.x * S - 1.5, y0 + cp.y * S - 1.5, 3, 3);
+  }
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x0 + state.player.x * S - 2, y0 + state.player.y * S - 2, 4, 4);
+  ctx.strokeStyle = 'rgba(255,255,255,.5)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x0 + state.cam.x * S, y0 + state.cam.y * S, state.vw * S, state.vh * S);
+  ctx.restore();
+}
+
 // ---------- Frame ----------
 
 export function render(t) {
@@ -697,14 +793,19 @@ export function render(t) {
   ctx.setTransform(pxScale, 0, 0, pxScale, 0, 0);
   ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = 1;
-  ctx.clearRect(0, 0, state.w, state.h);
+  if (state.bgDirty) { state.bgDirty = false; buildBackground(); }
+  ctx.clearRect(0, 0, state.vw, state.vh);
 
   ctx.save();
   if (state.shake > 0.05) {
     ctx.translate((Math.random() - 0.5) * state.shake, (Math.random() - 0.5) * state.shake);
   }
 
-  ctx.drawImage(bg, 0, 0, state.w, state.h);
+  const cx = Math.round(state.cam.x);
+  const cy = Math.round(state.cam.y);
+  ctx.translate(-cx, -cy);
+  if (state.city) ctx.drawImage(bg, cx, cy, state.vw, state.vh, cx, cy, state.vw, state.vh);
+  else ctx.drawImage(bg, 0, 0, state.w, state.h);
 
   // taches (sang, brûlures)
   for (const d of state.decals) {
@@ -715,6 +816,7 @@ export function render(t) {
   }
 
   drawZone(t);
+  drawCityObjects(t);
   for (const pk of state.pickups) drawPickup(pk, t);
   for (const b of state.barrels) drawBomb(b, t);
   drawGenerator(t);
@@ -783,7 +885,7 @@ export function render(t) {
     g.addColorStop(0, 'rgba(2,4,10,0)');
     g.addColorStop(1, `rgba(2,4,10,${0.88 * state.darkAmt})`);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, state.w, state.h);
+    ctx.fillRect(cx, cy, state.vw, state.vh);
     drawFire(t);
     drawPoliceLights(t);
     for (const b of state.barrels) glowAdd(b.x, b.y - 12, 14, 'rgba(255,60,40,A)', 0.5);
@@ -805,22 +907,23 @@ export function render(t) {
   ctx.globalAlpha = 1;
 
   ctx.restore();
+  drawMinimap();
 
   if (state.buffs.freeze > 0) {            // voile bleuté pendant le gel
     ctx.fillStyle = `rgba(120,200,255,${state.buffs.freeze > 1 ? 0.1 : 0.05})`;
-    ctx.fillRect(0, 0, state.w, state.h);
+    ctx.fillRect(0, 0, state.vw, state.vh);
   }
   if (state.flash > 0) {                   // flash blanc de la bombe nucléaire
     ctx.fillStyle = `rgba(255,255,240,${Math.min(1, state.flash)})`;
-    ctx.fillRect(0, 0, state.w, state.h);
+    ctx.fillRect(0, 0, state.vw, state.vh);
   }
   // flash rouge quand on est touché
   if (state.hurtFlash > 0) {
     const a = Math.min(0.5, state.hurtFlash * 2);
-    const g = ctx.createRadialGradient(state.w / 2, state.h / 2, state.h * 0.25, state.w / 2, state.h / 2, state.h * 0.7);
+    const g = ctx.createRadialGradient(state.vw / 2, state.vh / 2, state.vh * 0.25, state.vw / 2, state.vh / 2, state.vh * 0.7);
     g.addColorStop(0, 'rgba(220,20,20,0)');
     g.addColorStop(1, `rgba(220,20,20,${a})`);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, state.w, state.h);
+    ctx.fillRect(0, 0, state.vw, state.vh);
   }
 }
