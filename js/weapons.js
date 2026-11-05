@@ -4,9 +4,9 @@ import { WEAPONS, FIRE_MODES } from './config.js';
 import { state } from './state.js';
 import { input, isFiring } from './input.js';
 import { sfx } from './audio.js';
-import { addShake } from './effects.js';
+import { addShake, addCasing } from './effects.js';
 import { setModes } from './storage.js';
-import { alertNoise } from './city.js';
+import { shotNoise } from './noise.js';
 
 const def = () => WEAPONS[state.current];
 const cur = () => state.weapons[state.current];
@@ -127,8 +127,11 @@ function discharge(m, power = 0) {
       dead: false,
     });
   }
-  sfx[d.sound]();
-  if (state.mode === 'city') alertNoise(p.x, p.y);
+  if (state.mode === 'city') {
+    const quiet = shotNoise(state.current);      // silencieux : bruit réduit, son remplacé
+    if (!quiet) sfx[d.sound]();
+    addCasing(p.x, p.y, p.angle);
+  } else sfx[d.sound]();
   if (w.mag === 0) startReload(); // rechargement automatique
 }
 

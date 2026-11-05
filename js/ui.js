@@ -22,7 +22,10 @@ function setText(el, v) {
   if (el._v !== v) { el._v = v; el.textContent = v; }
 }
 
+const mapBtn = typeof document !== 'undefined' ? document.getElementById('btnMap') : null;
+
 export function renderHud() {
+  if (mapBtn) { const on = state.mode === 'city' && state.phase === 'playing' ? 'block' : 'none'; if (mapBtn._d !== on) { mapBtn._d = on; mapBtn.style.display = on; } }
   const p = state.player;
   const w = state.weapons[state.current];
   setText(els.health, Math.ceil(p.hp));
