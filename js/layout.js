@@ -84,3 +84,12 @@ export function hitsSolid(solids, x, y, pad = 0) {
   }
   return false;
 }
+
+// Obstacle touché en (x, y), ou null.
+export function solidAt(solids, x, y) {
+  for (const s of solids) {
+    const r = s.hit;
+    if (x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) return s;
+  }
+  return null;
+}

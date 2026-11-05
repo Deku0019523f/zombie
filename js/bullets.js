@@ -3,7 +3,8 @@ import { INFUSE } from './config.js';
 import { sfx } from './audio.js';
 import { damageZombie } from './zombies.js';
 import { damageBarrel } from './combat.js';
-import { hitsSolid } from './layout.js';
+import { hitsSolid, solidAt } from './layout.js';
+import { triggerAlarm } from './noise.js';
 import { spawnSpark } from './effects.js';
 
 // Effets des balles infusées : feu (brûlure) ou foudre (éclairs vers les zombies voisins).
@@ -40,6 +41,10 @@ export function updateBullets(dt) {
       b.life -= sdt;
 
       if (hitsSolid(state.solids, b.x, b.y)) {
+        if (state.mode === 'city') {
+          const hit = solidAt(state.solids, b.x, b.y);
+          if (hit && hit.alarm) triggerAlarm(hit);
+        }
         b.life = 0;
         spawnSpark(b.x, b.y);
         break;
