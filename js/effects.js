@@ -25,7 +25,25 @@ export const spawnColor = (x, y, n, cols, spd = 90) => burst(x, y, n, spd, cols,
 
 // Tache persistante au sol. col = "r,g,b".
 export function addDecal(x, y, r, col = '110,12,12') {
-  if (state.decals.length < 40) state.decals.push({ x, y, r, a: rand(0.35, 0.6), col });
+  const cap = state.mode === 'city' ? 220 : 40;       // en ville les traces du combat restent plus longtemps
+  if (state.decals.length >= cap && state.mode === 'city') state.decals.shift();
+  if (state.decals.length < cap) state.decals.push({ x, y, r, a: rand(0.35, 0.6), col });
+}
+
+// Cadavre persistant (ville) : silhouette à plat, s'efface lentement quand il y en a trop.
+export function addCorpse(z) {
+  if (state.mode !== 'city') return;
+  if (state.corpses.length >= 90) state.corpses.shift();
+  state.corpses.push({ x: z.x, y: z.y + z.r * 0.3, type: z.type, fx: z.fx || 1, rot: rand(-0.5, 0.5) });
+}
+
+// Douille éjectée (ville) : petite pièce dorée qui reste au sol.
+export function addCasing(x, y, ang) {
+  if (state.mode !== 'city') return;
+  if (state.casings.length >= 60) state.casings.shift();
+  const a = ang + Math.PI / 2 + rand(-0.4, 0.4);
+  const d = rand(6, 16);
+  state.casings.push({ x: x + Math.cos(a) * d, y: y + Math.sin(a) * d + 3, r: rand(0, 3) });
 }
 
 export function addFloater(x, y, text, color = '#fff', size = 9) {

@@ -1,8 +1,9 @@
 // État global unique du jeu (objet muté en place, jamais remplacé).
-import { WEAPONS, LOGICAL_WIDTH } from './config.js';
+import { WEAPONS, LOGICAL_WIDTH, CITY } from './config.js';
 import { computeStats } from './stats.js';
 import { computeSolids, makeBarrels } from './layout.js';
-import { buildCityMap, WORLD_W, WORLD_H } from './citymap.js';
+import { buildCityMap, rollChests, WORLD_W, WORLD_H } from './citymap.js';
+import { initAmbient } from './ambient.js';
 
 export const state = {
   phase: 'ready',        // ready | playing | paused | perk | over
@@ -47,6 +48,9 @@ export const state = {
 
   // Effets visuels (la logique ne touche jamais au canvas)
   particles: [], decals: [], floaters: [],
+  corpses: [], casings: [],   // traces persistantes du combat (ville) : cadavres et douilles
+  silencer: 0,                // tirs silencieux restants (ville)
+  bigMap: false,              // grande carte ouverte (ville) : le jeu est en pause
   shake: 0, muzzle: 0, hurtFlash: 0, flash: 0,
 };
 
@@ -90,10 +94,17 @@ export function resetState(city = false) {
     state.solids = m.solids;
     state.barrels = m.barrels;
     start = m.start;
+    const seed = Math.floor(Math.random() * 1e9);
+    const cols = Math.ceil(WORLD_W / CITY.cell);
+    const rows = Math.ceil(WORLD_H / CITY.cell);
     state.city = {
       map: m, cp: 'res', cps: {}, zone: '', spawnT: 1, perkAt: 0, perksTaken: 0, won: false, filled: false,
       supplies: m.supplies.map((s) => ({ ...s, cd: 0 })), caches: m.caches.map((c) => ({ ...c, taken: false })),
+      seed, chests: rollChests(seed, m).map((k) => ({ ...k, open: false, t: 0 })),
+      maps: {},                                               // zones dont on possède la carte
+      explored: new Uint8Array(cols * rows), gcols: cols, grows: rows, exploreT: 0,
     };
+    initAmbient(state.city);
   } else {
     state.w = state.vw;
     state.h = state.vh;
@@ -143,6 +154,10 @@ export function resetState(city = false) {
   state.darkAmt = 0;
   state.particles = [];
   state.decals = [];
+  state.corpses = [];
+  state.casings = [];
+  state.silencer = 0;
+  state.bigMap = false;
   state.floaters = [];
   state.shake = 0;
   state.muzzle = 0;

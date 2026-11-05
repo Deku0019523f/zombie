@@ -6,6 +6,7 @@ import { addDecal, addShake, spawnBlood, spawnFire } from './effects.js';
 import { hitsSolid } from './layout.js';
 import { sfx } from './audio.js';
 import { damageGen } from './objectives.js';
+import { boomNoise } from './noise.js';
 
 // Explosion circulaire : blesse les zombies, éventuellement le joueur, et enchaîne sur les barils.
 export function explode(x, y, radius, o = {}) {
@@ -16,6 +17,7 @@ export function explode(x, y, radius, o = {}) {
   addDecal(x, y, radius * 0.55, '25,22,20');
   spawnFire(x, y, 18);
   sfx.boom();
+  boomNoise(x, y);
 
   state.inBlast = (state.inBlast || 0) + 1;       // sert à la synergie « chaîne explosive »
   for (const z of state.zombies) {

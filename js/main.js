@@ -3,7 +3,7 @@ import { stage, canvas, $ } from './dom.js';
 import { state } from './state.js';
 import { WEAPONS } from './config.js';
 import { initInput, resetInput } from './input.js';
-import { initGame, startGame, goMenu, resumeGame, togglePause, confirm, update, choosePerk } from './game.js';
+import { initGame, startGame, goMenu, resumeGame, togglePause, toggleMap, confirm, update, choosePerk } from './game.js';
 import { switchWeapon, cycleWeapon, cycleMode, modeOf, startReload } from './weapons.js';
 import { throwGrenade } from './combat.js';
 import { clampPlayer, startDash } from './player.js';
@@ -39,13 +39,17 @@ initInput(stage, canvas, {
   },
   onGrenade: () => throwGrenade(),
   onDash: () => { if (state.phase === 'playing') startDash(); },
-  onPause: () => { if (state.phase === 'playing' || state.phase === 'paused') togglePause(); else backScreen(); },
+  onMap: () => toggleMap(),
+  onPause: () => { if (state.bigMap) { toggleMap(false); return; } if (state.phase === 'playing' || state.phase === 'paused') togglePause(); else backScreen(); },
   onConfirm: () => { if (!$('loader')) confirm(); },
 });
 
 // Boutons : on retire le focus pour que Espace / Entrée ne les réactivent pas.
 const click = (id, fn) => $(id).addEventListener('click', (e) => { sfx.unlock(); fn(); e.currentTarget.blur(); });
 click('btnPause', togglePause);
+click('btnMap', () => toggleMap());
+// la grande carte se ferme d'un toucher n'importe où sur le jeu
+for (const el of [$('canvas'), $('game')]) if (el) el.addEventListener('pointerdown', (e) => { if (state.bigMap && !(e.target.closest && e.target.closest('#btnMap'))) { toggleMap(false); e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 click('btnReload', () => { if (state.phase === 'playing') startReload(); });
 click('btnWeapon', () => { if (state.phase === 'playing') cycleWeapon(); });
 click('btnGrenade', () => throwGrenade());
