@@ -6,6 +6,7 @@ const PALS = {
   walker: { skin: '#7fa85a', skinD: '#5c7f3f', shirt: '#5a6270', shirtD: '#454b57', pants: '#3b4252', shoe: '#1f2430', eye: '#ff3b30', blood: '#8b1a1a', hair: '#2d3b1f' },
   runner: { skin: '#c9d3a2', skinD: '#9aa87a', shirt: '#b3402f', shirtD: '#8a2f22', pants: '#2f3a4f', shoe: '#14181f', eye: '#fff200', blood: '#8b1a1a', hair: '#4a3a2a' },
   tank:   { skin: '#5f7f3a', skinD: '#44602a', shirt: '#46523f', shirtD: '#323b2d', pants: '#2b2b33', shoe: '#111116', eye: '#ff3b30', blood: '#6e1414', hair: '#1f2a15' },
+  crawler: { skin: '#a9b48a', skinD: '#7d8863', shirt: '#7a5a4a', shirtD: '#5a4034', pants: '#3b3f4a', shoe: '#1f2430', eye: '#ff3b30', blood: '#7a1a1a', hair: '#2d3b1f' },
   boss:   { skin: '#a34a4a', skinD: '#7a2f2f', shirt: '#2c2c32', shirtD: '#18181c', pants: '#1c1c22', shoe: '#0d0d10', eye: '#fde047', blood: '#5b0f0f', hair: '#3b0d0d' },
   spitter:  { skin: '#b5c93a', skinD: '#8a9c24', shirt: '#4a5d2a', shirtD: '#364520', pants: '#2c3320', shoe: '#14180d', eye: '#f6ff6a', blood: '#6a8a10', hair: '#3a4a12' },
   exploder: { skin: '#e0a040', skinD: '#b87a20', shirt: '#c2602a', shirtD: '#8f4318', pants: '#4a3320', shoe: '#1f140a', eye: '#fff200', blood: '#7a1a0a', hair: '#5a3510' },
@@ -56,14 +57,36 @@ function extras(px, type, pal) {
   } else if (type === 'charger') {
     px(2, 0, 1, 2, '#e5e7eb');        // cornes
     px(9, 0, 1, 2, '#e5e7eb');
-    px(1, 5, 3, 2, '#6b7280');        // épaulIères
+    px(1, 5, 3, 2, '#6b7280');        // épaulières
     px(8, 5, 3, 2, '#6b7280');
     px(4, 7, 4, 3, '#4b5563');        // plastron
     px(5, 8, 2, 1, '#9ca3af');
   }
 }
 
+// Rampant : corps à plat, tête à droite, bras qui griffent le sol (sprite 16x8).
+function crawlerSprite(pal, s, fr) {
+  const c = makeCanvas(16 * s, 8 * s);
+  const px = pen(c.getContext('2d'), s);
+  const a = fr ? 1 : 0;
+  px(0, 3 + a, 4, 2, pal.pants);           // jambes qui traînent
+  px(0, 5 - a, 3, 1, pal.shoe);
+  px(3, 2, 7, 4, pal.shirt);               // dos
+  px(3, 2, 7, 1, pal.shirtD);
+  px(5, 4, 2, 1, pal.blood);
+  px(9, 1, 5, 5, pal.skin);                // tête
+  px(9, 1, 5, 1, pal.hair);
+  px(9, 5, 5, 1, pal.skinD);
+  px(12, 2, 1, 1, pal.eye);
+  px(10, 4, 1, 1, pal.blood);
+  px(10, 6 + a, 5, 1, pal.skin);           // bras tendus
+  px(14, 6 + a, 2, 1, pal.skinD);
+  px(8, 0 + (1 - a), 4, 1, pal.skinD);
+  return c;
+}
+
 function zombieSprite(pal, s, fr, type) {
+  if (type === 'crawler') return crawlerSprite(pal, s, fr);
   const c = makeCanvas(12 * s, 16 * s);
   const px = pen(c.getContext('2d'), s);
   const a = fr ? 1 : 0;

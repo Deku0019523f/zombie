@@ -2,9 +2,23 @@
 import { getMuted, setMuted } from './storage.js';
 
 let ctx = null;
-let master = null;
+let master = null;     // bus principal (avant le filtre passe-bas général)
+let lp = null;         // filtre passe-bas général : sert à « assourdir » le son (PV bas, bâtiments)
+let send = null;       // départ vers la réverbération
 let noiseBuf = null;
+let wetLevel = 0;      // part envoyée à la réverbération par les sons joués (0 = hors ville)
 let muted = getMuted();
+
+// Réponse impulsionnelle synthétique : bruit à décroissance exponentielle (écho de rue / pièce).
+function makeImpulse(c, sec = 1.7, decay = 2.6) {
+  const n = Math.floor(c.sampleRate * sec);
+  const buf = c.createBuffer(2, n, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay);
+  }
+  return buf;
+}
 
 function ensure() {
   if (!ctx) {
@@ -13,10 +27,33 @@ function ensure() {
     ctx = new AC();
     master = ctx.createGain();
     master.gain.value = 0.25;
-    master.connect(ctx.destination);
+    lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 22000;
+    master.connect(lp);
+    lp.connect(ctx.destination);
+    try {                                   // réverbération (facultative : ignorée si non supportée)
+      send = ctx.createGain();
+      send.gain.value = 1;
+      const conv = ctx.createConvolver();
+      conv.buffer = makeImpulse(ctx);
+      const wet = ctx.createGain();
+      wet.gain.value = 0.9;
+      send.connect(conv);
+      conv.connect(wet);
+      wet.connect(master);
+    } catch { send = null; }
   }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
+}
+
+function sendWet(c, node) {
+  if (!send || wetLevel <= 0) return;
+  const k = c.createGain();
+  k.gain.value = wetLevel;
+  node.connect(k);
+  k.connect(send);
 }
 
 function tone(freq, dur, { type = 'square', vol = 0.2, slide = 0, delay = 0 } = {}) {
@@ -33,6 +70,7 @@ function tone(freq, dur, { type = 'square', vol = 0.2, slide = 0, delay = 0 } = 
   g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
   o.connect(g);
   g.connect(master);
+  sendWet(c, g);
   o.start(t0);
   o.stop(t0 + dur + 0.02);
 }
@@ -58,6 +96,7 @@ function noise(dur, { vol = 0.3, freq = 1500, delay = 0 } = {}) {
   s.connect(f);
   f.connect(g);
   g.connect(master);
+  sendWet(c, g);
   s.start(t0, 0, dur);
 }
 
@@ -112,11 +151,35 @@ export const sfx = {
     tone(440, 0.15, { type: 'triangle', vol: 0.2, delay: 0.15 });
     tone(660, 0.25, { type: 'triangle', vol: 0.2, delay: 0.3 });
   },
+  silenced() { noise(0.05, { vol: 0.07, freq: 1400 }); tone(180, 0.04, { vol: 0.03, slide: -90 }); },
+  echo(vol = 0.09) { noise(0.35, { vol, freq: 800, delay: 0.26 }); tone(90, 0.3, { type: 'sawtooth', vol: vol * 0.4, slide: -40, delay: 0.26 }); },
+  horde() {
+    noise(1.1, { vol: 0.35, freq: 700 });
+    tone(70, 1.2, { type: 'sawtooth', vol: 0.3, slide: 30 });
+    tone(95, 1.0, { type: 'sawtooth', vol: 0.22, slide: -30, delay: 0.15 });
+    tone(140, 0.8, { type: 'sawtooth', vol: 0.15, slide: 60, delay: 0.3 });
+  },
+  chest() { noise(0.1, { vol: 0.2, freq: 900 }); tone(180, 0.18, { type: 'sawtooth', vol: 0.1, slide: 120 }); tone(1500, 0.12, { type: 'triangle', vol: 0.12, delay: 0.14 }); tone(2000, 0.2, { type: 'triangle', vol: 0.1, delay: 0.22 }); },
+  paper() { noise(0.22, { vol: 0.16, freq: 3500 }); noise(0.15, { vol: 0.12, freq: 4500, delay: 0.12 }); tone(880, 0.1, { type: 'triangle', vol: 0.12, delay: 0.3 }); tone(1320, 0.2, { type: 'triangle', vol: 0.12, delay: 0.38 }); },
+  silencer() { tone(300, 0.06, { vol: 0.1 }); tone(450, 0.08, { vol: 0.1, delay: 0.06 }); noise(0.08, { vol: 0.1, freq: 2000, delay: 0.1 }); },
   over() {
     tone(300, 0.4, { type: 'sawtooth', vol: 0.25, slide: -250 });
     tone(180, 0.6, { type: 'sawtooth', vol: 0.25, slide: -140, delay: 0.35 });
   },
 };
+
+// Accès au graphe audio pour le paysage sonore (soundscape.js). null tant qu'aucun geste n'a créé le contexte.
+export function audioGraph(create = false) {
+  if (!ctx && create) ensure();
+  if (!ctx) return null;
+  if (!noiseBuf) {
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return { ctx, master, lp, send, noise: noiseBuf };
+}
+export function setSpace(wet) { wetLevel = wet; }
 
 export const isMuted = () => muted;
 export function toggleMute() {
