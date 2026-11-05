@@ -55,6 +55,8 @@ export const ZOMBIES = {
   charger:  { hp: 4,  speed: [24, 28], size: 30, score: 45,  damage: 14, scale: 3 },
   // Invocateur : reste à distance et fait surgir des zombies autour de lui
   summoner: { hp: 6,  speed: [22, 28], size: 24, score: 60,  damage: 8,  scale: 2 },
+  // Rampant : fait le mort au sol, se redresse quand on s'approche (ou au bruit)
+  crawler:  { hp: 2,  speed: [34, 44], size: 18, score: 18,  damage: 7,  scale: 2 },
   boss:     { hp: 40, speed: [26, 32], size: 46, score: 300, damage: 25, scale: 4 },
 };
 
@@ -102,9 +104,9 @@ export const THEMES = {
 };
 
 export const DROPS = {
-  walker: 0.1, runner: 0.12, tank: 0.5, spitter: 0.15, exploder: 0.1, charger: 0.5, summoner: 0.4, boss: 1,
+  walker: 0.1, crawler: 0.12, runner: 0.12, tank: 0.5, spitter: 0.15, exploder: 0.1, charger: 0.5, summoner: 0.4, boss: 1,
   // chance qu'un zombie lâche un bonus temporaire (prioritaire sur soin/munitions)
-  power: { walker: 0.02, runner: 0.03, spitter: 0.08, exploder: 0.05, tank: 0.22, charger: 0.3, summoner: 0.2, boss: 1 },
+  power: { crawler: 0.03, walker: 0.02, runner: 0.03, spitter: 0.08, exploder: 0.05, tank: 0.22, charger: 0.3, summoner: 0.2, boss: 1 },
   lifetime: 12,        // durée de vie d'un pickup (s)
   ammoShare: 0.55,     // probabilité d'une caisse de munitions (si une arme à réserve est débloquée)
 };
@@ -128,7 +130,7 @@ export const PERKS = {
   hp:      { icon: '❤️', max: 5 },
   reload:  { icon: '🔄', max: 3 },
   pierce:  { icon: '🎯', max: 2 },
-  vamp:    { icon: '🧛', max: 2 },
+  vamp:    { icon: '🧙', max: 2 },
   magnet:  { icon: '🧲', max: 2 },
   ammo:    { icon: '📦', max: 2 },
   armor:   { icon: '🛡️', max: 3 },
@@ -204,7 +206,7 @@ export const STREAKS = [10, 20, 35, 50, 75, 100];
 
 // Pièces gagnées (monnaie de l'atelier, conservée entre les parties).
 export const COINS = {
-  kill: { walker: 1, runner: 1, tank: 3, spitter: 2, exploder: 2, charger: 3, summoner: 4, boss: 25 },
+  kill: { crawler: 1, walker: 1, runner: 1, tank: 3, spitter: 2, exploder: 2, charger: 3, summoner: 4, boss: 25 },
   wave: 3, wavePerNo: 2, winBase: 20, winPerStar: 15,
 };
 
@@ -219,14 +221,23 @@ export const META = {
 };
 
 // ---- v3.0 : mode « Ville » (carte étendue, caméra qui suit le joueur) ----
-// zw/zh = taille d'une zone ; cols x rows zones. aggro = distance à laquelle un zombie repère le joueur ;
-// lose = distance à laquelle il le perd ; noise = rayon alerté par un coup de feu ; spawnRing = anneau d'apparition autour du joueur.
+// zw/zh = taille d'une zone ; cols x rows zones (v3.1 : 4 x 3 = 12 zones). aggro = distance de repérage d'un zombie au repos ;
+// lose = distance à laquelle il perd le joueur ; noise = rayon alerté par défaut ; spawnRing = anneau d'apparition autour du joueur.
 export const CITY = {
-  zw: 360, zh: 620, cols: 3, rows: 2,
+  zw: 360, zh: 620, cols: 4, rows: 3,
   aggro: 230, lose: 420, noise: 260,
+  // portée du bruit (px) par arme ; avec un silencieux le tir est quasi inaudible
+  noiseWeapon: { pistol: 230, shotgun: 340, smg: 290 }, noiseSilenced: 60, noiseBoom: 420, noiseDash: 120,
+  stealth: { still: 0.65, dash: 1.35, night: 0.85, rain: 0.85 },   // multiplicateurs de la distance de repérage
+  crawlerAggro: 95, lureRange: 480, alarmTime: 14, alarmChance: 0.4, silencerShots: 20,
   spawnEvery: [1.1, 2.4], spawnRing: [300, 470],
   fill: 0.7,                 // part de la densité placée au démarrage
   perkFirst: 12, perkStep: 14, // une amélioration tous les N kills (N augmente)
   supplyCd: 60, cpHeal: 0.35, camLerp: 7,
   winBonus: 40,
+  // coffres aléatoires : nombre par zone, rayon d'ouverture, rayon de vue de la carte explorée
+  chests: 2, chestsDanger: 3, chestR: 22, exploreR: 120, cell: 40,
+  chestLoot: [['ammo', 24], ['health', 20], ['coins', 20], ['grenade', 12], ['map', 16], ['silencer', 6], ['perk', 4]],
+  dayLen: 300, startTod: 0.34,   // durée d'un jour complet (s) · heure de départ (0 = minuit, 0.5 = midi)
+  weatherEvery: [55, 110], rainChance: 0.3, fogChance: 0.2,
 };

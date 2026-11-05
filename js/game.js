@@ -22,6 +22,7 @@ import { showScreen, hideScreen, currentScreen, selectLevel, primaryAction } fro
 import { getBest, setBest, getModes, getSettings, getProgress, setProgress, getMeta, addCoins } from './storage.js';
 import { sfx } from './audio.js';
 import { updateCity, updateCamera, restoreCity, saveCity } from './city.js';
+import { updateSoundscape, silenceSoundscape, resetSoundscape } from './soundscape.js';
 import { ZONE_ORDER } from './citymap.js';
 
 // Verse les pièces de la partie dans la bourse (une seule fois par partie). Renvoie le montant gagné.
@@ -56,6 +57,8 @@ export function goMenu() {
   hidePerks();
   resetInput();
   cancelFire();
+  silenceSoundscape();
+  state.bigMap = false;
   state.best = getBest();
   state.phase = 'ready';
   showScreen('main');
@@ -82,6 +85,7 @@ export function startGame(mode = 'survival', levelId = 1) {
       saveCity();
     }
     state.player.hp = state.stats.maxHp;
+    resetSoundscape();
     updateCamera(0, true);
     toast(t('cityStart', Object.keys(state.city.cps).length, ZONE_ORDER.length), 2600);
   } else if (level) {
@@ -157,6 +161,7 @@ export function choosePerk(i) {
 }
 
 function endGame() {
+  silenceSoundscape();
   bankRun();
   state.phase = 'over';
   input.firing = false;
@@ -220,7 +225,15 @@ function updateTimers(dt) {
   if (state.barrels.some((b) => b.dead)) state.barrels = state.barrels.filter((b) => !b.dead);
 }
 
+// Grande carte de la ville (bouton 🗺️ / touche M) : met le jeu en pause tant qu'elle est ouverte.
+export function toggleMap(force) {
+  if (state.mode !== 'city' || state.phase !== 'playing') { state.bigMap = false; return; }
+  state.bigMap = force === undefined ? !state.bigMap : force;
+  if (state.bigMap) { input.firing = false; cancelFire(); }
+}
+
 export function update(dt) {
+  if (state.bigMap) return;               // la grande carte met le jeu en pause
   if (state.hitStop > 0) {                // micro-pause à l'impact : le temps passe presque à l'arrêt
     state.hitStop -= dt;
     dt *= 0.1;
@@ -235,7 +248,7 @@ export function update(dt) {
   updatePickups(dt);
   updateObjectives(dt);
   updateEvents(dt);
-  if (state.mode === 'city') updateCity(dt);
+  if (state.mode === 'city') { updateCity(dt); updateSoundscape(dt); }
   updateWaves(dt);
   updateEffects(dt);
   updateCamera(dt);
