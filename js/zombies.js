@@ -3,15 +3,16 @@ import { state } from './state.js';
 import { rand } from './util.js';
 import { sfx } from './audio.js';
 import { maybeDrop } from './pickups.js';
-import { addDecal, addFloater, addShake, spawnBlood, spawnGibs, spawnColor, hitStop } from './effects.js';
+import { addCorpse, addDecal, addFloater, addShake, spawnBlood, spawnGibs, spawnColor, hitStop } from './effects.js';
 import { explode, fireAcid } from './combat.js';
 import { pushOut } from './layout.js';
 import { genPull, damageGen } from './objectives.js';
 import { banner } from './ui.js';
 import { t } from './i18n.js';
+import { stealthRadius, nearestLure, wakeHorde } from './noise.js';
 
 // Types qui attaquent le corps à corps (et peuvent donc s'en prendre au générateur).
-const MELEE = new Set(['walker', 'runner', 'tank', 'charger', 'exploder', 'boss']);
+const MELEE = new Set(['walker', 'runner', 'crawler', 'tank', 'charger', 'exploder', 'boss']);
 
 function makeElite(z, mod) {
   const m = ELITE.mods[mod];
@@ -127,6 +128,7 @@ export function killZombie(z, opts = {}) {
   spawnBlood(z.x, z.y, z.type === 'boss' ? 30 : 9, 90);
   if (opts.gib || z.type === 'boss') spawnGibs(z.x, z.y, z.type === 'boss' ? 22 : 12);
   addDecal(z.x, z.y + z.r * 0.4, z.r * (z.type === 'boss' ? 1.6 : 1.1));
+  if (!opts.gib) addCorpse(z);
   sfx.kill();
   if (z.elite || z.type === 'tank' || z.type === 'charger' || z.type === 'summoner') hitStop(0.05);
   else if (opts.crit) hitStop(0.025);
@@ -201,14 +203,23 @@ export function updateZombies(dt) {
     let spd = z.speed * slow;
 
     // Mode ville : un zombie reste au repos (il erre près de son point d'apparition) tant qu'il n'a pas repéré le joueur.
+    // Les rampants font le mort et ne se lèvent que tout près ; une horde dort jusqu'à ce qu'un bruit la réveille.
     let idle = false;
     if (state.mode === 'city') {
-      if (!z.aggro && dist < CITY.aggro) z.aggro = true;
-      else if (z.aggro && dist > CITY.lose) z.aggro = false;
+      const sleeping = z.horde && !(state.city.hordes[z.horde] && state.city.hordes[z.horde].awake);
+      const sight = z.type === 'crawler' ? CITY.crawlerAggro : sleeping ? 70 : stealthRadius();
+      if (!z.aggro && dist < sight) {
+        z.aggro = true;
+        if (z.horde) wakeHorde(z.horde);
+      } else if (z.aggro && dist > CITY.lose) z.aggro = false;
       idle = !z.aggro;
     }
 
-    if (idle) {
+    const lure = idle && !(z.horde && !(state.city.hordes[z.horde] && state.city.hordes[z.horde].awake)) ? nearestLure(z.x, z.y) : null;
+    if (lure) {                          // attiré par une alarme : va voir d'où vient le bruit
+      const d = Math.hypot(lure.x - z.x, lure.y - z.y) || 1;
+      if (d > 28) { mx = (lure.x - z.x) / d; my = (lure.y - z.y) / d; spd *= 0.7; z.fx = mx >= 0 ? 1 : -1; }
+    } else if (idle) {
       z.wT = (z.wT ?? 0) - dt;
       const hx = z.hx ?? z.x;
       const hy = z.hy ?? z.y;
@@ -217,7 +228,7 @@ export function updateZombies(dt) {
         z.wa = Math.random() < 0.35 ? null : rand(0, Math.PI * 2);
       }
       if (Math.hypot(z.x - hx, z.y - hy) > 90) z.wa = Math.atan2(hy - z.y, hx - z.x);
-      if (z.wa !== null && z.wa !== undefined) {
+      if (z.wa !== null && z.wa !== undefined && z.type !== 'crawler') {
         mx = Math.cos(z.wa);
         my = Math.sin(z.wa);
         spd *= 0.35;
