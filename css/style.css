@@ -32,6 +32,7 @@ font-weight:bold;text-shadow:0 1px 2px #000}
 .pause{pointer-events:auto;width:34px;height:34px;border-radius:9px;background:#0009;color:#fff;
 font-size:15px;border:1px solid #fff3;margin-left:auto}
 
+.mapbtn{position:absolute;z-index:4;display:none;pointer-events:auto;width:34px;height:34px;border-radius:9px;background:#0009;color:#fff;font-size:16px;border:1px solid #fff3;top:150px;right:8px}
 .combo{font-size:11px;color:#fde047;font-weight:bold;min-height:13px;letter-spacing:.3px}
 .buffs{position:absolute;top:52px;left:10px;z-index:3;font-weight:bold;font-size:14px;
 text-shadow:0 1px 2px #000;pointer-events:none;white-space:pre}

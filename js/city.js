@@ -2,18 +2,30 @@
 // sauvegarde, caméra. La carte (données pures) est dans citymap.js ; le dessin dans cityart.js / render.js.
 import { CITY, WEAPONS } from './config.js';
 import { state } from './state.js';
-import { ZONES, ZONE_ORDER, zoneAt, pickType, zoneOrigin, ZW, ZH, ZONE_MARGIN } from './citymap.js';
+import { ZONES, ZONE_ORDER, zoneAt, pickType, zoneOrigin, rollChests, ZW, ZH, ZONE_MARGIN } from './citymap.js';
 import { spawnZombie } from './zombies.js';
 import { hitsSolid } from './layout.js';
 import { computeStats } from './stats.js';
 import { getCity, setCity } from './storage.js';
 import { banner, toast } from './ui.js';
+import { alertNoise, updateNoise } from './noise.js';
+import { updateAmbient } from './ambient.js';
+import { emit } from './soundq.js';
 import { t } from './i18n.js';
 import { sfx } from './audio.js';
 import { addFloater } from './effects.js';
 import { rand } from './util.js';
 
+export { alertNoise };
+
 const city = () => state.city;
+
+// Carte explorée : une chaîne de 0/1 (une case = CITY.cell px), compacte et facile à sauvegarder.
+const encodeExplored = (a) => { let o = ''; for (let i = 0; i < a.length; i++) o += a[i] ? '1' : '0'; return o; };
+function decodeExplored(str, a) {
+  if (typeof str !== 'string') return;
+  for (let i = 0; i < a.length && i < str.length; i++) a[i] = str[i] === '1' ? 1 : 0;
+}
 
 // ---- Sauvegarde ----
 export function saveCity() {
@@ -23,6 +35,8 @@ export function saveCity() {
     cp: c.cp, cps: Object.keys(c.cps), perks: state.perks, kills: state.kills, perkAt: c.perkAt, perksTaken: c.perksTaken, won: c.won,
     weapons: Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, !!state.weapons[id].unlocked])),
     taken: c.caches.filter((k) => k.taken).map((k) => k.id),
+    seed: c.seed, opened: c.chests.filter((k) => k.open).map((k) => k.id), maps: Object.keys(c.maps),
+    explored: encodeExplored(c.explored), silencer: state.silencer, tod: c.tod,
   });
 }
 
@@ -45,6 +59,15 @@ export function restoreCity() {
   c.cp = c.cps[s.cp] ? s.cp : 'res';
   c.perksTaken = s.perksTaken || 0;
   c.won = !!s.won;
+  if (s.seed && s.seed !== c.seed) {                    // mêmes coffres qu'avant (la graine est sauvegardée)
+    c.seed = s.seed;
+    c.chests = rollChests(c.seed, c.map).map((k) => ({ ...k, open: false, t: 0 }));
+  }
+  for (const k of c.chests) if ((s.opened || []).includes(k.id)) { k.open = true; k.t = 1; }
+  for (const id of s.maps || []) c.maps[id] = true;
+  decodeExplored(s.explored, c.explored);
+  state.silencer = s.silencer || 0;
+  if (typeof s.tod === 'number') c.tod = s.tod;
   state.kills = s.kills || 0;
   c.perkAt = Math.max(s.perkAt || 0, state.kills + 1);
   const cp = c.map.checkpoints.find((k) => k.id === c.cp);
@@ -84,6 +107,21 @@ function fillCity() {
       ok++;
     }
   }
+  // hordes endormies : un groupe serré qui ne se réveille qu'au bruit (tir fort, explosion, alarme) ou si on le frôle
+  for (const h of city().map.hordes) {
+    city().hordes[h.id] = { awake: false };
+    const zone = ZONES[h.zone];
+    for (let i = 0, ok = 0; i < 60 && ok < h.n; i++) {
+      const a = rand(0, Math.PI * 2);
+      const d = rand(0, 46);
+      const x = h.x + Math.cos(a) * d;
+      const y = h.y + Math.sin(a) * d;
+      if (hitsSolid(state.solids, x, y, 14)) continue;
+      const z = place(x, y, zone);
+      z.horde = h.id;
+      ok++;
+    }
+  }
 }
 
 function trySpawn() {
@@ -100,12 +138,6 @@ function trySpawn() {
     return true;
   }
   return false;
-}
-
-// Coup de feu : les zombies proches se mettent en chasse.
-export function alertNoise(x, y) {
-  const r2 = CITY.noise * CITY.noise;
-  for (const z of state.zombies) if (!z.dead && !z.aggro && (z.x - x) ** 2 + (z.y - y) ** 2 < r2) z.aggro = true;
 }
 
 // ---- Points de contrôle, ravitaillements, caches ----
@@ -166,6 +198,122 @@ function takeCache(k) {
   saveCity();
 }
 
+// ---- Coffres aléatoires, cartes, exploration ----
+const chestLabel = { ammo: '🔫', health: '❤️', coins: '🪙', grenade: '💣', map: '🗺️', silencer: '🔇', perk: '⭐' };
+
+function revealZone(id) {
+  const c = city();
+  const { ox, oy } = zoneOrigin(id);
+  const S = CITY.cell;
+  for (let gy = Math.floor(oy / S); gy < Math.ceil((oy + ZH) / S); gy++) {
+    for (let gx = Math.floor(ox / S); gx < Math.ceil((ox + ZW) / S); gx++) {
+      if (gx >= 0 && gy >= 0 && gx < c.gcols && gy < c.grows) c.explored[gy * c.gcols + gx] = 1;
+    }
+  }
+  c.maps[id] = true;
+}
+
+export const zoneExplored = (id) => {
+  const c = city();
+  const { ox, oy } = zoneOrigin(id);
+  const S = CITY.cell;
+  let n = 0;
+  let tot = 0;
+  for (let gy = Math.floor(oy / S); gy < Math.ceil((oy + ZH) / S); gy++) {
+    for (let gx = Math.floor(ox / S); gx < Math.ceil((ox + ZW) / S); gx++) {
+      if (gx < c.gcols && gy < c.grows) { tot++; n += c.explored[gy * c.gcols + gx]; }
+    }
+  }
+  return tot ? n / tot : 0;
+};
+
+function updateExplore(dt) {
+  const c = city();
+  c.exploreT -= dt;
+  if (c.exploreT > 0) return;
+  c.exploreT = 0.25;
+  const p = state.player;
+  const S = CITY.cell;
+  const R = CITY.exploreR;
+  const x0 = Math.max(0, Math.floor((p.x - R) / S));
+  const x1 = Math.min(c.gcols - 1, Math.floor((p.x + R) / S));
+  const y0 = Math.max(0, Math.floor((p.y - R) / S));
+  const y1 = Math.min(c.grows - 1, Math.floor((p.y + R) / S));
+  for (let gy = y0; gy <= y1; gy++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      if (Math.hypot((gx + 0.5) * S - p.x, (gy + 0.5) * S - p.y) < R) c.explored[gy * c.gcols + gx] = 1;
+    }
+  }
+}
+
+// Une carte révèle une zone encore inconnue (de préférence une zone qui contient des coffres fermés) et leurs emplacements.
+function pickMapZone() {
+  const c = city();
+  const cand = ZONE_ORDER.filter((id) => !c.maps[id] && id !== c.zone);
+  if (!cand.length) return null;
+  const withChests = cand.filter((id) => c.chests.some((k) => k.zone === id && !k.open));
+  const pool = withChests.length ? withChests : cand;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function openChest(k) {
+  const c = city();
+  const p = state.player;
+  k.open = true;
+  k.t = 0;
+  let msg = '';
+  switch (k.loot) {
+    case 'ammo':
+      for (const [id, d] of Object.entries(WEAPONS)) {
+        const w = state.weapons[id];
+        if (w.unlocked && w.reserve !== Infinity) w.reserve = Math.min(Math.round(d.maxReserve * state.stats.ammo), w.reserve + Math.ceil(d.pickup * 1.5));
+      }
+      msg = t('chest_ammo');
+      break;
+    case 'health':
+      p.hp = Math.min(state.stats.maxHp, p.hp + state.stats.maxHp * 0.4);
+      msg = t('chest_health');
+      break;
+    case 'coins': {
+      const n = Math.round(rand(8, 16) * state.stats.coin);
+      state.coins += n;
+      msg = t('chest_coins', n);
+      break;
+    }
+    case 'grenade':
+      state.grenadeCd = 0;
+      msg = t('chest_grenade');
+      break;
+    case 'silencer':
+      state.silencer += CITY.silencerShots;
+      msg = t('chest_silencer', state.silencer);
+      break;
+    case 'perk':
+      state.pendingPerk = true;
+      msg = t('chest_perk');
+      break;
+    case 'map': {
+      const id = pickMapZone();
+      if (id) {
+        revealZone(id);
+        msg = t('chest_map', t(`zone_${id}`));
+      } else {
+        state.coins += 10 * state.stats.coin;
+        msg = t('chest_coins', 10);
+      }
+      break;
+    }
+    default:
+  }
+  addFloater(k.x, k.y - 16, `${chestLabel[k.loot]} ${msg}`, '#fde047', 10);
+  toast(`${chestLabel[k.loot]} ${msg}`, 2200);
+  emit(k.loot === 'map' ? 'mapFound' : 'chest', k.x, k.y);
+  if (k.loot === 'map') sfx.paper();
+  else if (k.loot === 'silencer') sfx.silencer();
+  else sfx.chest();
+  saveCity();
+}
+
 // ---- Boucle ----
 export function updateCity(dt) {
   const c = city();
@@ -196,6 +344,13 @@ export function updateCity(dt) {
   for (const k of c.caches) {
     if (!k.taken && Math.hypot(p.x - k.x, p.y - k.y) < 24) takeCache(k);
   }
+  for (const k of c.chests) {
+    if (k.open) k.t = Math.min(1, k.t + dt * 3);
+    else if (Math.hypot(p.x - k.x, p.y - k.y) < CITY.chestR) openChest(k);
+  }
+  updateExplore(dt);
+  updateNoise(dt);
+  updateAmbient(dt);
 
   // amélioration tous les N kills, quand aucun zombie n'est collé au joueur
   if (state.kills >= c.perkAt && !state.pendingPerk && !state.zombies.some((z) => !z.dead && Math.hypot(z.x - p.x, z.y - p.y) < 140)) {
