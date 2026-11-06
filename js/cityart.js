@@ -1,6 +1,7 @@
 // Dessin (une seule fois, hors écran) du décor de la ville : sols des zones, rues, bâtiments, véhicules, arbres.
 // Les obstacles dessinés sont exactement ceux de la carte (mêmes rectangles) : ce qu'on voit est ce qui bloque.
-import { WORLD_W, WORLD_H, ZONES, ZONE_ORDER, ZW, ZH, ZONE_MARGIN, zoneOrigin } from './citymap.js';
+import { WORLD_W, WORLD_H, ZONE_ORDER, ZW, ZH, ZONE_MARGIN, zoneOrigin } from './citymap.js';
+import { CITY } from './config.js';
 
 function rng(seed) {
   let s = seed % 2147483647;
@@ -23,12 +24,12 @@ function floor(g, id, rnd) {
   const w = ZW - ZONE_MARGIN * 2;
   const h = ZH - ZONE_MARGIN * 2;
   R(g, '#6e7378', x - 6, y - 6, w + 12, h + 12);          // trottoir
-  const base = { res: '#406b34', centre: '#4b4e54', indus: '#5b5d5f', hopital: '#3a3d43', police: '#3c4047', station: '#35383d' }[id];
+  const base = { res: '#406b34', centre: '#4b4e54', indus: '#5b5d5f', hopital: '#3a3d43', police: '#3c4047', station: '#35383d', cimetiere: '#30502d', parc: '#47873a', ecole: '#52575d', port: '#686e73', autoroute: '#2c2e33', banlieue: '#436f36' }[id];
   R(g, base, x, y, w, h);
   for (let i = 0; i < 160; i++) {                          // grain
     const px = x + rnd() * w;
     const py = y + rnd() * h;
-    const c = id === 'res' ? (rnd() < 0.5 ? 'rgba(80,120,60,.6)' : 'rgba(30,60,25,.6)') : 'rgba(0,0,0,.18)';
+    const c = ['res', 'banlieue', 'parc', 'cimetiere'].includes(id) ? (rnd() < 0.5 ? 'rgba(80,120,60,.6)' : 'rgba(30,60,25,.6)') : 'rgba(0,0,0,.18)';
     R(g, c, px, py, 2 + rnd() * 3, 2);
   }
   if (id === 'res') {                                      // allée centrale + jardins
@@ -68,6 +69,45 @@ function floor(g, id, rnd) {
     for (let yy = 70; yy < 320; yy += 16) for (let xx = 55; xx < 305; xx += 16) R(g, (xx + yy) % 32 ? '#808c97' : '#76828d', ox + xx, oy + yy, 16, 16);
     R(g, '#2c3036', ox + 34, oy + 330, ZW - 68, 256);
     R(g, 'rgba(250,204,21,.5)', ox + 150, oy + 328, 60, 3);
+  } else if (id === 'cimetiere') {
+    R(g, '#6a6558', ox + 168, oy + 130, 24, 440);            // allée centrale
+    R(g, '#6a6558', ox + 56, oy + 440, 248, 22);             // allée transversale
+    for (let yy = oy + 130; yy < oy + 570; yy += 18) R(g, 'rgba(0,0,0,.12)', ox + 168, yy, 24, 1);
+    R(g, 'rgba(10,20,10,.25)', ox + 56, oy + 52, 248, 498);  // pelouse sombre
+    R(g, '#6a6558', ox + 150, oy + 546, 60, 10);             // seuil du portail
+  } else if (id === 'parc') {
+    for (const [px, py, pw, ph] of [[170, 40, 20, 150], [170, 290, 20, 290], [50, 300, 260, 18], [60, 180, 50, 14], [250, 180, 50, 14]]) R(g, '#9a8c6c', ox + px, oy + py, pw, ph);
+    for (let i = 0; i < 40; i++) R(g, 'rgba(255,230,120,.5)', x + rnd() * w, y + rnd() * h, 2, 2);      // fleurs
+    for (let i = 0; i < 25; i++) R(g, 'rgba(255,120,160,.55)', x + rnd() * w, y + rnd() * h, 2, 2);
+  } else if (id === 'ecole') {
+    R(g, '#4d7c3d', ox + 40, oy + 160, 280, 40);             // pelouse devant l'école
+    R(g, '#8a8f96', ox + 160, oy + 150, 40, 70);             // allée
+    R(g, '#3d4f6a', ox + 40, oy + 215, 160, 130);            // cour de récré
+    for (let i = 0; i < 5; i++) R(g, 'rgba(255,255,255,.4)', ox + 56, oy + 230 + i * 16, 14, 2);
+    g.strokeStyle = 'rgba(255,255,255,.4)';
+    g.strokeRect(ox + 70, oy + 232, 110, 90);
+    for (let xx = ox + 50; xx < ox + 320; xx += 20) R(g, 'rgba(255,255,255,.18)', xx, oy + 455, 10, 3);
+  } else if (id === 'port') {
+    for (let yy = y; yy < y + h; yy += 40) R(g, 'rgba(0,0,0,.12)', x, yy, w, 1);
+    for (let i = 0; i < 20; i++) R(g, 'rgba(234,179,8,.5)', ox + 40 + i * 12, oy + 236, 8, 4);         // bande jaune du quai
+    R(g, '#1f4d6b', ox + 296, oy, 64, ZH);                                                             // l'eau (sous les vagues)
+    for (let i = 0; i < 24; i++) R(g, 'rgba(255,255,255,.16)', ox + 300 + rnd() * 54, oy + rnd() * ZH, 8, 2);
+  } else if (id === 'autoroute') {
+    for (const lx of [110, 180, 250]) for (let yy = y + 4; yy < y + h; yy += 36) R(g, 'rgba(235,235,235,.6)', ox + lx - 2, yy, 4, 20);
+    R(g, 'rgba(230,200,80,.65)', ox + 54, y, 3, h);
+    R(g, 'rgba(230,200,80,.65)', ox + 303, y, 3, h);
+    for (let i = 0; i < 18; i++) {                                                                      // traces de freinage
+      g.fillStyle = 'rgba(10,10,12,.45)';
+      g.fillRect(ox + 70 + rnd() * 220, oy + 60 + rnd() * 460, 2, 20 + rnd() * 40);
+    }
+  } else if (id === 'banlieue') {
+    R(g, '#5a5348', ox + 146, y, 68, h);
+    for (let yy = y; yy < y + h; yy += 22) R(g, 'rgba(0,0,0,.14)', ox + 146, yy, 68, 2);
+    for (const [hx, hy] of [[48, 60], [214, 60], [48, 230], [214, 230], [48, 400], [214, 400]]) {
+      R(g, '#4f8040', ox + hx - 8, oy + hy - 8, 114, 96);
+      R(g, '#e5e7eb', ox + hx - 8, oy + hy - 8, 114, 2);
+      R(g, '#e5e7eb', ox + hx - 8, oy + hy + 86, 114, 2);
+    }
   } else if (id === 'station') {
     R(g, 'rgba(0,0,0,.22)', ox + 80, oy + 145, 200, 120);   // ombre de l'auvent
     R(g, '#c0262d', ox + 80, oy + 145, 200, 5);
@@ -133,6 +173,91 @@ function building(g, s) {
     R(g, CONT[s.pal % 4], x, y, w, h);
     for (let i = 4; i < w; i += 6) R(g, 'rgba(0,0,0,.25)', x + i, y + 2, 2, h - 4);
     R(g, 'rgba(255,255,255,.18)', x, y, w, 2);
+  } else if (s.kind === 'crypt') {
+    R(g, '#8b8f94', x, y + 14, w, h - 14);
+    R(g, '#6d7176', x - 4, y + 8, w + 8, 10);
+    R(g, '#a5a9ae', x + 20, y, w - 40, 12);
+    R(g, '#1a1d21', x + w / 2 - 9, y + h - 28, 18, 28);
+    R(g, 'rgba(255,255,255,.14)', x, y + 14, w, 2);
+    R(g, '#6d7176', x + w / 2 - 1, y - 6, 2, 8);
+    R(g, '#6d7176', x + w / 2 - 4, y - 3, 8, 2);
+  } else if (s.kind === 'grave') {
+    const col = ['#8f9499', '#767b82', '#a3a8ad'][(s.pal || 0) % 3];
+    R(g, 'rgba(0,0,0,.28)', x + 1, y + h - 3, w, 4);
+    R(g, col, x + 2, y, w - 4, h);
+    R(g, 'rgba(255,255,255,.25)', x + 2, y, w - 4, 2);
+    R(g, 'rgba(0,0,0,.3)', x + 4, y + 3, w - 8, 1);
+    R(g, '#3d5a30', x + 1, y + h - 1, w - 2, 3);
+  } else if (s.kind === 'pond') {
+    R(g, '#6b6f58', x - 4, y - 3, w + 8, h + 6);
+    R(g, '#2d6f8f', x, y, w, h);
+    R(g, '#3f86a8', x + 6, y + 6, w - 40, 8);
+    R(g, 'rgba(255,255,255,.2)', x + 10, y + 26, 30, 2);
+    R(g, 'rgba(255,255,255,.2)', x + w - 50, y + 50, 26, 2);
+    R(g, '#3f7a3a', x + 30, y + 40, 12, 7);
+    R(g, '#3f7a3a', x + 90, y + 20, 10, 6);
+  } else if (s.kind === 'bench') {
+    R(g, 'rgba(0,0,0,.25)', x, y + h - 2, w, 3);
+    R(g, '#7a5a3a', x, y, w, h);
+    R(g, '#a07a50', x, y, w, 2);
+    R(g, '#3a3f47', x + 2, y + h - 2, 3, 3);
+    R(g, '#3a3f47', x + w - 5, y + h - 2, 3, 3);
+  } else if (s.kind === 'school') {
+    R(g, '#a1503a', x, y, w, h);
+    R(g, '#7e3c2b', x, y, w, 10);
+    R(g, 'rgba(255,255,255,.12)', x, y, w, 2);
+    R(g, 'rgba(0,0,0,.25)', x, y + h - 30, w, 30);
+    for (let i = 10; i < w - 20; i += 24) { R(g, '#1b2833', x + i, y + h - 24, 14, 10); R(g, '#1b2833', x + i, y + 22, 14, 10); }
+    R(g, '#d4c9a0', x + w / 2 - 14, y + h - 22, 28, 22);
+    R(g, '#2b2f35', x + w / 2 - 8, y + h - 18, 16, 18);
+    R(g, '#e5e7eb', x + w / 2 - 1, y - 20, 2, 22);
+    R(g, '#c0262d', x + w / 2 + 1, y - 20, 10, 6);
+  } else if (s.kind === 'gym') {
+    R(g, '#6a7f95', x, y, w, h);
+    for (let i = 4; i < w; i += 8) R(g, 'rgba(0,0,0,.18)', x + i, y, 2, h - 14);
+    R(g, '#3d4a58', x, y + h - 14, w, 14);
+    R(g, '#2b2f35', x + w / 2 - 12, y + h - 12, 24, 12);
+  } else if (s.kind === 'bus') {
+    R(g, 'rgba(0,0,0,.3)', x + 2, y + h - 2, w, 5);
+    R(g, s.pal ? '#e0a31a' : '#f2b611', x, y, w, h);
+    R(g, 'rgba(255,255,255,.25)', x, y, w, 3);
+    for (let i = 6; i < w - 12; i += 14) R(g, '#1b2833', x + i, y + 6, 10, 9);
+    R(g, '#1b2833', x + w - 10, y + 6, 8, 12);
+    R(g, '#111', x + 12, y + h - 2, 12, 4);
+    R(g, '#111', x + w - 30, y + h - 2, 12, 4);
+    R(g, '#1a1a1a', x, y + h / 2, w, 2);
+  } else if (s.kind === 'slide') {
+    R(g, '#c0262d', x, y, w, 6);
+    R(g, '#2563a8', x, y + 6, 6, h - 6);
+    R(g, '#e5c13a', x + 8, y + 8, w - 10, h - 12);
+    R(g, 'rgba(0,0,0,.25)', x, y + h - 3, w, 3);
+  } else if (s.kind === 'water') {
+    // l'eau est peinte par le sol du port ; ici seulement l'écume du quai
+    R(g, 'rgba(255,255,255,.22)', x, y, 3, h);
+    R(g, '#4a4f55', x - 6, y, 6, h);
+  } else if (s.kind === 'cranepost') {
+    R(g, '#eab308', x, y, w, h);
+    R(g, '#a07a05', x, y, 3, h);
+    R(g, '#15151a', x + 4, y + 4, w - 8, 3);
+    if (s.beam) {
+      R(g, 'rgba(0,0,0,.2)', x + 6, y + h, s.beam, 5);
+      R(g, '#eab308', x, y - 12, s.beam + w, 6);
+      for (let i = 0; i < s.beam; i += 10) R(g, '#a07a05', x + i, y - 12, 2, 6);
+      R(g, '#55595f', x + s.beam / 2, y - 6, 2, 22);
+    } else R(g, '#eab308', x, y - 12, w, 12);
+  } else if (s.kind === 'guard') {
+    R(g, '#9ca3af', x, y, w, h);
+    R(g, 'rgba(255,255,255,.4)', x, y, 2, h);
+    for (let yy = 0; yy < h; yy += 18) R(g, '#555a62', x - 1, y + yy, w + 2, 2);
+  } else if (s.kind === 'pool') {
+    R(g, '#d6d9dc', x - 5, y - 5, w + 10, h + 10);
+    R(g, '#38a6c8', x, y, w, h);
+    R(g, 'rgba(255,255,255,.3)', x + 6, y + 6, w - 20, 2);
+    R(g, 'rgba(255,255,255,.2)', x + 10, y + h - 10, 14, 2);
+  } else if (s.kind === 'wall' && s.pal === 'fence') {
+    R(g, '#2a2d33', x, y, w, h);
+    if (w > h) for (let i = 0; i < w; i += 7) R(g, '#4a4f58', x + i, y - 4, 2, h + 6);
+    else for (let i = 0; i < h; i += 7) R(g, '#4a4f58', x - 3, y + i, h > 0 ? w + 5 : 2, 2);
   } else if (s.kind === 'wall') {
     const hosp = s.pal === 'hosp';
     R(g, hosp ? '#e6ebee' : '#59616b', x, y, w, h);
@@ -219,6 +344,13 @@ function tree(g, s) {
   }
 }
 
+function lamp(g, l) {
+  shadow(g, l.x + 2, l.y + 3, 5, 2, 0.3);
+  R(g, '#3b3f45', l.x - 1, l.y - 18, 2, 21);
+  R(g, '#3b3f45', l.x - 1, l.y - 19, 7, 2);
+  R(g, '#f5e6a6', l.x + 3, l.y - 17, 4, 2);
+}
+
 export function buildCityBackground(map) {
   const c = document.createElement('canvas');
   c.width = WORLD_W;
@@ -231,9 +363,13 @@ export function buildCityBackground(map) {
   for (const id of ZONE_ORDER) floor(g, id, rnd);
 
   // marquages des rues (lignes jaunes + passages piétons aux carrefours)
-  for (const x of [ZW, ZW * 2]) for (let y = 4; y < WORLD_H; y += 28) R(g, 'rgba(220,190,70,.55)', x - 2, y, 4, 16);
-  for (let x = 4; x < WORLD_W; x += 28) R(g, 'rgba(220,190,70,.55)', x, ZH - 2, 16, 4);
-  for (const x of [ZW, ZW * 2]) for (let i = -30; i <= 30; i += 8) { R(g, 'rgba(235,235,235,.5)', x + i - 2, ZH - 44, 4, 14); R(g, 'rgba(235,235,235,.5)', x + i - 2, ZH + 30, 4, 14); }
+  const vx = [];
+  const hy = [];
+  for (let c = 1; c < CITY.cols; c++) vx.push(ZW * c);
+  for (let r = 1; r < CITY.rows; r++) hy.push(ZH * r);
+  for (const x of vx) for (let y = 4; y < WORLD_H; y += 28) R(g, 'rgba(220,190,70,.55)', x - 2, y, 4, 16);
+  for (const y of hy) for (let x = 4; x < WORLD_W; x += 28) R(g, 'rgba(220,190,70,.55)', x, y - 2, 16, 4);
+  for (const x of vx) for (const y of hy) for (let i = -30; i <= 30; i += 8) { R(g, 'rgba(235,235,235,.5)', x + i - 2, y - 44, 4, 14); R(g, 'rgba(235,235,235,.5)', x + i - 2, y + 30, 4, 14); }
   // sang séché, gravats
   for (let i = 0; i < 40; i++) {
     g.fillStyle = 'rgba(90,14,14,.33)';
@@ -249,15 +385,13 @@ export function buildCityBackground(map) {
     else if (s.kind === 'tree') tree(g, s);
     else building(g, s);
   }
-  for (const b of map.barrels) {                             // les barils sont dessinés par render.js (animés)
-    void b;
-  }
+  for (const l of map.lamps) lamp(g, l);                      // réverbères (la lumière de nuit est dessinée par render.js)
 
   // noms des zones, peints au sol
   g.font = 'bold 15px monospace';
   g.textAlign = 'center';
   g.fillStyle = 'rgba(255,255,255,.16)';
-  for (const [id, lx, ly, txt] of [['hopital', 180, 570, 'URGENCES'], ['police', 180, 560, 'POLICE'], ['station', 180, 560, 'STATION'], ['indus', 180, 580, 'INDUSTRIE'], ['centre', 180, 585, 'CENTRE'], ['res', 180, 590, 'QUARTIER']]) {
+  for (const [id, lx, ly, txt] of [['hopital', 180, 570, 'URGENCES'], ['police', 180, 560, 'POLICE'], ['station', 180, 560, 'STATION'], ['indus', 180, 580, 'INDUSTRIE'], ['centre', 180, 585, 'CENTRE'], ['res', 180, 590, 'QUARTIER'], ['cimetiere', 180, 595, 'CIMETIÈRE'], ['parc', 180, 598, 'PARC'], ['ecole', 180, 585, 'ÉCOLE'], ['port', 150, 590, 'PORT'], ['autoroute', 180, 598, 'A-13'], ['banlieue', 180, 598, 'BANLIEUE']]) {
     const { ox, oy } = zoneOrigin(id);
     g.fillText(txt, ox + lx, oy + ly);
   }
