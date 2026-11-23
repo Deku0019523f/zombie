@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d0c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Dernier Rempart 3D</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="vignette"></div>
+  <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+  <div id="lookZone"></div>
+
+  <div id="topLeft" class="panel">
+    <div id="hudWave">VAGUE 1</div>
+    <div id="hudLeft" class="sub"></div>
+    <div class="row"><span id="hudKills">☠ 0</span><span id="hudScore">0</span></div>
+  </div>
+  <div id="topRight">
+    <button id="btnMute" class="round sm" aria-label="Son">🔊</button>
+    <button id="btnPause" class="round sm" aria-label="Pause">⏸</button>
+  </div>
+
+  <div id="cross"><i></i></div>
+  <div id="hitmark"></div>
+  <div id="banner"></div>
+
+  <div id="bottom">
+    <div id="slotAmmo" class="slot">
+      <div id="hudWeapon">Pistolet</div>
+      <div id="hudAmmo">12 / 72</div>
+      <div id="slotDots"></div>
+      <div id="reloadWrap" class="hidden"><div id="barReload"></div></div>
+    </div>
+    <div class="bars">
+      <div class="bar hp"><div id="barHp"></div><span id="hudHp">100</span></div>
+      <div class="bar st"><div id="barSt"></div></div>
+    </div>
+  </div>
+
+  <button id="btnFire" class="round big" aria-label="Tirer"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="24" r="4" fill="currentColor"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9" stroke="currentColor" stroke-width="3"/></svg></button>
+  <button id="btnReload" class="round md" aria-label="Recharger">⟳</button>
+  <button id="btnSwap" class="round md" aria-label="Changer d'arme">⇄</button>
+  <button id="btnSprint" class="round md" aria-label="Sprint">»</button>
+</div>
+
+<section id="screenLoad" class="screen">
+  <h1>DERNIER <span>REMPART</span></h1>
+  <div class="loadbox"><div id="loadBar"></div></div>
+  <p id="loadTxt">Chargement…</p>
+</section>
+
+<section id="screenMenu" class="screen hidden">
+  <h1>DERNIER <span>REMPART</span></h1>
+  <p class="tag">LA VILLE EST TOMBÉE · VERSION 3D (alpha)</p>
+  <button id="btnStart" class="btn primary">JOUER</button>
+  <p id="menuBest" class="best"></p>
+  <p class="help">Tactile : joystick à gauche · glisser à droite pour viser · gros bouton = tirer<br>Clavier : ZQSD/WASD · souris (clic = tirer) · R recharger · E arme · Maj sprint</p>
+</section>
+
+<section id="screenPause" class="screen hidden dim">
+  <h2>PAUSE</h2>
+  <button id="btnResume" class="btn primary">REPRENDRE</button>
+  <button class="btn js-menu">MENU</button>
+</section>
+
+<section id="screenOver" class="screen hidden dim">
+  <h2 class="red">VOUS ÊTES MORT</h2>
+  <p id="overStats"></p>
+  <button id="btnRestart" class="btn primary">REJOUER</button>
+  <button class="btn js-menu">MENU</button>
+</section>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
