@@ -1,11 +1,12 @@
 {
   "name": "zombie-survival",
-  "version": "3.1.0",
-  "description": "Jeu de survie contre des vagues de zombies (HTML/CSS/JS, modules ES)",
+  "version": "4.0.0-alpha",
+  "description": "Jeu de survie contre des vagues de zombies (HTML/CSS/JS, modules ES) — version 2D à la racine, version 3D dans 3d/",
   "type": "module",
   "scripts": {
     "start": "npx --yes serve .",
-    "test": "node tests/smoke.mjs"
+    "test": "node tests/smoke.mjs",
+    "test:3d": "node tests/sim3d.mjs"
   },
   "license": "MIT"
 }
