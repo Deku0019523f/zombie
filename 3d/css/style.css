@@ -19,7 +19,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d0c; col
 .panel .row { display: flex; justify-content: space-between; gap: 14px; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
 #topRight { position: absolute; right: calc(var(--safe-r) + 12px); top: calc(var(--safe-t) + 10px); display: flex; gap: 10px; pointer-events: auto; z-index: 3; }
 
-.round { pointer-events: auto; border: 2px solid rgba(255,255,255,.35); background: var(--glass); color: var(--ink); border-radius: 50%; display: grid; place-items: center; font-size: 22px; touch-action: none; cursor: pointer; z-index: 3; font-family: inherit; padding: 0; }
+/* #hud .round : la règle « #hud > * { pointer-events: none } » est plus spécifique que « .round » seul et rendait les boutons intouchables. */
+#hud .round { pointer-events: auto; border: 2px solid rgba(255,255,255,.35); background: var(--glass); color: var(--ink); border-radius: 50%; display: grid; place-items: center; font-size: 22px; touch-action: none; cursor: pointer; z-index: 3; font-family: inherit; padding: 0; }
 .round.down { background: rgba(255,138,31,.55); transform: scale(.94); }
 .round.sm { width: 42px; height: 42px; font-size: 18px; }
 .round.md { position: absolute; width: 54px; height: 54px; font-size: 26px; }

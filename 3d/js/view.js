@@ -5,6 +5,9 @@ import { instance, placeholder } from './assets.js';
 import { buildWorld } from './world.js';
 import { Fx, shadowTexture } from './fx.js';
 
+const _qh = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qa = new THREE.Quaternion(), _ax = new THREE.Vector3(1, 0, 0);
+const _qf = new THREE.Quaternion(...(WEAPON_HAND.fix || [0, 0, 0, 1]));
+
 class Actor {
   constructor(inst, scale) {
     this.root = new THREE.Group();
@@ -80,6 +83,17 @@ export class View {
     this.weaponObj.position.set(...WEAPON_HAND.pos);
     this.weaponObj.quaternion.set(...WEAPON_HAND.quat);
     this.hand.add(this.weaponObj);
+    this.aimWeapon();
+  }
+
+  // La pose du couteau livré avec le modèle ne convient pas à une arme à feu : on oriente l'arme dans le repère du monde
+  // (canon vers l'avant du personnage, légèrement relevé selon la visée) quelle que soit l'animation de la main.
+  aimWeapon() {
+    if (!this.weaponObj || this.hand === this.player.root) return;
+    const root = this.player.root; root.updateMatrixWorld(true);
+    this.hand.getWorldQuaternion(_qh); root.getWorldQuaternion(_qr);
+    _qa.setFromAxisAngle(_ax, -this.sim.pitch * 0.6);
+    this.weaponObj.quaternion.copy(_qh.invert().multiply(_qr).multiply(_qa).multiply(_qf));
   }
 
   // ---------------------------------------------------------------- zombies
@@ -137,7 +151,7 @@ export class View {
     else if (P.sprinting) pa.play('Run_Gun', { speed: 1.15 });
     else if (P.moving) pa.play(P.speed > 4.2 ? 'Run_Gun' : 'Walk_Gun', { speed: Math.max(0.7, P.speed / 3.6) });
     else pa.play('Idle_Gun');
-    pa.update(dt);
+    pa.update(dt); this.aimWeapon();
 
     // zombies
     const seen = new Set();
