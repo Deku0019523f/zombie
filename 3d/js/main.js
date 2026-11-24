@@ -1,3 +1,4 @@
+import './orient.js';   // force le mode paysage (écran d'invite + verrouillage)
 import { boot } from './game.js';
 
 boot().catch((e) => {
