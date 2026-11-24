@@ -62,8 +62,11 @@ export class View {
     const inst = instance(PLAYER.model) || placeholder(0x3366ff, 1.7);
     this.player = new Actor(inst, PLAYER.scale);
     this.player.root.add(this.blob(0.6));
-    for (const n of WEAPON_HAND.hide) { const o = this.player.model.getObjectByName(n); if (o) o.visible = false; }
-    this.hand = this.player.model.getObjectByName(WEAPON_HAND.bone) || this.player.root;
+    // three.js retire les points des noms de nœuds glTF ('Middle1.L' devient 'Middle1L') : on cherche les deux formes.
+    const find = (n) => this.player.model.getObjectByName(n) || this.player.model.getObjectByName(n.replace(/[.\[\]:\/]/g, ''));
+    for (const n of WEAPON_HAND.hide) { const o = find(n); if (o) o.visible = false; }
+    this.hand = find(WEAPON_HAND.bone);
+    if (!this.hand) { console.warn('[view] os de la main introuvable :', WEAPON_HAND.bone); this.hand = this.player.root; }
     this.weaponObj = null; this.weaponId = null;
     this.scene.add(this.player.root);
     this.setWeapon(this.sim.cur);
