@@ -24,7 +24,9 @@ L'utilisateur ne veut **pas** un jeu de vagues mais un **jeu de survivant d'apoc
 - [ ] Armes trouvées : hache, batte, pistolet (rare, bruyant, munitions limitées). Mêlée par défaut.
 **Étape 4 — abris et construction**
 - [ ] Récolte du bois : frapper les arbres (couteau / hache) ; un arbre s'épuise et devient souche.
+- [ ] Récolte de pierre : cassé les rochers avec une pioche.
 - [ ] Mode construction (bouton marteau) : mur (2 bois), porte (3 bois), feu de camp (3 bois), aimantés sur une grille de 2 m ; aperçu vert / rouge.
+NB : les bois et les pierres peuvent servir pour les constructions (les pierres ont plus de durée de vie de 3fois que celui du bois)
 - [ ] Les constructions ont des PV ; les zombies bloqués les attaquent ; une pièce détruite disparaît. Portes ouvrables / fermables (bouton Utiliser).
 - [ ] Feu de camp : lumière et soin lent à proximité.
 **Étape 5 — à venir** : armes à usure, objets à lancer (distraction), réparation des murs, établi, sac à dos (capacité).
