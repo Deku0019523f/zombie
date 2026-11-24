@@ -3,9 +3,10 @@
 > Mémoire du projet. À mettre à jour après chaque étape importante, sans supprimer les infos déjà présentes.
 > Dernière mise à jour : 2026-11-24
 
-## 0. Deux jeux dans un seul dépôt
-- **Jeu 2D (racine, v3.1.0)** : canvas pixel art vue de dessus — branche `main`, inchangé. Documenté aux sections 1 à 12 ci-dessous.
-- **Jeu 3D (dossier `3d/`, v4.0.0-alpha)** : survie zombie en 3e personne avec modèles 3D, **à jouer en paysage** — branche `3d`. Documenté en section 13 ; structure détaillée dans `3d/plan.md`, lancement dans `3d/README.md`.
+## 0. Deux jeux dans un seul dépôt (une seule branche : `main`)
+- **Jeu 2D (racine, v3.1.0)** : canvas pixel art vue de dessus — `index.html`, `js/`, `css/`. Documenté aux sections 1 à 12 ci-dessous.
+- **Jeu 3D (dossier `3d/`, v4.0.0-alpha)** : survie zombie en 3e personne avec modèles 3D, **à jouer en paysage**. Documenté en section 13 ; structure détaillée dans `3d/plan.md`, lancement dans `3d/README.md`.
+- La branche `3d` a été **fusionnée dans `main` le 2026-11-24** (PR n°1, demande de l'utilisateur : une seule branche). Il ne faut plus créer de branche secondaire sans qu'il le demande. La branche `3d` existe encore sur GitHub (suppression impossible avec les outils de l'assistant) : à supprimer à la main.
 
 ## 1. Objectif du projet
 Jeu web de survie en vue de dessus, pensé **mobile en portrait** (style jeu de tir pixel art) : le joueur affronte des vagues de zombies de plus en plus dures, avec plusieurs armes, des boss et un meilleur score sauvegardé. Jouable au tactile (joystick + bouton de tir) et au clavier/souris.
@@ -35,7 +36,7 @@ Voir `plan.md` (2D) et `3d/plan.md` (3D) pour le détail. Principe : la **logiqu
 - v2.5.0 : `objectives.js` (générateur / zone / survivant / allié), `events.js` (embuscade, panne, largage), `spots.js` (emplacements libres) ; `stats.js` gère aussi l'atelier et les synergies
 - v3.0.0 : `citymap.js` (carte pure : 6 zones, obstacles, points de contrôle, ravitaillements, caches), `cityart.js` (décor pré-rendu), `city.js` (population, checkpoints, sauvegarde, caméra)
 - `tests/smoke.mjs` : simulation headless avec DOM factice
-- **v4 (branche `3d`)** : `3d/` (jeu 3D complet : voir section 13), `tests/sim3d.mjs` (12 tests de la simulation 3D), `tools/obj2glb.py` (convertisseur OBJ→GLB), `assets/models/` (modèles 3D) et `assets/README_ASSETS.md`
+- **v4 (dossier `3d/`)** : jeu 3D complet (voir section 13), `tests/sim3d.mjs` (12 tests de la simulation 3D), `tools/obj2glb.py` (convertisseur OBJ→GLB), `assets/models/` (modèles 3D) et `assets/README_ASSETS.md`
 
 ## 4. Fonctionnalités développées
 - **Style mobile portrait** inspiré de la référence fournie : HUD en haut (santé, arme/munitions, score, vague, pause), joystick à gauche, **bouton de tir rouge à droite avec visée automatique** sur le zombie le plus proche, boutons changer d'arme et recharger
@@ -101,9 +102,10 @@ Voir `plan.md` (2D) et `3d/plan.md` (3D) pour le détail. Principe : la **logiqu
 
 - v3.0.0 : `state.w/h` désignent désormais le **monde** ; `state.vw/vh` l'écran (rendu, HUD, voiles plein écran) ; la souris est convertie en coordonnées monde (`input.js` ajoute la caméra) ; `resetState(city)` construit le monde ; `waves.js` ne fait rien en ville ; `zombies.js` gère repos / alerte
 
-- 2026-11-23 : l'utilisateur demande de **modifier le jeu de A à Z** en vrai jeu d'apocalypse zombie avec **modèles 3D qu'il fournit**. Décisions : vue 3e personne, mobile d'abord, nouvelle base three.js sur la **branche `3d`** (dossier `3d/`), le jeu 2D reste jouable sur `main`. Packs reçus : Zombie Apocalypse Kit, Medieval Village MegaKit (Standard), pack « survivant », Ultimate Crops Pack, Free Urban Zombie Sprite Sheet (2D, non utilisé). Capture de référence : jeu mobile 3e personne (caméra par-dessus l'épaule, joystick gauche, boutons à droite, barres de vie/endurance et slot d'arme en bas).
+- 2026-11-23 : l'utilisateur demande de **modifier le jeu de A à Z** en vrai jeu d'apocalypse zombie avec **modèles 3D qu'il fournit**. Décisions : vue 3e personne, mobile d'abord, nouvelle base three.js dans le dossier `3d/` (le jeu 2D reste jouable à la racine). Packs reçus : Zombie Apocalypse Kit, Medieval Village MegaKit (Standard), pack « survivant », Ultimate Crops Pack, Free Urban Zombie Sprite Sheet (2D, non utilisé). Capture de référence : jeu mobile 3e personne (caméra par-dessus l'épaule, joystick gauche, boutons à droite, barres de vie/endurance et slot d'arme en bas).
 - 2026-11-23 : assets allégés pour le mobile (textures du village 4096/2048 → 512 px, normales/ORM supprimées), props OBJ → GLB (`tools/obj2glb.py`), archive livrée à l'utilisateur qui l'a placée dans `assets/`.
-- 2026-11-23/24 : **v4.0.0-alpha** poussée sur la branche `3d` en 4 commits : simulation 3D testable, rendu three.js, HUD tactile, mode paysage obligatoire (`orient.js`). Voir section 13.
+- 2026-11-23/24 : **v4.0.0-alpha** écrite en 4 commits sur une branche `3d` : simulation 3D testable, rendu three.js, HUD tactile, mode paysage obligatoire (`orient.js`). Voir section 13.
+- 2026-11-24 : **branche `3d` fusionnée dans `main`** (PR n°1, commit de fusion `ead3230`) à la demande de l'utilisateur, qui ne veut qu'une seule branche. `main` contient donc le 2D (racine) et le 3D (`3d/`).
 
 ## 7. Problèmes rencontrés et solutions
 | Problème | Solution |
@@ -135,6 +137,7 @@ Voir `plan.md` (2D) et `3d/plan.md` (3D) pour le détail. Principe : la **logiqu
 | (3D) Test de simulation : file d'attente factice contenant un nombre → `ZOMBIES[1]` indéfini | Les tests mettent `state='intermission'` au lieu de simuler une file |
 | (3D) HUD portrait : bloc munitions superposé aux boutons | Déplacé au-dessus du joystick ; puis mode paysage rendu obligatoire |
 | (3D) Drive partagé non lisible (Entité introuvable) | L'utilisateur a envoyé les archives directement dans le chat |
+| Suppression d'une branche GitHub : aucun outil dédié, `gh api -X DELETE` refusé par le proxy (403) | À faire à la main : page Branches de GitHub (corbeille) ou `git push origin --delete 3d` |
 
 ## 8. Dépendances installées
 Aucune dépendance npm. (`serve` est lancé à la demande par `npm start` via `npx`.)
@@ -159,20 +162,21 @@ Notes de mise au point :
 - Environnement : `git push` bloqué par le proxy (403) → envoi via le connecteur GitHub (`push_files`), fichiers texte uniquement.
 
 ## 11. État actuel du projet
-**Jeu 3D (branche `3d`, v4.0.0-alpha)** : code complet écrit et poussé ; la **simulation** est testée (12 tests OK : tirs, fusil à pompe, rechargement, attaque des zombies, objets, bot de 4 minutes → vague 6, 97 kills, aucune valeur invalide, aucun zombie coincé dans un mur, départ libre pour 7 graines de carte). La **couche de rendu three.js n'a JAMAIS été exécutée** : le bac à sable n'a ni three.js ni réseau. Seuls vérifiés : syntaxe de tous les modules, cohérence des identifiants HTML/JS, rendu du HUD (captures paysage + portrait) et de l'écran « tournez votre téléphone » dans Chromium. À valider sur téléphone : chargement des modèles, placement de l'arme dans la main (`WEAPON_HAND`), échelle des personnages, orientation des routes, fusion des maisons, performances, sensibilité de la caméra.
+**Jeu 3D (`3d/`, sur `main`, v4.0.0-alpha)** : code complet écrit et fusionné ; la **simulation** est testée (12 tests OK : tirs, fusil à pompe, rechargement, attaque des zombies, objets, bot de 4 minutes → vague 6, 97 kills, aucune valeur invalide, aucun zombie coincé dans un mur, départ libre pour 7 graines de carte). La **couche de rendu three.js n'a JAMAIS été exécutée** : le bac à sable n'a ni three.js ni réseau. Seuls vérifiés : syntaxe de tous les modules, cohérence des identifiants HTML/JS, rendu du HUD (captures paysage + portrait) et de l'écran « tournez votre téléphone » dans Chromium. À valider sur téléphone : chargement des modèles, placement de l'arme dans la main (`WEAPON_HAND`), échelle des personnages, orientation des routes, fusion des maisons, performances, sensibilité de la caméra.
 Assets : `assets3d.zip` (26 Mo) posé par l'utilisateur dans `assets/` ; `assets3d_vegetation.zip` (70 Ko, dossier `assets/models/vegetation`) livré à part (absent = herbe non affichée, sans erreur).
 
-Jeu 2D (`main`) : Version 3.0.0 (poussée sur GitHub en 9 commits « v3.0.0 (n/9) » + docs + tests ; seul `assets/cover.jpg` reste à ajouter manuellement) : mode Ville ajouté (voir section 4) ; tests OK (bot arène vague 16, 2 minutes de balade en ville, population max 34) ; captures mobile contrôlées, aucune erreur JS. Équilibrage de la ville (densités, aggro) à valider à la main : `CITY` dans `config.js`, `ZONES` dans `citymap.js`. Avant : Version 2.5.0 (esquive, critiques, élites, invocateur, événements, objectifs, pièces + atelier, synergies, game feel). Avant : v2.4.0 (sprites Meshy retirés, retour au pixel art). Avant : v2.3.1. Non testé sur de vrais appareils.
+Jeu 2D (racine) : Version 3.0.0 (poussée sur GitHub en 9 commits « v3.0.0 (n/9) » + docs + tests ; seul `assets/cover.jpg` reste à ajouter manuellement) : mode Ville ajouté (voir section 4) ; tests OK (bot arène vague 16, 2 minutes de balade en ville, population max 34) ; captures mobile contrôlées, aucune erreur JS. Équilibrage de la ville (densités, aggro) à valider à la main : `CITY` dans `config.js`, `ZONES` dans `citymap.js`. Avant : Version 2.5.0 (esquive, critiques, élites, invocateur, événements, objectifs, pièces + atelier, synergies, game feel). Avant : v2.4.0 (sprites Meshy retirés, retour au pixel art). Avant : v2.3.1. Non testé sur de vrais appareils.
 
 ## 12. Prochaines étapes
-0. **(3D) Tester `http://…/3d/` sur téléphone en paysage** et remonter les problèmes visibles (écran noir, modèles minuscules/géants, arme mal placée, caméra, perfs). Régler `js/config.js` (`WEAPON_HAND`, `CAMERA`, `PLAYER.scale`, `ZOMBIES[*].scale/h`).
+0. **(3D) Tester `http://…/3d/` sur téléphone en paysage** et remonter les problèmes visibles (écran noir, modèles minuscules/géants, arme mal placée, caméra, perfs). Régler `js/config.js` du dossier `3d/` (`WEAPON_HAND`, `CAMERA`, `PLAYER.scale`, `ZOMBIES[*].scale/h`).
 1. (3D) Intérieurs de maisons (portes ouvrables), améliorations (perks) entre les vagues, atelier, campagne / niveaux, armes de mêlée (hache, batte : modèles déjà fournis), véhicules, cycle jour/nuit, boss, musique.
-2. (3D) Fusionner `3d` dans `main` et faire du 3D le jeu par défaut quand il est validé (le 2D peut passer dans `legacy/`).
+2. (3D) Quand il est validé : en faire le jeu par défaut (page d'accueil à la racine qui redirige vers `3d/`, ou déplacer le 2D dans `legacy/`).
 3. Ville 2D : intérieurs de bâtiments, cycle jour/nuit, quêtes par zone, boss à l'hôpital, plus de zones (agrandir `CITY.cols/rows`)
 4. Ajouter `assets/cover.jpg` au dépôt GitHub (binaire non poussable par les outils disponibles) ; sans lui, chargement et menu s'affichent sur fond uni
 5. Activer GitHub Pages pour jouer en ligne
+6. Supprimer à la main la branche `3d` restante sur GitHub (déjà fusionnée dans `main`).
 
-## 13. Jeu 3D — v4.0.0-alpha (branche `3d`, dossier `3d/`)
+## 13. Jeu 3D — v4.0.0-alpha (dossier `3d/`, fusionné dans `main`)
 **Cible** : survie zombie en 3e personne, mobile d'abord, **jouable uniquement en paysage** (écran « tournez votre téléphone » en portrait tactile + verrouillage d'orientation en plein écran quand le navigateur l'autorise ; `3d/js/orient.js`).
 
 **Architecture en deux couches** (détail dans `3d/plan.md`) :
