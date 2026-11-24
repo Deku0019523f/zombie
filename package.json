@@ -1,12 +1,11 @@
 {
-  "name": "zombie-survival",
+  "name": "dernier-rempart-3d",
   "version": "4.0.0-alpha",
-  "description": "Jeu de survie contre des vagues de zombies (HTML/CSS/JS, modules ES) — version 2D à la racine, version 3D dans 3d/",
+  "private": true,
   "type": "module",
   "scripts": {
-    "start": "npx --yes serve .",
-    "test": "node tests/smoke.mjs",
+    "start": "npx serve . -l 3000",
+    "test": "node tests/sim3d.mjs",
     "test:3d": "node tests/sim3d.mjs"
-  },
-  "license": "MIT"
+  }
 }
