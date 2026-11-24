@@ -1,7 +1,7 @@
 // Simulation du jeu (aucune dépendance à three.js ni au DOM) : joueur, armes, zombies, vagues, objets.
 // Le rendu lit l'état (sim.player, sim.zombies, sim.pickups) et consomme sim.drain() (événements).
 import { CAMERA, PLAYER, WEAPONS, WEAPON_ORDER, ASSIST, HEAD_MULT, ZOMBIES, ZOMBIE_AGGRO, ALERT_RADIUS, RUN_ABOVE, WAVE, PICKUP } from './config.js';
-import { clamp, lerpAngle, pushOut, raySphere, normalize3, cameraRig } from './logic.js';
+import { clamp, lerpAngle, wrapAngle, pushOut, raySphere, normalize3, cameraRig } from './logic.js';
 
 export class Sim {
   constructor(layout, rng = Math.random) {
@@ -59,11 +59,14 @@ export class Sim {
     p.x = clamp(p.x, -H, H); p.z = clamp(p.z, -H, H);
     pushOut(p, PLAYER.radius, this.layout.colliders);
     P.x = p.x; P.z = p.z; P.speed = speed; P.moving = mag > 0.1;
+    // Le corps suit la direction de marche, mais jamais dos à la caméra : en reculant on garde le regard vers l'avant (pas de face à la caméra).
     let target = P.face;
     if (inp.fire || this.reloadT > 0) target = this.yaw;
-    else if (P.moving) target = Math.atan2(vx, vz);
-    else target = P.face;
-    P.face = lerpAngle(P.face, inp.fire ? this.yaw : target, Math.min(1, PLAYER.turn * dt));
+    else if (P.moving) {
+      const am = Math.atan2(vx, vz);
+      target = Math.abs(wrapAngle(am - this.yaw)) > Math.PI / 2 ? am + Math.PI : am;
+    }
+    P.face = lerpAngle(P.face, target, Math.min(1, PLAYER.turn * dt));
     P.hurtT = Math.max(0, P.hurtT - dt);
   }
 
@@ -281,6 +284,41 @@ export class Sim {
       z.x = p.x; z.z = p.z;
       z.face = lerpAngle(z.face, Math.atan2(ux, uz), Math.min(1, 10 * dt));
       z.anim = z.speed > RUN_ABOVE ? 'run' : 'walk';
+    }
+    this.separate();
+  }
+
+  // Séparation « dure » : les zombies ne s'empilent plus (même en attaquant) et ne passent pas à travers le joueur.
+  separate() {
+    const P = this.player, Z = this.zombies, cols = this.layout.colliders;
+    const live = Z.filter(z => !z.dead);
+    for (let it = 0; it < 2; it++) {
+      for (let i = 0; i < live.length; i++) {
+        const a = live[i], Ta = ZOMBIES[a.type];
+        for (let j = i + 1; j < live.length; j++) {
+          const b = live[j], Tb = ZOMBIES[b.type];
+          const dx = b.x - a.x, dz = b.z - a.z, min = (Ta.radius + Tb.radius) * 0.85;
+          const d2 = dx * dx + dz * dz;
+          if (d2 >= min * min) continue;
+          const d = Math.sqrt(d2);
+          const ux = d > 0.001 ? dx / d : Math.cos(a.id * 2.4), uz = d > 0.001 ? dz / d : Math.sin(a.id * 2.4);
+          const push = (min - d) / 2;
+          a.x -= ux * push; a.z -= uz * push; b.x += ux * push; b.z += uz * push;
+        }
+        if (!P.dead) {
+          const dx = a.x - P.x, dz = a.z - P.z, min = PLAYER.radius + Ta.radius * 0.8, d = Math.hypot(dx, dz);
+          if (d < min) {
+            const ux = d > 0.001 ? dx / d : 1, uz = d > 0.001 ? dz / d : 0;
+            a.x = P.x + ux * min; a.z = P.z + uz * min;
+          }
+        }
+      }
+    }
+    const H = this.layout.half - 1;
+    for (const z of live) {
+      const p = { x: clamp(z.x, -H, H), z: clamp(z.z, -H, H) };
+      pushOut(p, ZOMBIES[z.type].radius, cols);
+      z.x = p.x; z.z = p.z;
     }
   }
 
