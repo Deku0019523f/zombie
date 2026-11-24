@@ -13,4 +13,6 @@ tools/obj2glb.py      convertisseur OBJ+MTL -> GLB
 RAPPORT.md            mémoire du projet
 ```
 
+**Direction actuelle (2026-11-24) : refonte « survie »** (cabane de départ, besoins, fouille, construction d'abris, jour / nuit, plus de vagues) : voir `3d/plan.md` section « REFONTE SURVIE ».
+
 Principe : simulation pure (`config, logic, layout, sim`) séparée du rendu (`assets, world, view, fx, audio, input, ui, game, main, orient`). Jeu en PAYSAGE obligatoire.

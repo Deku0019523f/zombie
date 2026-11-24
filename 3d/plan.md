@@ -1,6 +1,45 @@
 # plan.md — Dernier Rempart 3D (dossier `3d/`)
 
-Structure détaillée de la refonte 3D. Le jeu 2D historique (racine du dépôt, `js/`, `index.html`) reste intact ; voir `../plan.md`.
+Structure détaillée du jeu 3D. Le jeu 2D historique (racine du dépôt, `js/`, `index.html`) a été retiré ; voir `../plan.md`.
+
+## REFONTE « SURVIE » (v5.0) — décision du 2026-11-24
+L'utilisateur ne veut **pas** un jeu de vagues mais un **jeu de survivant d'apocalypse** (références : Apocalypse Survival, jeux mobiles de survie avec inventaire). Exigences :
+1. Début de partie **dans une cabane**, avec le **strict minimum** (un couteau, 1 bouteille d'eau ; une caisse dans la cabane : 1 conserve + 1 bandage).
+2. Pouvoir **créer des abris** pour se protéger (récolter du bois, poser murs / portes / feu de camp ; les zombies attaquent les constructions).
+3. Plus de vagues, de score ni de « restants » : on survit jour après jour jusqu'à la mort.
+
+### Liste des modifications (état : [x] fait · [ ] à faire)
+**Étape 1 — socle survie**
+- [ ] Suppression des vagues (`WAVE`, `startWave`, bannières, « restants », score). Partie continue ; la mort affiche jours survécus + zombies tués.
+- [ ] Cabane de départ 6 x 6 m dans une clairière au sud-ouest de la carte (murs statiques + toit + lit + caisse), **porte fermée** (pièce destructible) ; le joueur apparaît à l'intérieur, face à la porte.
+- [ ] Équipement de départ minimal : couteau (mêlée), 1 eau. Plus d'arme à feu au départ.
+- [ ] Zombies dispersés (≈ 30 le jour, 40 la nuit) : au repos ou en errance, repèrent le joueur selon la vue et le bruit (course = bruyant, immobile = discret), perdent sa trace s'il s'éloigne ; réapparition hors de vue.
+- [ ] Cycle jour / nuit (1 jour = 14 min réelles) : ciel, brume, lumière ; lampe du joueur la nuit ; plus de zombies la nuit.
+- [ ] Les balles et les coups sont arrêtés par les murs (maisons, abris) ; la caméra ne traverse plus les murs.
+**Étape 2 — besoins**
+- [ ] Faim et soif (barres), perte de PV à zéro ; saignement après une morsure (bandage pour l'arrêter) ; régénération lente si bien nourri.
+**Étape 3 — inventaire et fouille**
+- [ ] Inventaire par compteurs (bois, conserve, eau, bandage, munitions) + barre rapide de 3 emplacements (bandage / conserve / eau) comme sur les références.
+- [ ] Fouille des points de butin (porches de maisons, conteneurs, épaves, barils, sacs-poubelle, caisses) : butin aléatoire, se remplit à nouveau après un moment.
+- [ ] Armes trouvées : hache, batte, pistolet (rare, bruyant, munitions limitées). Mêlée par défaut.
+**Étape 4 — abris et construction**
+- [ ] Récolte du bois : frapper les arbres (couteau / hache) ; un arbre s'épuise et devient souche.
+- [ ] Mode construction (bouton marteau) : mur (2 bois), porte (3 bois), feu de camp (3 bois), aimantés sur une grille de 2 m ; aperçu vert / rouge.
+- [ ] Les constructions ont des PV ; les zombies bloqués les attaquent ; une pièce détruite disparaît. Portes ouvrables / fermables (bouton Utiliser).
+- [ ] Feu de camp : lumière et soin lent à proximité.
+**Étape 5 — à venir** : armes à usure, objets à lancer (distraction), réparation des murs, établi, sac à dos (capacité).
+**Étape 6 — à venir** : intérieurs de maisons, véhicules, survivants, sauvegarde multi-emplacements.
+- [ ] Sauvegarde automatique (localStorage `zs3d_save`) : position, besoins, inventaire, constructions, arbres coupés, butin fouillé, heure. Bouton CONTINUER.
+
+### Fichiers touchés / ajoutés
+- `config.js` : + `SURVIVAL`, `ITEMS`, `PIECES`, `LOOT`, armes de mêlée ; − `WAVE`.
+- `layout.js` : + cabane (`cabin`, `spawn`), `lootSpots`, arbres avec leur collider.
+- `logic.js` : + `segBox` / `segBlocked` (rayon contre boîtes, balles, coups, vue, caméra).
+- `sim.js` : cœur (joueur, mêlée / tir, zombies). `survival.js` (nouveau) : temps, besoins, inventaire, butin, construction, sauvegarde (greffé sur `Sim`).
+- `world.js` : cabane, ciel / lumières pilotés par l'heure, arbres abattables. `view.js` : pièces construites, aperçu, lampe, animations de mêlée.
+- `ui.js`, `input.js`, `index.html`, `css/style.css` : HUD survie, bouton Utiliser, mode construction, barre rapide.
+- `audio.js` : coups, abattage, construction, porte, manger / boire / bandage.
+- `tests/sim3d.mjs` : tests adaptés + nouveaux tests (cabane, besoins, butin, construction, zombies contre murs, sauvegarde).
 
 ## Principe d'architecture
 Deux couches strictement séparées :
@@ -41,8 +80,8 @@ assets/models/          characters, weapons, vehicles, environment, village, pro
 - Objets : `props/FirstAidKit.glb`, `village/Prop_Crate.gltf` (munitions), `environment/Chest_Special.gltf` (arme).
 
 ## Boucle de jeu
-Menu → `Sim.reset()` → manche : intermission (3 s puis 6 s) → vague n (file de zombies, 18 vivants max) → vague terminée (bonus) → n+1 … → mort → game over (record local).
-Déblocage d'armes par caisses : fusil à pompe vague 2, mitraillette vague 4, fusil vague 7.
+(Ancienne boucle par vagues : supprimée par la refonte survie, voir ci-dessus.)
+Nouvelle boucle : Menu (NOUVELLE PARTIE / CONTINUER) → départ dans la cabane → fouiller, récolter, construire, se battre, manger / boire → jours et nuits qui passent → mort → game over (jours survécus, zombies tués ; record de jours).
 
 ## Formules utiles
 - Orientation : yaw 0 = regard vers +Z ; direction `(sin yaw, cos yaw)` ; droite `(-cos yaw, sin yaw)` ; glisser vers la droite = `yaw` diminue.
