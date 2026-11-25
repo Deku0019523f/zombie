@@ -1,6 +1,6 @@
 // Couche de rendu : transforme l'état de la simulation en scène three.js (aucune logique de jeu ici).
 import * as THREE from 'three';
-import { CAMERA, PLAYER, ZOMBIES, WEAPONS, WEAPON_HAND } from './config.js';
+import { CAMERA, PLAYER, ZOMBIES, WEAPONS, WEAPON_HAND, PIECES } from './config.js';
 import { instance, placeholder } from './assets.js';
 import { buildWorld } from './world.js';
 import { Fx, shadowTexture } from './fx.js';
@@ -40,7 +40,10 @@ export class View {
     this.world = buildWorld(this.scene, sim.layout);
     this.fx = new Fx(this.scene);
     this.shadowTex = shadowTexture();
-    this.zviews = new Map(); this.pviews = new Map();
+    this.zviews = new Map(); this.pviews = new Map(); this.piecev = new Map(); this.ghost = null; this.swingAnim = 0; this.lastDay = -1;
+    this.torch = new THREE.PointLight(0xffe2a8, 0, 16, 1.6); this.scene.add(this.torch);
+    for (const t of sim.trees) if (t.felled) this.world.fellTree(t.i);
+    for (const r of sim.rocks) if (r.gone) this.world.removeRock(r.i);
     this.kick = 0; this.t = 0; this.orbit = 0;
     this.makePlayer();
     this.resize(); window.addEventListener('resize', () => this.resize());
@@ -66,8 +69,7 @@ export class View {
     this.player = new Actor(inst, PLAYER.scale);
     this.player.root.add(this.blob(0.6));
     // three.js retire les points des noms de nœuds glTF ('Middle1.L' devient 'Middle1L') : on cherche les deux formes.
-    const find = (n) => this.player.model.getObjectByName(n) || this.player.model.getObjectByName(n.replace(/[.\[\]:\/]/g, ''));
-    for (const n of WEAPON_HAND.hide) { const o = find(n); if (o) o.visible = false; }
+    const find = this.find = (n) => this.player.model.getObjectByName(n) || this.player.model.getObjectByName(n.replace(/[.\[\]:\/]/g, ''));
     this.hand = find(WEAPON_HAND.bone);
     if (!this.hand) { console.warn('[view] os de la main introuvable :', WEAPON_HAND.bone); this.hand = this.player.root; }
     this.weaponObj = null; this.weaponId = null;
@@ -77,9 +79,13 @@ export class View {
 
   setWeapon(id) {
     if (this.weaponObj) this.hand.remove(this.weaponObj);
-    const inst = instance(WEAPONS[id].model);
+    const W = WEAPONS[id];
+    for (const n of WEAPON_HAND.hide) { const o = this.find(n); if (o) o.visible = (n === W.builtin); }
+    if (W.builtin) { this.weaponObj = null; this.weaponId = id; return; }
+    const inst = instance(W.model);
     this.weaponObj = inst ? inst.object : null; this.weaponId = id;
     if (!this.weaponObj) return;
+    if (W.melee) this.weaponObj.scale.setScalar(0.5);
     this.weaponObj.position.set(...WEAPON_HAND.pos);
     this.weaponObj.quaternion.set(...WEAPON_HAND.quat);
     this.hand.add(this.weaponObj);
@@ -90,6 +96,7 @@ export class View {
   // (canon vers l'avant du personnage, légèrement relevé selon la visée) quelle que soit l'animation de la main.
   aimWeapon() {
     if (!this.weaponObj || this.hand === this.player.root) return;
+    if (WEAPONS[this.weaponId].melee) return;
     const root = this.player.root; root.updateMatrixWorld(true);
     this.hand.getWorldQuaternion(_qh); root.getWorldQuaternion(_qr);
     _qa.setFromAxisAngle(_ax, -this.sim.pitch * 0.6);
@@ -120,12 +127,63 @@ export class View {
   // ---------------------------------------------------------------- objets ramassables
   makePickup(pk) {
     const g = new THREE.Group();
-    const spec = { med: ['props/FirstAidKit.glb', 1.0, 0x33dd66], ammo: ['village/Prop_Crate.gltf', 0.4, 0xffc833], weapon: ['environment/Chest_Special.gltf', 0.8, 0x44ddff] }[pk.kind];
+    const spec = { bandage: ['props/Bandages.glb', 1.3, 0x33dd66], food: ['props/Can_Closed.glb', 0.7, 0xffc833], water: ['props/WaterBottle_1.glb', 0.3, 0x44aaff] }[pk.kind] || ['village/Prop_Crate.gltf', 0.35, 0xffffff];
     const inst = instance(spec[0]) || placeholder(spec[2], 0.5, 0.25);
     inst.object.scale.setScalar(spec[1]); g.add(inst.object);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 28), new THREE.MeshBasicMaterial({ color: spec[2], transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring);
     g.userData.obj = inst.object; this.scene.add(g); return g;
+  }
+
+  // après reset / chargement : remet le décor à l'état de la simulation
+  syncWorld() {
+    for (const g of this.piecev.values()) this.scene.remove(g); this.piecev.clear();
+    for (const g of this.pviews.values()) this.scene.remove(g); this.pviews.clear();
+    for (const a of this.zviews.values()) this.scene.remove(a.root); this.zviews.clear();
+    for (const t of this.sim.trees) t.felled ? this.world.fellTree(t.i) : this.world.restoreTree(t.i);
+    for (const r of this.sim.rocks) r.gone ? this.world.removeRock(r.i) : this.world.restoreRock(r.i);
+    this.weaponId = null;
+  }
+
+  // ---------------------------------------------------------------- constructions
+  fit(obj, len, h) {
+    const b = new THREE.Box3().setFromObject(obj), sz = b.getSize(new THREE.Vector3());
+    const long = Math.max(sz.x, sz.z) || 1; const k = len / long;
+    obj.scale.set(k, h / (sz.y || 1), k);
+    const b2 = new THREE.Box3().setFromObject(obj), c = b2.getCenter(new THREE.Vector3());
+    const w = new THREE.Group(); obj.position.set(-c.x, -b2.min.y, -c.z); w.add(obj);
+    if (sz.z > sz.x) w.rotation.y = Math.PI / 2;
+    const out = new THREE.Group(); out.add(w); return out;
+  }
+  makePiece(pc) {
+    const g = new THREE.Group();
+    if (pc.kind === 'fire') {
+      const inst = instance('props/Bonfire.glb') || placeholder(0xff8833, 0.5, 0.4);
+      inst.object.scale.setScalar(0.45); g.add(inst.object);
+      const l = new THREE.PointLight(0xff9a3c, 2.2, 13, 1.5); l.position.y = 1.1; g.add(l); g.userData.light = l;
+      const f = instance('props/Bonfire_Fire.glb'); if (f) { f.object.scale.setScalar(0.45); g.add(f.object); }
+    } else if (pc.kind === 'door') {
+      const inst = instance('village/Door_1_Flat.gltf') || placeholder(0x7a5230, 2.2, 0.3);
+      const pivot = new THREE.Group(); pivot.add(this.fit(inst.object, 1.9, 2.2)); g.add(pivot); g.userData.pivot = pivot;
+    } else {
+      const name = pc.kind === 'stone' ? 'village/Wall_UnevenBrick_Straight.gltf' : 'village/Prop_WoodenFence_Single.gltf';
+      const inst = instance(name) || placeholder(pc.kind === 'stone' ? 0x888888 : 0x8a5a2b, 2.2, 0.3);
+      g.add(this.fit(inst.object, 2.0, PIECES[pc.kind].h));
+    }
+    g.position.set(pc.x, 0, pc.z); g.rotation.y = pc.kind === 'fire' ? 0 : pc.yaw;
+    this.scene.add(g); return g;
+  }
+  ghostView(gh) {
+    if (!gh) { if (this.ghost) this.ghost.visible = false; return; }
+    if (!this.ghost || this.ghost.userData.kind !== gh.kind) {
+      if (this.ghost) this.scene.remove(this.ghost);
+      const D = PIECES[gh.kind], fire = gh.kind === 'fire';
+      const m = new THREE.Mesh(fire ? new THREE.CylinderGeometry(0.45, 0.45, 0.5, 14).translate(0, 0.25, 0) : new THREE.BoxGeometry(2, D.h, 0.3).translate(0, D.h / 2, 0),
+        new THREE.MeshBasicMaterial({ color: 0x44ff66, transparent: true, opacity: 0.45, depthWrite: false }));
+      m.userData.kind = gh.kind; this.scene.add(m); this.ghost = m;
+    }
+    const m = this.ghost; m.visible = true; m.position.set(gh.x, 0, gh.z); m.rotation.y = gh.yaw;
+    m.material.color.setHex(gh.ok ? 0x44ff66 : 0xff4444);
   }
 
   // ---------------------------------------------------------------- événements → effets visuels
@@ -136,6 +194,11 @@ export class View {
       else if (e.type === 'recoil') this.kick = Math.min(0.12, this.kick + e.amount);
       else if (e.type === 'swap') this.setWeapon(e.w);
       else if (e.type === 'kill') this.fx.splash([e.x, 1.0, e.z], 12);
+      else if (e.type === 'swing') { this.swingAnim = 0.42; this.swingStart = true; }
+      else if (e.type === 'treeFelled') this.world.fellTree(e.i);
+      else if (e.type === 'rockGone') this.world.removeRock(e.i);
+      else if (e.type === 'chop') this.fx.splash([e.x, 1.2, e.z], 3, false);
+      else if (e.type === 'pieceBreak') this.fx.splash([e.x, 1.0, e.z], 8);
     }
   }
 
@@ -147,11 +210,31 @@ export class View {
     // joueur
     const pa = this.player;
     pa.root.position.set(P.x, 0, P.z); pa.root.rotation.y = P.face;
+    const W = WEAPONS[sim.cur], gun = !W.melee, sfx = gun ? '_Gun' : '';
+    const alt = (n, f) => (pa.has(n) ? n : f);
+    this.swingAnim = Math.max(0, this.swingAnim - dt);
     if (P.dead) pa.play('Death', { loop: false, fade: 0.1 });
-    else if (P.sprinting) pa.play('Run_Gun', { speed: 1.15 });
-    else if (P.moving) pa.play(P.speed > 4.2 ? 'Run_Gun' : 'Walk_Gun', { speed: Math.max(0.7, P.speed / 3.6) });
-    else pa.play('Idle_Gun');
+    else if (!gun && this.swingAnim > 0) { if (this.swingStart) { this.swingStart = false; pa.name = null; pa.play(alt(W.anim, 'Idle'), { loop: false, fade: 0.06, speed: 1.7 }); } }
+    else if (P.sprinting) pa.play(alt('Run' + sfx, 'Run'), { speed: 1.15 });
+    else if (P.moving) pa.play(alt((P.speed > 4.2 ? 'Run' : 'Walk') + sfx, 'Walk'), { speed: Math.max(0.7, P.speed / 3.6) });
+    else pa.play(alt('Idle' + sfx, 'Idle'));
     pa.update(dt); this.aimWeapon();
+
+    // constructions
+    const cs = new Set();
+    for (const pc of sim.pieces) {
+      cs.add(pc.id); let g = this.piecev.get(pc.id);
+      if (!g) { g = this.makePiece(pc); this.piecev.set(pc.id, g); }
+      if (g.userData.pivot) g.userData.pivot.rotation.y += ((pc.open ? -1.45 : 0) - g.userData.pivot.rotation.y) * Math.min(1, dt * 9);
+      if (g.userData.light) g.userData.light.intensity = 2.0 + Math.sin(this.t * 13 + pc.x) * 0.35 + Math.sin(this.t * 7.3) * 0.2;
+    }
+    for (const [id, g] of this.piecev) if (!cs.has(id)) { this.scene.remove(g); this.piecev.delete(id); }
+    this.ghostView(sim.build.on ? sim.build.ghost : null);
+
+    // lumière du jour + lampe torche
+    const dl = sim.daylight(); this.world.setDaylight(dl);
+    this.torch.position.set(P.x + Math.sin(P.face) * 0.6, 2.0, P.z + Math.cos(P.face) * 0.6);
+    this.torch.intensity = THREE.MathUtils.lerp(this.torch.intensity, dl < 0.5 ? 1.6 * (1 - dl) : 0, Math.min(1, dt * 3));
 
     // zombies
     const seen = new Set();
@@ -159,6 +242,7 @@ export class View {
       seen.add(z.id);
       let a = this.zviews.get(z.id);
       if (!a) { a = this.makeZombie(z); this.zviews.set(z.id, a); }
+      a.root.visible = Math.hypot(z.x - P.x, z.z - P.z) < 70;
       a.root.position.set(z.x, z.dead && z.deadT > 3.5 ? -Math.min(1, (z.deadT - 3.5) * 0.5) * 0.9 : 0, z.z);
       a.root.rotation.y = z.face;
       this.zombieAnim(a, z); a.update(dt);
