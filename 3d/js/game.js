@@ -22,7 +22,7 @@ export async function boot() {
   const list = [
     PLAYER.model, ...WEAPON_ORDER.map(w => WEAPONS[w].model).filter(Boolean), ...Object.values(ZOMBIES).map(z => z.model),
     ...layout.models, ...HOUSE, ...[1, 2, 3, 4].map(i => `vegetation/Grass_${i}.glb`),
-    'props/FirstAidKit.glb', 'props/Bonfire.glb', 'props/Bonfire_Fire.glb', 'props/Shovel.glb', ...(layout.cabin.models || []),
+    'props/Bandages.glb', 'props/Can_Closed.glb', 'props/WaterBottle_1.glb', 'props/Bonfire.glb', 'props/Bonfire_Fire.glb', 'props/Shovel.glb', ...(layout.cabin.models || []),
   ];
   const failed = await loadAll(list, (p, n) => ui.loading(p, 'Chargement… ' + Math.round(p * 100) + ' %'));
   if (!has(PLAYER.model)) {
