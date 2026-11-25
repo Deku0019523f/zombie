@@ -1,5 +1,5 @@
 // Équilibrage et constantes du jeu 3D. Aucun import : module pur (testable sous Node).
-export const VERSION = '4.0.0-alpha';
+export const VERSION = '5.0.0-survie';
 export const MODELS = '../assets/models/';
 
 export const WORLD = { half: 56, fogNear: 22, fogFar: 85 };
@@ -35,12 +35,18 @@ export const WEAPON_HAND = {
   hide: ['Knife', 'WoodenBat_Saw'],
 };
 
-export const WEAPON_ORDER = ['pistol', 'shotgun', 'smg', 'rifle'];
+export const WEAPON_ORDER = ['knife', 'bat', 'axe', 'pick', 'pistol', 'shotgun', 'smg', 'rifle'];
+// melee : pas de munitions. tree / rock = ressources récoltées par coup (0 = impossible). noise = rayon (m) où les zombies entendent le coup.
+// builtin : objet déjà présent dans le modèle du joueur (couteau, batte) ; model : objet à attacher à la main.
 export const WEAPONS = {
-  pistol:  { name: 'Pistolet',   model: 'weapons/Pistol.gltf',  dmg: 24, interval: 0.30, mag: 12, reserve: 72,  reload: 1.3, spread: 0.014, range: 30, pellets: 1, auto: false, pierce: 1, kick: 0.012 },
-  shotgun: { name: 'Fusil à pompe', model: 'weapons/Shotgun.gltf', dmg: 12, interval: 0.85, mag: 6,  reserve: 30,  reload: 2.1, spread: 0.095, range: 15, pellets: 8, auto: false, pierce: 1, kick: 0.04 },
-  smg:     { name: 'Mitraillette', model: 'weapons/SMG.gltf',    dmg: 11, interval: 0.085, mag: 30, reserve: 150, reload: 1.8, spread: 0.04,  range: 26, pellets: 1, auto: true,  pierce: 1, kick: 0.008 },
-  rifle:   { name: 'Fusil',      model: 'weapons/Rifle.gltf',   dmg: 52, interval: 0.55, mag: 8,  reserve: 40,  reload: 2.0, spread: 0.004, range: 60, pellets: 1, auto: false, pierce: 3, kick: 0.025 },
+  knife:   { name: 'Couteau', melee: true, builtin: 'Knife',         dmg: 26, interval: 0.50, range: 1.9, arc: 1.0, tree: 1, rock: 0, noise: 6, anim: 'Stab' },
+  bat:     { name: 'Batte',   melee: true, builtin: 'WoodenBat_Saw', dmg: 42, interval: 0.80, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 8, anim: 'Slash' },
+  axe:     { name: 'Hache',   melee: true, model: 'weapons/Axe.gltf', dmg: 48, interval: 0.75, range: 2.0, arc: 1.1, tree: 2, rock: 0, noise: 9, anim: 'Slash' },
+  pick:    { name: 'Pioche',  melee: true, model: 'props/Shovel.glb', dmg: 30, interval: 0.85, range: 2.0, arc: 0.9, tree: 1, rock: 2, noise: 10, anim: 'Slash' },
+  pistol:  { name: 'Pistolet',   model: 'weapons/Pistol.gltf',  dmg: 24, interval: 0.30, mag: 12, reload: 1.3, spread: 0.014, range: 30, pellets: 1, auto: false, pierce: 1, kick: 0.012 },
+  shotgun: { name: 'Fusil à pompe', model: 'weapons/Shotgun.gltf', dmg: 12, interval: 0.85, mag: 6,  reload: 2.1, spread: 0.095, range: 15, pellets: 8, auto: false, pierce: 1, kick: 0.04 },
+  smg:     { name: 'Mitraillette', model: 'weapons/SMG.gltf',    dmg: 11, interval: 0.085, mag: 30, reload: 1.8, spread: 0.04,  range: 26, pellets: 1, auto: true,  pierce: 1, kick: 0.008 },
+  rifle:   { name: 'Fusil',      model: 'weapons/Rifle.gltf',   dmg: 52, interval: 0.55, mag: 8,  reload: 2.0, spread: 0.004, range: 60, pellets: 1, auto: false, pierce: 3, kick: 0.025 },
 };
 export const ASSIST = 0.17;       // visée assistée (rad ≈ 10°) : indispensable au tactile
 export const HEAD_MULT = 2.2;
@@ -56,20 +62,55 @@ export const ZOMBIE_AGGRO = 13;     // un zombie « au repos » nous remarque à
 export const ALERT_RADIUS = 34;     // un tir alerte les zombies proches
 export const RUN_ABOVE = 2.4;       // au-delà : animation de course
 
-export const WAVE = {
-  baseCount: 5, perWave: 3, maxCount: 70,
-  maxAlive: 18,          // plafond d'ennemis simultanés (mobile)
-  spawnEvery: 0.7,
-  spawnMin: 20, spawnMax: 30,
-  pause: 6,              // temps entre deux vagues
-  bonus: 50,             // points × numéro de vague
-  ambient: 8,            // zombies endormis au départ
-  unlocks: { 2: 'shotgun', 4: 'smg', 7: 'rifle' },   // caisse d'arme au début de ces vagues
-  medEvery: 2,           // caisse de soin toutes les N vagues
+// ---------------------------------------------------------------- SURVIE (v5)
+export const SURVIVAL = {
+  dayMinutes: 14,            // durée réelle d'un jour de jeu
+  startHour: 7.5,            // on commence le matin
+  hungerStart: 70, thirstStart: 60,
+  hungerPerSec: 100 / (16 * 60), thirstPerSec: 100 / (11 * 60),   // vide en 16 min / 11 min réelles
+  starveDmg: 1.2,            // PV/s quand faim ou soif à zéro
+  regen: 0.5,                // PV/s si bien nourri et sans saignement
+  bleedDmg: 1.5, bleedChance: 0.3,
+  bandageHeal: 15, foodGain: 35, waterGain: 40,
+  popDay: 26, popNight: 38, popStart: 24, popMax: 42,
+  spawnMin: 30, spawnMax: 48, despawn: 75, spawnEvery: 4,
+  sightDay: 13, sightNight: 10, hearing: 6, loseDist: 38,
+  lootRespawn: 480,          // s réelles avant qu'un point de butin se remplisse à nouveau
+  reach: 2.6, grid: 2,       // construction : distance devant le joueur, pas de la grille
+  fireRadius: 3.2, fireHeal: 1.2,
+  wanderRatio: 0.4,
+};
+
+export const ITEMS = {
+  wood:    { name: 'Bois',      icon: '🪵' },
+  stone:   { name: 'Pierre',    icon: '🪨' },
+  food:    { name: 'Conserve',  icon: '🥫' },
+  water:   { name: 'Eau',       icon: '💧' },
+  bandage: { name: 'Bandage',   icon: '🩹' },
+  ammo:    { name: 'Munitions', icon: '•' },
+};
+
+// Pièces constructibles. Une pierre dure 3 fois plus longtemps que le bois (demande d'Alec).
+export const PIECES = {
+  wall:  { name: 'Mur en bois',   cost: { wood: 2 },  hp: 120, h: 2.4 },
+  stone: { name: 'Mur en pierre', cost: { stone: 3 }, hp: 360, h: 2.4 },
+  door:  { name: 'Porte',         cost: { wood: 3 },  hp: 90,  h: 2.2 },
+  fire:  { name: 'Feu de camp',   cost: { wood: 3 },  hp: 40,  h: 0.6 },
+};
+export const PIECE_ORDER = ['wall', 'stone', 'door', 'fire'];
+
+// Tables de butin : [objet, min, max, chance]. « w » : arme possible [id, chance].
+export const LOOT = {
+  cabin:     { rolls: [['food', 1, 1, 1], ['bandage', 1, 1, 1]] },
+  tools:     { rolls: [['pick', 1, 1, 1]] },
+  house:     { rolls: [['food', 1, 2, 0.65], ['water', 1, 2, 0.6], ['bandage', 1, 1, 0.4], ['wood', 1, 2, 0.3], ['ammo', 3, 6, 0.1], ['bat', 1, 1, 0.07], ['axe', 1, 1, 0.07], ['pistol', 1, 1, 0.05]] },
+  container: { rolls: [['food', 1, 2, 0.5], ['water', 1, 2, 0.5], ['bandage', 1, 2, 0.5], ['ammo', 4, 8, 0.3], ['axe', 1, 1, 0.12], ['pistol', 1, 1, 0.12], ['shotgun', 1, 1, 0.04]] },
+  car:       { rolls: [['water', 1, 1, 0.3], ['bandage', 1, 1, 0.25], ['ammo', 2, 5, 0.25], ['wood', 1, 1, 0.2]] },
+  barrel:    { rolls: [['water', 1, 1, 0.35], ['wood', 1, 2, 0.4]] },
+  trash:     { rolls: [['food', 1, 1, 0.3], ['bandage', 1, 1, 0.12], ['wood', 1, 1, 0.25]] },
 };
 
 export const PICKUP = {
-  radius: 1.4, med: 35,
-  dropMed: 0.10, dropAmmo: 0.14,
-  ammoMagsPistol: 2, ammoMags: 1.5,
+  radius: 1.4,
+  dropBandage: 0.06, dropFood: 0.08, dropWater: 0.05,   // lâchés par les zombies tués
 };
