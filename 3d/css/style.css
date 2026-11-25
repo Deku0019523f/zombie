@@ -14,9 +14,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d0c; col
 #stickKnob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(255,255,255,.32); border: 2px solid rgba(255,255,255,.6); }
 
 .panel { position: absolute; left: calc(var(--safe-l) + 12px); top: calc(var(--safe-t) + 10px); padding: 8px 12px; background: var(--glass); border-left: 3px solid var(--accent); border-radius: 6px; min-width: 150px; text-shadow: 0 1px 2px #000; }
-#hudWave { font-weight: 800; letter-spacing: .08em; font-size: 15px; color: var(--accent); }
-.panel .sub { font-size: 12px; opacity: .85; margin: 1px 0 3px; }
-.panel .row { display: flex; justify-content: space-between; gap: 14px; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+#hudClock { font-weight: 800; letter-spacing: .06em; font-size: 14px; color: var(--accent); margin-bottom: 4px; }
+.need { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 13px; }
+.need i { font-style: normal; width: 18px; text-align: center; }
+.nbar { flex: 1; height: 8px; min-width: 96px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.25); border-radius: 2px; overflow: hidden; }
+.nbar > div { height: 100%; width: 100%; background: #e0a43a; } #barWater { background: #4ea8ff; } .nbar > div.low { background: var(--red); }
+.res { font-size: 13px; font-weight: 700; margin-top: 3px; letter-spacing: .03em; }
+#bleed { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); padding: 4px 10px; background: rgba(150,10,10,.7); border-radius: 6px; font-weight: 800; font-size: 13px; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .45; } }
 #topRight { position: absolute; right: calc(var(--safe-r) + 12px); top: calc(var(--safe-t) + 10px); display: flex; gap: 10px; pointer-events: auto; z-index: 3; }
 
 /* #hud .round : la règle « #hud > * { pointer-events: none } » est plus spécifique que « .round » seul et rendait les boutons intouchables. */
@@ -95,3 +100,18 @@ h2 { margin: 0; font-size: clamp(28px, 7vw, 48px); letter-spacing: .12em; } h2.r
   #hudAmmo { font-size: 19px; }
   #stickZone { top: 45%; }
 }
+
+/* ---------- survie : barre rapide, construction, bouton Utiliser ---------- */
+#hotbar { display: flex; gap: 6px; align-items: stretch; width: 100%; justify-content: center; }
+#hud .hslot { pointer-events: auto; position: relative; width: 44px; height: 46px; border: 2px solid rgba(255,255,255,.55); background: var(--glass); border-radius: 6px; color: var(--ink); font-size: 20px; padding: 0; touch-action: none; display: grid; place-items: center; font-family: inherit; }
+.hslot b { position: absolute; right: 3px; bottom: 0; font-size: 11px; text-shadow: 0 1px 2px #000; }
+.hslot.none { opacity: .4; } .hslot.down { background: rgba(255,138,31,.55); }
+#hotbar .slot { flex: 1; min-width: 0; padding: 4px 8px 6px; }
+#buildBar { width: 100%; text-align: center; background: var(--glass); border-radius: 8px; padding: 4px 6px 6px; border: 1px solid rgba(120,255,120,.45); }
+#buildInfo { font-size: 12px; margin-bottom: 4px; } #buildInfo.bad { color: #ff9a9a; } #buildInfo.good { color: #9dff9d; }
+.brow { display: flex; gap: 8px; justify-content: center; }
+#hud .bp.sel { border-color: var(--accent); background: rgba(255,138,31,.5); }
+#btnUse { right: calc(var(--safe-r) + 100px); bottom: calc(var(--safe-b) + 150px); }
+#btnUse small { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 800; padding: 1px 7px; border-radius: 6px; background: rgba(0,0,0,.65); color: #fff; margin-bottom: 2px; }
+#btnBuild.on { background: rgba(80,200,80,.55); border-color: #9dff9d; }
+@media (max-height: 430px) { #btnUse { right: calc(var(--safe-r) + 100px); bottom: calc(var(--safe-b) + 140px); } #hud .hslot { width: 38px; height: 40px; font-size: 17px; } }
