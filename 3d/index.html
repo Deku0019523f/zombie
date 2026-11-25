@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0d0c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Dernier Rempart 3D</title>
+<title>Dernier Rempart — Survie</title>
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 { "imports": {
@@ -24,11 +24,13 @@
   <div id="lookZone"></div>
 
   <div id="topLeft" class="panel">
-    <div id="hudWave">VAGUE 1</div>
-    <div id="hudLeft" class="sub"></div>
-    <div class="row"><span id="hudKills">☠ 0</span><span id="hudScore">0</span></div>
+    <div id="hudClock">Jour 1 · 07:30</div>
+    <div class="need"><i>🍖</i><div class="nbar"><div id="barFood"></div></div></div>
+    <div class="need"><i>💧</i><div class="nbar"><div id="barWater"></div></div></div>
+    <div id="hudRes" class="res"></div>
   </div>
   <div id="topRight">
+    <button id="btnBuild" class="round sm" aria-label="Construire">🔨</button>
     <button id="btnMute" class="round sm" aria-label="Son">🔊</button>
     <button id="btnPause" class="round sm" aria-label="Pause">⏸</button>
   </div>
@@ -36,13 +38,28 @@
   <div id="cross"><i></i></div>
   <div id="hitmark"></div>
   <div id="banner"></div>
+  <div id="bleed" class="hidden">🩸 Saignement</div>
 
   <div id="bottom">
-    <div id="slotAmmo" class="slot">
-      <div id="hudWeapon">Pistolet</div>
-      <div id="hudAmmo">12 / 72</div>
-      <div id="slotDots"></div>
-      <div id="reloadWrap" class="hidden"><div id="barReload"></div></div>
+    <div id="buildBar" class="hidden">
+      <div id="buildInfo"></div>
+      <div class="brow">
+        <button class="bp round sm" data-p="1" aria-label="Mur en bois">🪵</button>
+        <button class="bp round sm" data-p="2" aria-label="Mur en pierre">🧱</button>
+        <button class="bp round sm" data-p="3" aria-label="Porte">🚪</button>
+        <button class="bp round sm" data-p="4" aria-label="Feu de camp">🔥</button>
+      </div>
+    </div>
+    <div id="hotbar">
+      <button class="hslot" data-slot="1" aria-label="Bandage"><span>🩹</span><b id="hc1">0</b></button>
+      <button class="hslot" data-slot="2" aria-label="Conserve"><span>🥫</span><b id="hc2">0</b></button>
+      <button class="hslot" data-slot="3" aria-label="Eau"><span>💧</span><b id="hc3">1</b></button>
+      <div id="slotAmmo" class="slot">
+        <div id="hudWeapon">Couteau</div>
+        <div id="hudAmmo"></div>
+        <div id="slotDots"></div>
+        <div id="reloadWrap" class="hidden"><div id="barReload"></div></div>
+      </div>
     </div>
     <div class="bars">
       <div class="bar hp"><div id="barHp"></div><span id="hudHp">100</span></div>
@@ -50,10 +67,11 @@
     </div>
   </div>
 
-  <button id="btnFire" class="round big" aria-label="Tirer"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="24" r="4" fill="currentColor"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9" stroke="currentColor" stroke-width="3"/></svg></button>
-  <button id="btnReload" class="round md" aria-label="Recharger">⟳</button>
+  <button id="btnFire" class="round big" aria-label="Attaquer"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="24" r="4" fill="currentColor"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9" stroke="currentColor" stroke-width="3"/></svg></button>
+  <button id="btnReload" class="round md hidden" aria-label="Recharger">⟳</button>
   <button id="btnSwap" class="round md" aria-label="Changer d'arme">⇄</button>
   <button id="btnSprint" class="round md" aria-label="Sprint">»</button>
+  <button id="btnUse" class="round md hidden" aria-label="Utiliser">✋<small id="useLbl"></small></button>
 </div>
 
 <section id="screenLoad" class="screen">
@@ -64,10 +82,11 @@
 
 <section id="screenMenu" class="screen hidden">
   <h1>DERNIER <span>REMPART</span></h1>
-  <p class="tag">LA VILLE EST TOMBÉE · VERSION 3D (alpha)</p>
-  <button id="btnStart" class="btn primary">JOUER</button>
+  <p class="tag">SURVIVRE · FOUILLER · CONSTRUIRE</p>
+  <button id="btnContinue" class="btn primary hidden">CONTINUER</button>
+  <button id="btnStart" class="btn primary">NOUVELLE PARTIE</button>
   <p id="menuBest" class="best"></p>
-  <p class="help">Tactile : joystick à gauche · glisser à droite pour viser · gros bouton = tirer<br>Clavier : ZQSD/WASD · souris (clic = tirer) · R recharger · E arme · Maj sprint</p>
+  <p class="help">Vous vous réveillez dans une cabane avec presque rien. Fouillez, récoltez du bois et de la pierre, construisez un abri avant la nuit.<br>Tactile : joystick à gauche · glisser à droite pour viser · gros bouton = frapper / poser · ✋ = utiliser · 🔨 = construire<br>Clavier : ZQSD/WASD · souris · E utiliser · B construire · 1-3 objets · X arme · Maj sprint</p>
 </section>
 
 <section id="screenPause" class="screen hidden dim">
@@ -79,7 +98,7 @@
 <section id="screenOver" class="screen hidden dim">
   <h2 class="red">VOUS ÊTES MORT</h2>
   <p id="overStats"></p>
-  <button id="btnRestart" class="btn primary">REJOUER</button>
+  <button id="btnRestart" class="btn primary">NOUVELLE PARTIE</button>
   <button class="btn js-menu">MENU</button>
 </section>
 
