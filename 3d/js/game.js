@@ -8,19 +8,21 @@ import { createInput } from './input.js';
 import { ui } from './ui.js';
 import * as audio from './audio.js';
 
-const BEST_KEY = 'zs3d_best';
+const BEST_KEY = 'zs3d_best', SAVE_KEY = 'zs3d_save';
+const saveGet = () => { try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); return d && d.v ? d : null; } catch { return null; } };
+const saveSet = (d) => { try { if (d) localStorage.setItem(SAVE_KEY, JSON.stringify(d)); else localStorage.removeItem(SAVE_KEY); } catch { /* stockage indisponible */ } };
 const bestGet = () => { try { return +localStorage.getItem(BEST_KEY) || 0; } catch { return 0; } };
 const bestSet = (v) => { try { localStorage.setItem(BEST_KEY, String(v)); } catch { /* stockage indisponible */ } };
 
-const HOUSE = ['Wall_Plaster_Straight', 'Wall_Plaster_Window_Wide_Flat', 'Wall_Plaster_Window_Thin_Round', 'Wall_Plaster_Door_Flat', 'Wall_UnevenBrick_Straight', 'Wall_UnevenBrick_Window_Wide_Flat', 'Wall_UnevenBrick_Door_Flat', 'Corner_Exterior_Wood', 'Roof_RoundTiles_6x6', 'Prop_MetalFence_Simple', 'Prop_Crate'].map(n => `village/${n}.gltf`);
+const HOUSE = ['Wall_Plaster_Straight', 'Wall_Plaster_Window_Wide_Flat', 'Wall_Plaster_Window_Thin_Round', 'Wall_Plaster_Door_Flat', 'Wall_UnevenBrick_Straight', 'Wall_UnevenBrick_Window_Wide_Flat', 'Wall_UnevenBrick_Door_Flat', 'Corner_Exterior_Wood', 'Roof_RoundTiles_6x6', 'Prop_MetalFence_Simple', 'Prop_Crate', 'Door_1_Flat', 'Prop_WoodenFence_Single', 'Floor_WoodDark'].map(n => `village/${n}.gltf`);
 
 export async function boot() {
   ui.loading(0, 'Chargement des modèles 3D…');
   const layout = buildLayout(1337);
   const list = [
-    PLAYER.model, ...WEAPON_ORDER.map(w => WEAPONS[w].model), ...Object.values(ZOMBIES).map(z => z.model),
+    PLAYER.model, ...WEAPON_ORDER.map(w => WEAPONS[w].model).filter(Boolean), ...Object.values(ZOMBIES).map(z => z.model),
     ...layout.models, ...HOUSE, ...[1, 2, 3, 4].map(i => `vegetation/Grass_${i}.glb`),
-    'props/FirstAidKit.glb', 'environment/Chest_Special.gltf',
+    'props/FirstAidKit.glb', 'props/Bonfire.glb', 'props/Bonfire_Fire.glb', 'props/Shovel.glb', ...(layout.cabin.models || []),
   ];
   const failed = await loadAll(list, (p, n) => ui.loading(p, 'Chargement… ' + Math.round(p * 100) + ' %'));
   if (!has(PLAYER.model)) {
@@ -35,38 +37,55 @@ export async function boot() {
   let mode = 'menu', paused = false, best = bestGet(), groanT = 0;
   window.__game = { sim, view, layout };          // pratique pour déboguer dans la console
 
-  const start = () => {
-    audio.unlock(); sim.reset(); input.clear(); mode = 'play'; paused = false; ui.hud(true); ui.pause(false);
-    ui.banner('SURVIVEZ', 'Les morts approchent…', 2600);
+  const begin = (save) => {
+    audio.unlock(); sim.reset(save); input.clear(); mode = 'play'; paused = false; ui.hud(true); ui.pause(false);
+    view.syncWorld();
+    ui.banner(save ? 'DE RETOUR' : 'VOUS VOUS RÉVEILLEZ', save ? 'Jour ' + sim.day() : 'Cabane abandonnée… trouvez de quoi survivre', 3200);
     if (document.documentElement.requestFullscreen && matchMedia('(pointer:coarse)').matches) document.documentElement.requestFullscreen().catch(() => {});
   };
-  const setPause = (p) => { if (mode !== 'play') return; paused = p; ui.pause(p); input.clear(); if (document.pointerLockElement) document.exitPointerLock(); };
+  const start = () => { saveSet(null); begin(null); };
+  const cont = () => begin(saveGet());
+  const doSave = () => { if (mode === 'play' && !sim.player.dead && !sim.over) saveSet(sim.serialize()); };
+  let saveT = 0;
+  const setPause = (p) => { if (mode !== 'play') return; if (p) doSave(); paused = p; ui.pause(p); input.clear(); if (document.pointerLockElement) document.exitPointerLock(); };
 
+  document.getElementById('btnContinue').addEventListener('click', cont);
   document.getElementById('btnStart').addEventListener('click', start);
   document.getElementById('btnRestart').addEventListener('click', start);
   document.getElementById('btnResume').addEventListener('click', () => { audio.unlock(); setPause(false); });
-  document.querySelectorAll('.js-menu').forEach(b => b.addEventListener('click', () => { mode = 'menu'; paused = false; sim.reset(); ui.menu(best); }));
+  document.querySelectorAll('.js-menu').forEach(b => b.addEventListener('click', () => { doSave(); mode = 'menu'; paused = false; sim.reset(); view.syncWorld(); ui.menu(best, !!saveGet()); }));
   document.getElementById('btnMute').addEventListener('click', (e) => { audio.setMuted(!audio.isMuted()); e.currentTarget.textContent = audio.isMuted() ? '🔇' : '🔊'; });
   document.addEventListener('visibilitychange', () => { if (document.hidden) setPause(true); });
   window.addEventListener('blur', () => setPause(true));
   document.addEventListener('pointerdown', audio.unlock, { passive: true });
 
+  const A = audio.sfx;
+  const NAME = { wood: 'bois', stone: 'pierre', food: 'conserve', water: 'eau', bandage: 'bandage', ammo: 'munitions' };
   const react = (events) => {
     for (const e of events) {
       switch (e.type) {
-        case 'shot': if (e.first) audio.sfx.shot(e.w); break;
-        case 'hit': ui.hitMarker(e.head); e.head ? audio.sfx.headshot() : audio.sfx.hit(); break;
-        case 'kill': audio.sfx.kill(); break;
-        case 'hurt': ui.hurt(); audio.sfx.hurt(); break;
-        case 'reload': audio.sfx.reload(); break;
-        case 'empty': audio.sfx.empty(); break;
-        case 'swap': audio.sfx.swap(); ui.banner(WEAPONS[e.w].name, null, 900); break;
-        case 'pickup': audio.sfx.pickup(); ui.banner(({ med: 'Soins +' + 35, ammo: 'Munitions', weapon: WEAPONS[e.w] ? WEAPONS[e.w].name + ' !' : 'Arme' })[e.kind], null, 1200); break;
-        case 'wave': audio.sfx.wave(); ui.banner('VAGUE ' + e.n, e.count + ' zombies', 2600); break;
-        case 'waveClear': audio.sfx.clear(); ui.banner('VAGUE ' + e.n + ' TERMINÉE', '+' + e.bonus + ' points', 2600); break;
-        case 'death': audio.sfx.death(); break;
+        case 'shot': if (e.first) A.shot(e.w); break;
+        case 'swing': A.swing(); break;
+        case 'chop': A.chop(e.kind); break;
+        case 'hit': ui.hitMarker(e.head); e.head ? A.headshot() : A.hit(); break;
+        case 'kill': A.kill(); break;
+        case 'hurt': ui.hurt(); A.hurt(); break;
+        case 'reload': A.reload(); break;
+        case 'empty': A.empty(); break;
+        case 'swap': A.swap(); ui.banner(WEAPONS[e.w].name, null, 900); break;
+        case 'build': A.build(); break;
+        case 'door': A.door(e.open); break;
+        case 'pieceHit': A.pieceHit(); break;
+        case 'pieceBreak': A.pieceBreak(); break;
+        case 'use': ({ food: A.eat, water: A.drink, bandage: A.bandage })[e.id]?.(); break;
+        case 'loot': A.loot(); ui.banner(e.got.length ? 'TROUVÉ' : 'Rien ici…', e.got.map(g => g.weapon ? WEAPONS[g.id].name : '+' + g.n + ' ' + (NAME[g.id] || g.id)).join(' · '), 1800); break;
+        case 'pickup': A.pickup(); ui.banner('+1 ' + (NAME[e.kind] || e.kind), null, 900); break;
+        case 'tip': A.tip(); ui.banner(e.text, null, 2200); break;
+        case 'phase': e.night ? (A.dusk(), ui.banner('LA NUIT TOMBE', 'Barricadez-vous', 3000)) : (A.dawn(), ui.banner('JOUR ' + e.day, 'Le soleil se lève', 2600)); break;
+        case 'death': A.death(); break;
         case 'gameover': {
-          const isBest = e.score > best; if (isBest) { best = e.score; bestSet(best); }
+          saveSet(null);
+          const isBest = e.days > best; if (isBest) { best = e.days; bestSet(best); }
           mode = 'over'; ui.over(e, best, isBest); break;
         }
       }
@@ -86,12 +105,13 @@ export async function boot() {
         sim.update(dt, inp);
         const ev = sim.drain(); view.handle(ev); react(ev);
         ui.update(sim);
+        saveT += dt; if (saveT > 20) { saveT = 0; doSave(); }
         groanT -= dt;
         if (groanT <= 0) { groanT = 1.2 + Math.random(); if (sim.zombies.some(z => !z.dead && z.state === 'chase' && Math.hypot(z.x - sim.player.x, z.z - sim.player.z) < 16)) audio.sfx.groan(); }
       }
     }
     view.render(paused ? 0 : dt, mode === 'menu' ? 'menu' : 'play');
   }
-  ui.menu(best);
+  ui.menu(best, !!saveGet());
   requestAnimationFrame(frame);
 }

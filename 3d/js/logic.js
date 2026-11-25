@@ -41,6 +41,7 @@ export function pushOut(p, r, cols) {
   let hits = 0, nx = 0, nz = 0;
   for (let i = 0; i < cols.length; i++) {
     const c = cols[i];
+    if (c.off) continue;                     // porte ouverte : ne bloque plus
     if (c.hw === undefined) {
       const dx = p.x - c.x, dz = p.z - c.z, rr = r + c.r;
       const d2 = dx * dx + dz * dz;
@@ -83,4 +84,42 @@ export function cameraRig(px, pz, yaw, pitch, C) {
   const pos = [pivot[0] - dir[0] * C.dist, pivot[1] - dir[1] * C.dist, pivot[2] - dir[2] * C.dist];
   if (pos[1] < 0.35) pos[1] = 0.35;
   return { pos, dir, right, pivot };
+}
+
+// Distance (plan XZ) d'un point à une boîte {x,z,hw,hd} (0 si dedans).
+export function distToBox(px, pz, c) {
+  const qx = clamp(px, c.x - c.hw, c.x + c.hw), qz = clamp(pz, c.z - c.hd, c.z + c.hd);
+  return Math.hypot(px - qx, pz - qz);
+}
+
+// Rayon 3D (direction normalisée) contre les boîtes {x,z,hw,hd,h?} : balles, coups, vue des zombies, caméra.
+// Renvoie { t, col } pour la boîte touchée la plus proche (t <= maxT), sinon null.
+// Une boîte ne bloque que sous sa hauteur h (3.2 m par défaut) ; `ignore` : boîte à ne pas tester.
+export function rayBoxes(ox, oy, oz, dx, dy, dz, maxT, cols, ignore = null) {
+  let best = null;
+  for (let i = 0; i < cols.length; i++) {
+    const c = cols[i];
+    if (c.hw === undefined || c.off || c === ignore) continue;
+    let t0 = 0, t1 = maxT, ok = true;
+    for (let a = 0; a < 2 && ok; a++) {
+      const o = a ? oz : ox, d = a ? dz : dx, lo = (a ? c.z - c.hd : c.x - c.hw), hi = (a ? c.z + c.hd : c.x + c.hw);
+      if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) ok = false; }
+      else {
+        let ta = (lo - o) / d, tb = (hi - o) / d; if (ta > tb) { const q = ta; ta = tb; tb = q; }
+        if (ta > t0) t0 = ta; if (tb < t1) t1 = tb; if (t0 > t1) ok = false;
+      }
+    }
+    if (!ok) continue;
+    const y = oy + dy * t0;
+    if (y < 0 || y > (c.h === undefined ? 3.2 : c.h)) continue;
+    if (!best || t0 < best.t) best = { t: t0, col: c };
+  }
+  return best;
+}
+
+// Vrai si un mur / obstacle haut sépare deux points (hauteur des yeux).
+export function blockedBetween(ax, az, bx, bz, cols, eye = 1.6) {
+  const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz);
+  if (L < 0.01) return false;
+  return !!rayBoxes(ax, eye, az, dx / L, 0, dz / L, L, cols);
 }

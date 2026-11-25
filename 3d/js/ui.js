@@ -1,5 +1,7 @@
 // Interface (HUD, écrans) : lit l'état de la simulation, n'écrit jamais dedans.
-import { WEAPONS, PLAYER } from './config.js';
+import { WEAPONS, PLAYER, PIECES, PIECE_ORDER } from './config.js';
+const NAMES = { wall: 'Mur en bois', stone: 'Mur en pierre', door: 'Porte', fire: 'Feu de camp' };
+const RES = { wood: 'bois', stone: 'pierre' };
 
 const $ = (id) => document.getElementById(id);
 const cache = {};
@@ -11,12 +13,12 @@ let bannerTimer = 0, hitTimer = 0;
 
 export const ui = {
   loading(p, txt) { show('screenLoad', true); $('loadBar').style.width = Math.round(p * 100) + '%'; $('loadTxt').textContent = txt || ''; },
-  menu(best) { show('screenLoad', false); show('screenMenu', true); show('hud', false); show('screenOver', false); show('screenPause', false); setText('menuBest', best > 0 ? 'Record : ' + best : ''); },
+  menu(best, canContinue) { show('screenLoad', false); show('screenMenu', true); show('hud', false); show('screenOver', false); show('screenPause', false); show('btnContinue', !!canContinue); setText('menuBest', best > 0 ? 'Record : ' + best + (best > 1 ? ' jours' : ' jour') : ''); },
   hud(on) { show('hud', on); if (on) { show('screenMenu', false); show('screenOver', false); } },
   pause(on) { show('screenPause', on); },
   over(info, best, isBest) {
     show('screenOver', true); show('hud', false);
-    $('overStats').innerHTML = `Vague <b>${info.wave}</b> · <b>${info.kills}</b> zombies · Score <b>${info.score}</b>` + (isBest ? '<br><span class="rec">NOUVEAU RECORD !</span>' : `<br>Record : ${best}`);
+    $('overStats').innerHTML = `Vous avez survécu <b>${info.days}</b> jour${info.days > 1 ? 's' : ''} · <b>${info.kills}</b> zombies abattus` + (isBest ? '<br><span class="rec">NOUVEAU RECORD !</span>' : `<br>Record : ${best} jour${best > 1 ? 's' : ''}`);
   },
   error(msg) { show('screenLoad', true); $('loadTxt').textContent = msg; $('loadTxt').classList.add('err'); },
 
@@ -32,22 +34,35 @@ export const ui = {
 
   update(sim) {
     const P = sim.player, W = WEAPONS[sim.cur], S = sim.weapons[sim.cur];
-    setText('hudWave', sim.wave > 0 ? 'VAGUE ' + sim.wave : 'PRÉPAREZ-VOUS');
-    setText('hudKills', '☠ ' + sim.kills);
-    setText('hudScore', String(sim.score));
-    setText('hudLeft', sim.state === 'active' ? sim.hostiles + ' restants' : 'Prochaine vague ' + Math.max(0, Math.ceil(sim.interT)) + ' s');
-    setW('barHp', (P.hp / PLAYER.hp) * 100);
-    setW('barSt', (P.stamina / PLAYER.stamina) * 100);
+    const h = sim.hour(), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
+    setText('hudClock', `Jour ${sim.day()} · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` + (sim.isNight() ? ' 🌙' : ' ☀'));
+    setW('barHp', (P.hp / PLAYER.hp) * 100); setW('barSt', (P.stamina / PLAYER.stamina) * 100);
+    setW('barFood', P.hunger); setW('barWater', P.thirst);
+    $('barFood').classList.toggle('low', P.hunger < 20); $('barWater').classList.toggle('low', P.thirst < 20);
     $('barHp').classList.toggle('low', P.hp < 30);
     setText('hudHp', String(Math.ceil(P.hp)));
+    show('bleed', !!P.bleed);
+    const inv = sim.inv;
+    setText('hudRes', `🪵 ${inv.wood || 0}   🪨 ${inv.stone || 0}   ·  🔫 ${inv.ammo || 0}`);
+    setText('hc1', String(inv.bandage || 0)); setText('hc2', String(inv.food || 0)); setText('hc3', String(inv.water || 0));
     setText('hudWeapon', W.name);
-    setText('hudAmmo', S.ammo + ' / ' + S.reserve);
-    $('slotAmmo').classList.toggle('empty', S.ammo === 0);
+    setText('hudAmmo', W.melee ? '' : S.ammo + ' / ' + (inv.ammo || 0));
+    $('slotAmmo').classList.toggle('empty', !W.melee && S.ammo === 0);
+    show('btnReload', !W.melee);
     const rl = sim.reloadT > 0 ? 100 * (1 - sim.reloadT / sim.reloadTotal) : 0;
     setW('barReload', rl); show('reloadWrap', sim.reloadT > 0);
-    const list = sim.owned();
-    const dots = list.map(id => `<i class="${id === sim.cur ? 'cur' : ''}"></i>`).join('');
+    const dots = sim.owned().map(id => `<i class="${id === sim.cur ? 'cur' : ''}"></i>`).join('');
     if (cache.dots !== dots) { cache.dots = dots; $('slotDots').innerHTML = dots; }
     $('cross').classList.toggle('moving', P.moving);
+    // bouton d'interaction
+    const pr = sim.prompt; show('btnUse', !!pr); if (pr) setText('useLbl', pr.label);
+    // construction
+    const B = sim.build; $('btnBuild').classList.toggle('on', B.on); show('buildBar', B.on);
+    if (B.on) {
+      document.querySelectorAll('.bp').forEach(b => b.classList.toggle('sel', PIECE_ORDER[+b.dataset.p - 1] === B.piece));
+      const D = PIECES[B.piece], g = B.ghost;
+      const cost = Object.entries(D.cost).map(([k, n]) => `${n} ${RES[k]}`).join(', ');
+      setText('buildInfo', `${NAMES[B.piece]} — ${cost}` + (g && !g.ok ? ' ✖ ' + g.why : ''));
+    }
   },
 };
