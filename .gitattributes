@@ -1,0 +1,6 @@
+*.glb binary
+*.gltf text eol=lf
+*.png binary
+*.jpg binary
+*.blend binary
+*.fbx binary
