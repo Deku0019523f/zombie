@@ -10,33 +10,33 @@ L'utilisateur ne veut **pas** un jeu de vagues mais un **jeu de survivant d'apoc
 
 ### Liste des modifications (état : [x] fait · [ ] à faire)
 **Étape 1 — socle survie**
-- [ ] Suppression des vagues (`WAVE`, `startWave`, bannières, « restants », score). Partie continue ; la mort affiche jours survécus + zombies tués.
-- [ ] Cabane de départ 6 x 6 m dans une clairière au sud-ouest de la carte (murs statiques + toit + lit + caisse), **porte fermée** (pièce destructible) ; le joueur apparaît à l'intérieur, face à la porte.
-- [ ] Équipement de départ minimal : couteau (mêlée), 1 eau. Plus d'arme à feu au départ.
-- [ ] Zombies dispersés (≈ 30 le jour, 40 la nuit) : au repos ou en errance, repèrent le joueur selon la vue et le bruit (course = bruyant, immobile = discret), perdent sa trace s'il s'éloigne ; réapparition hors de vue.
-- [ ] Cycle jour / nuit (1 jour = 14 min réelles) : ciel, brume, lumière ; lampe du joueur la nuit ; plus de zombies la nuit.
-- [ ] Les balles et les coups sont arrêtés par les murs (maisons, abris) ; la caméra ne traverse plus les murs.
+- [x] Suppression des vagues (`WAVE`, `startWave`, bannières, « restants », score). Partie continue ; la mort affiche jours survécus + zombies tués.
+- [x] Cabane de départ 6 x 6 m dans une clairière au sud-ouest de la carte (murs statiques + toit + lit + caisse), **porte fermée** (pièce destructible) ; le joueur apparaît à l'intérieur, face à la porte.
+- [x] Équipement de départ minimal : couteau (mêlée), 1 eau. Plus d'arme à feu au départ.
+- [x] Zombies dispersés (≈ 30 le jour, 40 la nuit) : au repos ou en errance, repèrent le joueur selon la vue et le bruit (course = bruyant, immobile = discret), perdent sa trace s'il s'éloigne ; réapparition hors de vue.
+- [x] Cycle jour / nuit (1 jour = 14 min réelles) : ciel, brume, lumière ; lampe du joueur la nuit ; plus de zombies la nuit.
+- [x] Les balles et les coups sont arrêtés par les murs (maisons, abris) ; la caméra ne traverse plus les murs.
 **Étape 2 — besoins**
-- [ ] Faim et soif (barres), perte de PV à zéro ; saignement après une morsure (bandage pour l'arrêter) ; régénération lente si bien nourri.
+- [x] Faim et soif (barres), perte de PV à zéro ; saignement après une morsure (bandage pour l'arrêter) ; régénération lente si bien nourri.
 **Étape 3 — inventaire et fouille**
-- [ ] Inventaire par compteurs (bois, conserve, eau, bandage, munitions) + barre rapide de 3 emplacements (bandage / conserve / eau) comme sur les références.
-- [ ] Fouille des points de butin (porches de maisons, conteneurs, épaves, barils, sacs-poubelle, caisses) : butin aléatoire, se remplit à nouveau après un moment.
-- [ ] Armes trouvées : hache, batte, pistolet (rare, bruyant, munitions limitées). Mêlée par défaut.
+- [x] Inventaire par compteurs (bois, conserve, eau, bandage, munitions) + barre rapide de 3 emplacements (bandage / conserve / eau) comme sur les références.
+- [x] Fouille des points de butin (porches de maisons, conteneurs, épaves, barils, sacs-poubelle, caisses) : butin aléatoire, se remplit à nouveau après un moment.
+- [x] Armes trouvées : hache, batte, pistolet (rare, bruyant, munitions limitées). Mêlée par défaut.
 **Étape 4 — abris et construction**
-- [ ] Récolte du bois : frapper les arbres (couteau / hache) ; un arbre s'épuise et devient souche.
-- [ ] Récolte de pierre : cassé les rochers avec une pioche.
-- [ ] Mode construction (bouton marteau) : mur (2 bois), porte (3 bois), feu de camp (3 bois), aimantés sur une grille de 2 m ; aperçu vert / rouge.
-NB : les bois et les pierres peuvent servir pour les constructions (les pierres ont plus de durée de vie de 3fois que celui du bois)
-- [ ] Les constructions ont des PV ; les zombies bloqués les attaquent ; une pièce détruite disparaît. Portes ouvrables / fermables (bouton Utiliser).
-- [ ] Feu de camp : lumière et soin lent à proximité.
-**Étape 5 — à venir** : armes à usure, objets à lancer (distraction), réparation des murs, établi, sac à dos (capacité).
+- [x] Récolte du bois : frapper les arbres (couteau / hache) ; un arbre s'épuise et devient souche.
+- [x] Récolte de pierre : casser les rochers avec une pioche (la pioche est dans le coffre à outils, près de la cabane) ; 1 coup = pierre.
+- [x] Mode construction (bouton marteau) : mur en bois (2 bois), mur en pierre (3 pierres), porte (3 bois), feu de camp (3 bois), aimantés sur une grille de 2 m ; aperçu vert / rouge.
+- [x] Mur en pierre (3 pierres, 360 PV) : dure 3 fois plus longtemps que le mur en bois (120 PV).
+- [x] Les constructions ont des PV ; les zombies bloqués les attaquent ; une pièce détruite disparaît. Portes ouvrables / fermables (bouton Utiliser).
+- [x] Feu de camp : lumière et soin lent à proximité.
+**Limites actuelles / Étape 5 — à venir** (pas de grille d'inventaire ni de capacité, pas d'intérieurs de maisons, lit décoratif — sauvegarde automatique à la place) : armes à usure, objets à lancer (distraction), réparation des murs, établi, sac à dos (capacité).
 **Étape 6 — à venir** : intérieurs de maisons, véhicules, survivants, sauvegarde multi-emplacements.
-- [ ] Sauvegarde automatique (localStorage `zs3d_save`) : position, besoins, inventaire, constructions, arbres coupés, butin fouillé, heure. Bouton CONTINUER.
+- [x] Sauvegarde automatique (localStorage `zs3d_save`) : position, besoins, inventaire, constructions, arbres coupés, butin fouillé, heure. Bouton CONTINUER.
 
 ### Fichiers touchés / ajoutés
 - `config.js` : + `SURVIVAL`, `ITEMS`, `PIECES`, `LOOT`, armes de mêlée ; − `WAVE`.
 - `layout.js` : + cabane (`cabin`, `spawn`), `lootSpots`, arbres avec leur collider.
-- `logic.js` : + `segBox` / `segBlocked` (rayon contre boîtes, balles, coups, vue, caméra).
+- `logic.js` : + `rayBoxes` / `blockedBetween` / `distToBox` (rayon contre boîtes : balles, coups, vue, caméra).
 - `sim.js` : cœur (joueur, mêlée / tir, zombies). `survival.js` (nouveau) : temps, besoins, inventaire, butin, construction, sauvegarde (greffé sur `Sim`).
 - `world.js` : cabane, ciel / lumières pilotés par l'heure, arbres abattables. `view.js` : pièces construites, aperçu, lampe, animations de mêlée.
 - `ui.js`, `input.js`, `index.html`, `css/style.css` : HUD survie, bouton Utiliser, mode construction, barre rapide.
@@ -45,10 +45,10 @@ NB : les bois et les pierres peuvent servir pour les constructions (les pierres 
 
 ## Principe d'architecture
 Deux couches strictement séparées :
-1. **Simulation** (`config`, `logic`, `layout`, `sim`) : aucune dépendance à three.js ni au DOM → testable sous Node (`npm run test:3d`).
+1. **Simulation** (`config`, `logic`, `layout`, `sim`, `survival`) : aucune dépendance à three.js ni au DOM → testable sous Node (`npm run test:3d`).
 2. **Rendu / interface** (`assets`, `world`, `view`, `fx`, `audio`, `input`, `ui`, `game`, `main`) : lit l'état de la simulation, consomme ses événements (`sim.drain()`), n'écrit jamais dedans.
 
-La simulation émet des événements `{type, ...}` : `shot, hit, kill, hurt, death, gameover, reload, reloaded, empty, swap, recoil, pickup, pickupAdd, wave, waveClear`.
+La simulation émet des événements `{type, ...}` : `shot, hit, kill, hurt, death, gameover, reload, reloaded, empty, swap, recoil, swing, chop, treeFelled, rockGone, loot, pickup, pickupAdd, use, build, buildMode, door, pieceHit, pieceBreak, tip, phase`.
 
 ## Arborescence
 ```
@@ -56,30 +56,32 @@ La simulation émet des événements `{type, ...}` : `shot, hit, kill, hurt, dea
   index.html            importmap three@0.160.0 (CDN jsdelivr), canvas, HUD, écrans
   css/style.css         HUD mobile (paysage + portrait), écrans
   js/
-    config.js           TOUT l'équilibrage : caméra, joueur, armes, zombies, vagues, objets, position de l'arme en main
-    logic.js            maths pures : raySphere, pushOut (cercles + boîtes), cameraRig, rng, angles
-    layout.js           plan de la ville (routes en croix, maisons, épaves, conteneurs, arbres) + colliders ; housePieces()
-    sim.js              classe Sim : joueur, armes, tir assisté, zombies (IA), vagues, objets
+    config.js           TOUT l'équilibrage : caméra, joueur, armes, zombies, survie, constructions, butin, position de l'arme en main
+    logic.js            maths pures : raySphere, rayBoxes, pushOut (cercles + boîtes), cameraRig, rng, angles
+    layout.js           plan de la ville (routes en croix, maisons, épaves, conteneurs, arbres, rochers, cabane) + colliders ; housePieces()
+    sim.js              classe Sim : joueur, mêlée / tir, zombies (IA), population, objets lâchés
+    survival.js         (mixin de Sim) horloge jour/nuit, besoins, inventaire, fouille, construction, sauvegarde
     assets.js           GLTFLoader, matériaux Lambert partagés, instance() (SkeletonUtils.clone), placeholder()
     world.js            sol, ciel, brume, lumières, assemblage + FUSION des pièces statiques par matériau, arbres instanciés, enceinte
-    view.js             classe View : renderer, caméra, acteurs animés (joueur, zombies), objets, effets, rendu
+    view.js             classe View : renderer, caméra, acteurs animés (joueur, zombies), objets, constructions, effets, rendu
     fx.js               traînées de balles, lueur de bouche, sang (pools)
     audio.js            sons synthétisés WebAudio
     input.js            joystick flottant, glisser pour viser, boutons, clavier/souris
     ui.js               HUD + écrans (menu, pause, game over)
-    game.js             boot, boucle principale, branchement sim ↔ vue ↔ UI ↔ sons, record (localStorage)
+    game.js             boot, boucle principale, branchement sim ↔ vue ↔ UI ↔ sons, sauvegarde et record (localStorage)
     main.js             point d'entrée
-tests/sim3d.mjs         12 tests de la simulation
+tests/sim3d.mjs         22 tests de la simulation
 tools/obj2glb.py        convertisseur OBJ+MTL → GLB (props du pack survivant, végétation)
 assets/models/          characters, weapons, vehicles, environment, village, props, vegetation (CC0 Quaternius)
 ```
 
 ## Modèles utilisés (chemins sous `assets/models/`)
-- Joueur : `characters/Characters_Matt_SingleWeapon.gltf` (anims `Idle_Gun, Walk_Gun, Run_Gun, Death`), arme attachée à l'os `Middle1.L` avec la pose du couteau fourni.
+- Joueur : `characters/Characters_Matt_SingleWeapon.gltf` (anims `Idle, Idle_Gun, Walk, Walk_Gun, Run, Run_Gun, Slash, Stab, Death`), arme attachée à l'os `Middle1.L` avec la pose du couteau fourni.
 - Zombies : `Zombie_Basic`, `Zombie_Arm` (rapide), `Zombie_Ribcage` (très rapide, fragile), `Zombie_Chubby` (lent, costaud). Anims : `Idle, Walk, Run, Idle_Attack/Run_Attack/Punch, HitReact, Death`.
-- Armes : `weapons/Pistol, Shotgun, SMG, Rifle`.
+- Armes : `weapons/Axe, Pistol, Shotgun, SMG, Rifle` ; batte et couteau sont déjà dans le modèle du joueur.
 - Ville : `environment/Street_*`, `vehicles/*`, `environment/*` (barils, conteneurs, lampadaires…), `village/*` (maisons 8x8 m : murs + toit `Roof_RoundTiles_6x6`, clôture d'enceinte).
-- Objets : `props/FirstAidKit.glb`, `village/Prop_Crate.gltf` (munitions), `environment/Chest_Special.gltf` (arme).
+- Objets ramassables : `props/Bandages.glb`, `props/Can_Closed.glb`, `props/WaterBottle_1.glb`. Construction : `village/Prop_WoodenFence_Single` (mur bois), `village/Wall_UnevenBrick_Straight` (mur pierre), `village/Door_1_Flat`, `props/Bonfire` + `Bonfire_Fire`. Outils : `weapons/Axe`, `props/Shovel` (pioche). Cabane : `Wall_Plaster_*`, `Floor_WoodDark`, `Roof_RoundTiles_6x6`, `environment/Couch`, `environment/Chest`.
+- Pistes non exploitées (dans `assets/models/props`) : Tent, Backpack, WoodLog, Torch, Radio, Matchbox, GasCan, BearTrap, revolvers et fusils (voir `assets/README_ASSETS.md`) → étape 5 (sac à dos, pièges, torche).
 
 ## Boucle de jeu
 (Ancienne boucle par vagues : supprimée par la refonte survie, voir ci-dessus.)
