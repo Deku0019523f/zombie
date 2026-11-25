@@ -1,7 +1,9 @@
-// Simulation du jeu (aucune dépendance à three.js ni au DOM) : joueur, armes, zombies, vagues, objets.
-// Le rendu lit l'état (sim.player, sim.zombies, sim.pickups) et consomme sim.drain() (événements).
-import { CAMERA, PLAYER, WEAPONS, WEAPON_ORDER, ASSIST, HEAD_MULT, ZOMBIES, ZOMBIE_AGGRO, ALERT_RADIUS, RUN_ABOVE, WAVE, PICKUP } from './config.js';
-import { clamp, lerpAngle, wrapAngle, pushOut, raySphere, normalize3, cameraRig } from './logic.js';
+// Simulation du jeu de SURVIE (aucune dépendance à three.js ni au DOM) : joueur, combat, zombies, objets.
+// Les systèmes de survie (temps, besoins, fouille, construction, sauvegarde) sont dans survival.js (greffés sur Sim).
+// Le rendu lit l'état (sim.player, sim.zombies, sim.pieces, sim.trees…) et consomme sim.drain() (événements).
+import { CAMERA, PLAYER, WEAPONS, WEAPON_ORDER, ASSIST, HEAD_MULT, ZOMBIES, ALERT_RADIUS, RUN_ABOVE, SURVIVAL as S, PICKUP } from './config.js';
+import { clamp, lerpAngle, wrapAngle, pushOut, raySphere, normalize3, cameraRig, rayBoxes, blockedBetween } from './logic.js';
+import { survivalMethods } from './survival.js';
 
 export class Sim {
   constructor(layout, rng = Math.random) {
@@ -12,21 +14,30 @@ export class Sim {
   emit(e) { this.events.push(e); }
   drain() { const e = this.events; this.events = []; return e; }
 
-  reset() {
+  // save : état issu de serialize() pour reprendre une partie ; sinon nouvelle partie dans la cabane.
+  reset(save = null) {
+    const sp = this.layout.spawn;
     this.t = 0; this.nextId = 1; this.events = [];
-    this.player = { x: 0, z: 3, hp: PLAYER.hp, stamina: PLAYER.stamina, face: 0, moving: false, speed: 0, sprinting: false, hurtT: 0, dead: false, deadT: 0, regenLock: 0 };
-    this.yaw = 0; this.pitch = 0.14;
-    this.weapons = { pistol: { ammo: WEAPONS.pistol.mag, reserve: WEAPONS.pistol.reserve } };
-    this.cur = 'pistol'; this.fireCD = 0; this.reloadT = 0; this.reloadTotal = 0;
-    this.zombies = []; this.pickups = [];
-    this.score = 0; this.kills = 0; this.wave = 0; this.queue = []; this.spawnT = 0;
-    this.state = 'intermission'; this.interT = 3; this.over = false; this.shots = 0; this.hits = 0;
-    for (let i = 0; i < WAVE.ambient; i++) this.spawnZombie(this.pickType(1), { ambient: true });
+    this.player = { x: sp.x, z: sp.z, hp: PLAYER.hp, stamina: PLAYER.stamina, face: sp.yaw, moving: false, speed: 0, sprinting: false, hurtT: 0, dead: false, deadT: 0, regenLock: 0, hunger: S.hungerStart, thirst: S.thirstStart, bleed: false };
+    this.yaw = sp.yaw; this.pitch = 0.14;
+    this.inv = { wood: 0, stone: 0, food: 0, water: 1, bandage: 0, ammo: 0 };       // le strict minimum : une bouteille d'eau…
+    this.weapons = { knife: { ammo: 0 } }; this.cur = 'knife';                       // … et un couteau
+    this.fireCD = 0; this.reloadT = 0; this.reloadTotal = 0; this.swingT = 0; this.swingDone = true;
+    this.zombies = []; this.pickups = []; this.cols = this.layout.colliders.slice();
+    this.kills = 0; this.clock = S.startHour * 3600; this.over = false; this.shots = 0; this.hits = 0;
+    this.initSurvival();
+    if (save && this.restore(save)) return;
+    for (let i = 0; i < S.popStart; i++) this.spawnZombie(this.pickType(), {});
   }
 
-  get hostiles() { return this.zombies.filter(z => !z.dead && !z.ambient).length + this.queue.length; }
   get alive() { return this.zombies.filter(z => !z.dead).length; }
-  get camera() { return cameraRig(this.player.x, this.player.z, this.yaw, this.pitch, CAMERA); }
+  get camera() {
+    const c = cameraRig(this.player.x, this.player.z, this.yaw, this.pitch, CAMERA);
+    const dx = c.pos[0] - c.pivot[0], dy = c.pos[1] - c.pivot[1], dz = c.pos[2] - c.pivot[2], L = Math.hypot(dx, dy, dz) || 1;
+    const h = rayBoxes(c.pivot[0], c.pivot[1], c.pivot[2], dx / L, dy / L, dz / L, L, this.cols);   // la caméra ne traverse pas les murs
+    if (h) { const t = Math.max(0.5, h.t - 0.25); c.pos = [c.pivot[0] + dx / L * t, c.pivot[1] + dy / L * t, c.pivot[2] + dz / L * t]; }
+    return c;
+  }
   look(dyaw, dpitch) { this.yaw += dyaw; this.pitch = clamp(this.pitch + dpitch, CAMERA.pitchMin, CAMERA.pitchMax); }
 
   update(dt, inp) {
@@ -35,12 +46,20 @@ export class Sim {
     const P = this.player;
     if (P.dead) {
       P.deadT += dt; this.updateZombies(dt);
-      if (P.deadT > 2.2) { this.over = true; this.emit({ type: 'gameover', score: this.score, wave: this.wave, kills: this.kills }); }
+      if (P.deadT > 2.2) { this.over = true; this.emit({ type: 'gameover', days: this.day(), kills: this.kills }); }
       return;
     }
+    this.tickClock(dt);
+    this.updateBuildMode(inp);
     this.updatePlayer(dt, inp); this.updateWeapon(dt, inp);
-    this.updateZombies(dt); this.updatePickups(dt); this.updateWaves(dt);
+    this.updateInteract(inp); this.updateItems(inp);
+    this.updateNeeds(dt);
+    if (P.dead) return;
+    this.updateZombies(dt); this.updatePickups(dt); this.updatePopulation(dt); this.updateFires(dt); this.updateLootRespawn();
   }
+
+  // ---------------------------------------------------------------- bruit : les zombies proches viennent voir
+  noise(x, z, r) { for (const zb of this.zombies) if (!zb.dead && Math.hypot(zb.x - x, zb.z - z) < r) zb.alerted = true; }
 
   // ---------------------------------------------------------------- joueur
   updatePlayer(dt, inp) {
@@ -57,15 +76,13 @@ export class Sim {
     const vx = (sy * my + -cy * mx) * speed, vz = (cy * my + sy * mx) * speed;
     const p = { x: P.x + vx * dt, z: P.z + vz * dt };
     p.x = clamp(p.x, -H, H); p.z = clamp(p.z, -H, H);
-    pushOut(p, PLAYER.radius, this.layout.colliders);
+    pushOut(p, PLAYER.radius, this.cols);
     P.x = p.x; P.z = p.z; P.speed = speed; P.moving = mag > 0.1;
-    // Le corps suit la direction de marche, mais jamais dos à la caméra : en reculant on garde le regard vers l'avant (pas de face à la caméra).
+    // Le corps suit la direction de marche mais ne tourne jamais le dos à la caméra (on garde le regard vers l'avant en reculant).
+    const aiming = inp.fire || this.reloadT > 0 || this.build.on || this.swingT > 0;
     let target = P.face;
-    if (inp.fire || this.reloadT > 0) target = this.yaw;
-    else if (P.moving) {
-      const am = Math.atan2(vx, vz);
-      target = Math.abs(wrapAngle(am - this.yaw)) > Math.PI / 2 ? am + Math.PI : am;
-    }
+    if (aiming) target = this.yaw;
+    else if (P.moving) { const am = Math.atan2(vx, vz); target = Math.abs(wrapAngle(am - this.yaw)) > Math.PI / 2 ? am + Math.PI : am; }
     P.face = lerpAngle(P.face, target, Math.min(1, PLAYER.turn * dt));
     P.hurtT = Math.max(0, P.hurtT - dt);
   }
@@ -73,36 +90,35 @@ export class Sim {
   // ---------------------------------------------------------------- armes
   owned() { return WEAPON_ORDER.filter(w => this.weapons[w]); }
 
+  setWeapon(id) { this.cur = id; this.reloadT = 0; this.fireCD = 0.2; this.swingT = 0; this.swingDone = true; this.emit({ type: 'swap', w: id }); }
+
   updateWeapon(dt, inp) {
-    this.fireCD = Math.max(0, this.fireCD - dt);
-    const W = WEAPONS[this.cur], S = this.weapons[this.cur];
+    this.fireCD = Math.max(0, this.fireCD - dt); this.swingT = Math.max(0, this.swingT - dt);
     if (inp.swap) this.swapWeapon(inp.swap === -1 ? -1 : 1);
-    if (inp.select) {
-      const id = WEAPON_ORDER[inp.select - 1];
-      if (id && this.weapons[id] && id !== this.cur) { this.cur = id; this.reloadT = 0; this.fireCD = 0.2; this.emit({ type: 'swap', w: id }); }
-    }
+    const W = WEAPONS[this.cur], S0 = this.weapons[this.cur];
+    if (!this.swingDone && this.swingT <= W.interval - 0.16) { this.swingDone = true; this.meleeHit(W); }
+    if (this.build.on) return;
+    if (W.melee) { if (inp.fire && this.fireCD <= 0) this.startSwing(W); return; }
     if (this.reloadT > 0) {
       this.reloadT -= dt;
       if (this.reloadT <= 0) {
-        const cw = WEAPONS[this.cur], cs = this.weapons[this.cur];
-        const take = Math.min(cw.mag - cs.ammo, cs.reserve);
-        cs.ammo += take; cs.reserve -= take; this.reloadT = 0;
+        const take = Math.min(W.mag - S0.ammo, this.inv.ammo);
+        S0.ammo += take; this.inv.ammo -= take; this.reloadT = 0;
         this.emit({ type: 'reloaded', w: this.cur });
       }
       return;
     }
     if (inp.reload) this.startReload();
-    // Maintenir le bouton tire à la cadence de l'arme (plus simple au tactile que de marteler l'écran).
     if (inp.fire && this.fireCD <= 0) {
-      if (S.ammo > 0) this.shoot();
-      else if (S.reserve > 0) this.startReload();
+      if (S0.ammo > 0) this.shoot();
+      else if (this.inv.ammo > 0) this.startReload();
       else if (inp.firePressed) this.emit({ type: 'empty' });
     }
   }
 
   startReload() {
-    const W = WEAPONS[this.cur], S = this.weapons[this.cur];
-    if (this.reloadT > 0 || S.ammo >= W.mag || S.reserve <= 0) return false;
+    const W = WEAPONS[this.cur], S0 = this.weapons[this.cur];
+    if (W.melee || this.reloadT > 0 || S0.ammo >= W.mag || this.inv.ammo <= 0) return false;
     this.reloadT = this.reloadTotal = W.reload;
     this.emit({ type: 'reload', w: this.cur, t: W.reload });
     return true;
@@ -111,11 +127,55 @@ export class Sim {
   swapWeapon(dir = 1) {
     const list = this.owned(); if (list.length < 2) return;
     const i = list.indexOf(this.cur);
-    this.cur = list[(i + dir + list.length) % list.length];
-    this.reloadT = 0; this.fireCD = 0.2;
-    this.emit({ type: 'swap', w: this.cur });
+    this.setWeapon(list[(i + dir + list.length) % list.length]);
   }
 
+  // ---------------------------------------------------------------- mêêlee : zombies, arbres (bois), rochers (pierre)
+  startSwing(W) {
+    this.fireCD = W.interval; this.swingT = W.interval; this.swingDone = false;
+    this.emit({ type: 'swing', w: this.cur, anim: W.anim });
+  }
+
+  inCone(x, z, reach, arc) {
+    const P = this.player, dx = x - P.x, dz = z - P.z, d = Math.hypot(dx, dz);
+    if (d > reach) return null;
+    const ang = Math.abs(wrapAngle(Math.atan2(dx, dz) - this.yaw));
+    return ang > arc && d > 0.9 ? null : { d, ang };
+  }
+
+  meleeHit(W) {
+    const P = this.player; let best = null, bs = 1e9;
+    for (const z of this.zombies) {
+      if (z.dead) continue;
+      const T = ZOMBIES[z.type], c = this.inCone(z.x, z.z, W.range + T.radius, W.arc);
+      if (!c || blockedBetween(P.x, P.z, z.x, z.z, this.cols)) continue;
+      if (c.d + c.ang < bs) { bs = c.d + c.ang; best = z; }
+    }
+    this.noise(P.x, P.z, W.noise);
+    if (best) {
+      const T = ZOMBIES[best.type];
+      this.damageZombie(best, W.dmg * (0.9 + this.rng() * 0.2), false, [best.x, T.h * 0.62, best.z]);
+      if (!best.dead) { best.stagger = T.stagger * 1.3; best.atkT = 0; best.hitDone = false; }
+      return;
+    }
+    let tree = null, rock = null, bd = 1e9;
+    for (const t of this.trees) { if (t.felled) continue; const c = this.inCone(t.x, t.z, W.range + 0.5, 1.3); if (c && c.d < bd) { bd = c.d; tree = t; } }
+    bd = 1e9;
+    for (const r of this.rocks) { if (r.gone) continue; const c = this.inCone(r.x, r.z, W.range + 0.6, 1.3); if (c && c.d < bd) { bd = c.d; rock = r; } }
+    if (tree && (!rock || Math.hypot(tree.x - P.x, tree.z - P.z) <= Math.hypot(rock.x - P.x, rock.z - P.z))) {
+      if (W.tree <= 0) return;
+      const n = Math.min(W.tree, tree.wood); tree.wood -= n; this.inv.wood += n;
+      this.emit({ type: 'chop', kind: 'tree', x: tree.x, z: tree.z, n });
+      if (tree.wood <= 0) { tree.felled = true; const j = this.cols.indexOf(tree.col); if (j >= 0) this.cols.splice(j, 1); this.emit({ type: 'treeFelled', i: tree.i }); }
+    } else if (rock) {
+      if (W.rock <= 0) { if (this.t - this.tipT > 2.5) { this.tipT = this.t; this.emit({ type: 'tip', text: 'Il faut une pioche pour casser un rocher' }); } return; }
+      const n = Math.min(W.rock, rock.stone); rock.stone -= n; this.inv.stone += n;
+      this.emit({ type: 'chop', kind: 'rock', x: rock.x, z: rock.z, n });
+      if (rock.stone <= 0) { rock.gone = true; const j = this.cols.indexOf(rock.col); if (j >= 0) this.cols.splice(j, 1); this.emit({ type: 'rockGone', i: rock.i }); }
+    }
+  }
+
+  // ---------------------------------------------------------------- armes à feu
   muzzle() {
     const P = this.player, sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     return [P.x + sy * 0.55 - cy * 0.2, 1.38, P.z + cy * 0.55 + sy * 0.2];
@@ -147,8 +207,8 @@ export class Sim {
   }
 
   shoot() {
-    const W = WEAPONS[this.cur], S = this.weapons[this.cur], P = this.player;
-    S.ammo--; this.fireCD = W.interval; this.shots++;
+    const W = WEAPONS[this.cur], S0 = this.weapons[this.cur], P = this.player;
+    S0.ammo--; this.fireCD = W.interval; this.shots++;
     const cam = this.camera, mz = this.muzzle();
     const aim = this.aimPoint(cam, W.range);
     const base = normalize3([aim[0] - mz[0], aim[1] - mz[1], aim[2] - mz[2]]);
@@ -163,23 +223,25 @@ export class Sim {
       this.emit({ type: 'shot', w: this.cur, from: mz, to: r.end, hit: r.hit, first: i === 0 });
     }
     if (anyHit) this.hits++;
-    for (const z of this.zombies) if (!z.dead && Math.hypot(z.x - P.x, z.z - P.z) < ALERT_RADIUS) z.alerted = true;
+    this.noise(P.x, P.z, ALERT_RADIUS);                       // un coup de feu s'entend de très loin
     this.emit({ type: 'recoil', amount: W.kick });
   }
 
   hitscan(o, d, W) {
+    const wall = rayBoxes(o[0], o[1], o[2], d[0], d[1], d[2], W.range, this.cols);   // les murs arrêtent les balles
+    const maxT = wall ? wall.t : W.range;
     const cand = [];
     for (const z of this.zombies) {
       if (z.dead) continue;
       let bt = -1, bk = null;
       for (const s of this.hitSpheres(z)) {
         const t = raySphere(o[0], o[1], o[2], d[0], d[1], d[2], z.x, s.y, z.z, s.r);
-        if (t >= 0 && t <= W.range && (bt < 0 || t < bt)) { bt = t; bk = s.k; }
+        if (t >= 0 && t <= maxT && (bt < 0 || t < bt)) { bt = t; bk = s.k; }
       }
       if (bt >= 0) cand.push({ z, t: bt, k: bk });
     }
     cand.sort((a, b) => a.t - b.t);
-    let end = W.range, n = 0;
+    let end = maxT, n = 0;
     for (const c of cand) {
       if (n >= W.pierce) break;
       const head = c.k === 'head';
@@ -194,72 +256,91 @@ export class Sim {
 
   damageZombie(z, dmg, head, pt) {
     const T = ZOMBIES[z.type];
-    z.hp -= dmg; z.alerted = true; z.state = 'chase'; z.ambient = false;
+    z.hp -= dmg; z.alerted = true; z.state = 'chase'; z.target = null;
     this.emit({ type: 'hit', id: z.id, pt, head, dmg, kill: z.hp <= 0 });
     if (z.hp <= 0) { this.killZombie(z, head); return; }
     if (dmg >= T.hp * 0.18 || this.rng() < 0.25) { z.stagger = T.stagger; z.atkT = 0; z.hitDone = false; }
   }
 
   killZombie(z, head) {
-    const T = ZOMBIES[z.type];
     z.dead = true; z.deadT = 0; z.anim = 'death'; this.kills++;
-    this.score += T.score + (head ? 5 : 0);
-    this.emit({ type: 'kill', id: z.id, head, x: z.x, z: z.z, score: T.score });
+    this.emit({ type: 'kill', id: z.id, head, x: z.x, z: z.z });
     const r = this.rng();
-    if (r < PICKUP.dropMed) this.addPickup('med', z.x, z.z);
-    else if (r < PICKUP.dropMed + PICKUP.dropAmmo) this.addPickup('ammo', z.x, z.z);
+    if (r < PICKUP.dropBandage) this.addPickup('bandage', z.x, z.z);
+    else if (r < PICKUP.dropBandage + PICKUP.dropFood) this.addPickup('food', z.x, z.z);
+    else if (r < PICKUP.dropBandage + PICKUP.dropFood + PICKUP.dropWater) this.addPickup('water', z.x, z.z);
   }
 
   // ---------------------------------------------------------------- zombies
-  pickType(wave) {
-    const w = [['basic', 1]];
-    if (wave >= 2) w.push(['arm', 0.5 + 0.04 * wave]);
-    if (wave >= 3) w.push(['ribcage', 0.35 + 0.03 * wave]);
-    if (wave >= 4) w.push(['chubby', 0.2 + 0.03 * wave]);
+  pickType() {
+    const day = this.day(), w = [['basic', 1]];
+    if (day >= 2) { w.push(['arm', 0.3 + 0.1 * day]); w.push(['ribcage', 0.15 + 0.08 * day]); }
+    if (day >= 3) w.push(['chubby', 0.2 + 0.05 * day]);
     const tot = w.reduce((s, x) => s + x[1], 0);
     let r = this.rng() * tot;
     for (const [t, v] of w) { if ((r -= v) <= 0) return t; }
     return 'basic';
   }
 
+  // opts.ring : apparaît autour du joueur à distance (réapparition) ; sinon n'importe où sur la carte, loin de la cabane.
   spawnZombie(type, opts = {}) {
-    const P = this.player, H = this.layout.half - 3, T = ZOMBIES[type];
+    const P = this.player, H = this.layout.half - 3, T = ZOMBIES[type], cb = this.layout.cabin, sp = this.layout.spawn;
     let x = 0, z = 0, ok = false;
-    for (let i = 0; i < 25 && !ok; i++) {
-      const a = this.rng() * Math.PI * 2;
-      const r = opts.ambient ? 18 + this.rng() * (H - 10) : WAVE.spawnMin + this.rng() * (WAVE.spawnMax - WAVE.spawnMin);
-      x = clamp(P.x + Math.sin(a) * r, -H, H); z = clamp(P.z + Math.cos(a) * r, -H, H);
+    for (let i = 0; i < 30 && !ok; i++) {
+      if (opts.ring) { const a = this.rng() * Math.PI * 2, r = S.spawnMin + this.rng() * (S.spawnMax - S.spawnMin); x = P.x + Math.sin(a) * r; z = P.z + Math.cos(a) * r; }
+      else { x = (this.rng() * 2 - 1) * H; z = (this.rng() * 2 - 1) * H; }
+      x = clamp(x, -H, H); z = clamp(z, -H, H);
+      const inCabin = x > cb.a - 2 && x < cb.a + cb.n + 2 && z > cb.b - 2 && z < cb.b + cb.n + 2;
       const p = { x, z };
-      ok = pushOut(p, T.radius + 0.3, this.layout.colliders) === 0 && Math.hypot(x - P.x, z - P.z) > (opts.ambient ? 14 : 16);
+      ok = !inCabin && pushOut(p, T.radius + 0.3, this.cols) === 0 && Math.hypot(x - P.x, z - P.z) > (opts.ring ? S.spawnMin - 2 : 18) && (opts.ring || Math.hypot(x - sp.x, z - sp.z) > 18);
     }
     if (!ok) return null;
     const speed = T.speed * (0.9 + this.rng() * 0.25);
-    const zb = { id: this.nextId++, type, x, z, hp: T.hp, maxHp: T.hp, face: this.rng() * 6.28, speed, state: opts.ambient ? 'idle' : 'chase', ambient: !!opts.ambient, alerted: false, anim: 'idle', atkT: 0, hitDone: false, stagger: 0, dead: false, deadT: 0, progT: 0, detourT: 0, detourDir: 1 };
+    const zb = { id: this.nextId++, type, x, z, hp: T.hp, maxHp: T.hp, face: this.rng() * 6.28, speed, state: 'idle', home: { x, z }, wanderer: this.rng() < S.wanderRatio, wanderT: this.rng() * 6, target: null, alerted: false, anim: 'idle', atkT: 0, hitDone: false, stagger: 0, dead: false, deadT: 0, progT: 0, detourT: 0, detourDir: 1, lostT: 0, losT: 0 };
     this.zombies.push(zb);
     return zb;
   }
 
+  updatePopulation(dt) {
+    this.popT -= dt; if (this.popT > 0) return;
+    this.popT = S.spawnEvery;
+    const target = this.isNight() ? S.popNight : S.popDay;
+    if (this.alive < Math.min(target, S.popMax)) this.spawnZombie(this.pickType(), { ring: true });
+  }
+
   updateZombies(dt) {
-    const P = this.player, Z = this.zombies, cols = this.layout.colliders, H = this.layout.half - 1;
+    const P = this.player, Z = this.zombies, cols = this.cols, H = this.layout.half - 1;
     for (let i = Z.length - 1; i >= 0; i--) {
       const z = Z[i];
       if (z.dead) { z.deadT += dt; if (z.deadT > 6) Z.splice(i, 1); continue; }
       const T = ZOMBIES[z.type];
       const dx = P.x - z.x, dz = P.z - z.z, d = Math.hypot(dx, dz) || 0.001;
-      if (z.state === 'idle') {
-        if (!P.dead && (d < ZOMBIE_AGGRO || z.alerted)) z.state = 'chase';
-        else { z.anim = 'idle'; continue; }
-      }
+      if (d > S.despawn && z.state !== 'chase') { Z.splice(i, 1); continue; }
       if (P.dead) { z.anim = 'idle'; continue; }
+
+      // ---- perception : vue (bloquée par les murs), ouïe (course = bruyant, immobile = discret), bruits
+      if (z.state !== 'chase') {
+        const sight = (this.isNight() ? S.sightNight : S.sightDay) * (P.sprinting ? 1.6 : P.moving ? 1 : 0.5);
+        let seen = z.alerted;
+        if (!seen && d < sight && !blockedBetween(z.x, z.z, P.x, P.z, cols)) seen = true;
+        if (!seen && d < S.hearing * (P.sprinting ? 1.5 : P.moving ? 1 : 0.3)) seen = true;
+        if (seen) { z.state = 'chase'; z.alerted = false; z.lostT = 0; z.target = null; }
+        else { this.idleZombie(z, T, dt, cols, H); continue; }
+      }
+
+      // ---- poursuite : on perd la trace si le joueur est loin ou caché trop longtemps
+      z.losT -= dt;
+      if (z.losT <= 0) { z.losT = 0.5; z.lostT = d > 5 && blockedBetween(z.x, z.z, P.x, P.z, cols) ? z.lostT + 0.5 : 0; }
+      if (d > S.loseDist || z.lostT > 9) { z.state = 'idle'; z.home = { x: z.x, z: z.z }; z.lostT = 0; z.anim = 'idle'; continue; }
+
       if (z.stagger > 0) { z.stagger -= dt; z.anim = 'hit'; continue; }
-      if (d < T.range) {
+      if (d < T.range && !blockedBetween(z.x, z.z, P.x, P.z, cols, 1.0)) {
         z.anim = 'attack'; z.atkT += dt;
         z.face = lerpAngle(z.face, Math.atan2(dx, dz), Math.min(1, 12 * dt));
         if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; if (d < T.range + 0.5) this.hurtPlayer(T.dmg, z); }
         if (z.atkT >= T.cycle) { z.atkT = 0; z.hitDone = false; }
         continue;
       }
-      z.atkT = 0; z.hitDone = false;
       let ux = dx / d, uz = dz / d;
       for (let j = 0; j < Z.length; j++) {          // séparation : évite l'empilement
         const o = Z[j]; if (o === z || o.dead) continue;
@@ -272,14 +353,24 @@ export class Sim {
         const rx = ux * c - uz * s, rz = ux * s + uz * c; ux = rx; uz = rz;
       }
       const ul = Math.hypot(ux, uz) || 1; ux /= ul; uz /= ul;
-      const sp = z.speed * (z.stagger > 0 ? 0 : 1);
+      const sp = z.speed;
       const p = { x: z.x + ux * sp * dt, z: z.z + uz * sp * dt };
       p.x = clamp(p.x, -H, H); p.z = clamp(p.z, -H, H);
       const hits = pushOut(p, T.radius, cols);
-      if (hits > 0 && z.detourT <= 0) {            // glisse le long de l'obstacle
-        const mvx = p.x - z.x, mvz = p.z - z.z, mv = Math.hypot(mvx, mvz);
-        z.progT += mv < sp * dt * 0.35 ? dt : -dt;
-      } else z.progT = Math.max(0, z.progT - dt * 2);
+      const blocked = hits > 0 && Math.hypot(p.x - z.x, p.z - z.z) < sp * dt * 0.35;
+      if (blocked) z.progT += dt; else if (hits === 0) z.progT = Math.max(0, z.progT - dt * 2);
+      if (blocked && z.progT > 0.25 && z.detourT <= 0) {
+        // bloqué contre une construction du joueur : le zombie la frappe jusqu'à la détruire
+        const pc = this.touchedPiece(p.x, p.z, T.radius + 0.3);
+        if (pc) {
+          z.anim = 'attack'; z.atkT += dt; z.lostT = 0;
+          z.face = lerpAngle(z.face, Math.atan2(pc.x - z.x, pc.z - z.z), Math.min(1, 10 * dt));
+          if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; this.damagePiece(pc, T.dmg * 1.6); }
+          if (z.atkT >= T.cycle) { z.atkT = 0; z.hitDone = false; }
+          continue;
+        }
+      }
+      z.atkT = 0; z.hitDone = false;
       if (z.progT > 0.7) { z.detourT = 1.1; z.detourDir = this.rng() < 0.5 ? -1 : 1; z.progT = 0; }
       z.x = p.x; z.z = p.z;
       z.face = lerpAngle(z.face, Math.atan2(ux, uz), Math.min(1, 10 * dt));
@@ -288,10 +379,23 @@ export class Sim {
     this.separate();
   }
 
+  // Zombie qui ne poursuit personne : reste planté ou erre lentement autour de son point d'origine.
+  idleZombie(z, T, dt, cols, H) {
+    if (z.stagger > 0) { z.stagger -= dt; z.anim = 'hit'; return; }
+    z.wanderT -= dt;
+    if (z.wanderer && !z.target && z.wanderT <= 0) z.target = { x: z.home.x + (this.rng() * 2 - 1) * 8, z: z.home.z + (this.rng() * 2 - 1) * 8 };
+    if (!z.target) { z.anim = 'idle'; return; }
+    const dx = z.target.x - z.x, dz = z.target.z - z.z, d = Math.hypot(dx, dz);
+    if (d < 0.6 || z.wanderT < -12) { z.target = null; z.wanderT = 3 + this.rng() * 7; z.anim = 'idle'; return; }
+    const sp = z.speed * 0.3, p = { x: clamp(z.x + dx / d * sp * dt, -H, H), z: clamp(z.z + dz / d * sp * dt, -H, H) };
+    if (pushOut(p, T.radius, cols) > 0) { z.target = null; z.wanderT = 2 + this.rng() * 4; }
+    z.x = p.x; z.z = p.z; z.face = lerpAngle(z.face, Math.atan2(dx, dz), Math.min(1, 6 * dt)); z.anim = 'walk';
+  }
+
   // Séparation « dure » : les zombies ne s'empilent plus (même en attaquant) et ne passent pas à travers le joueur.
   separate() {
-    const P = this.player, Z = this.zombies, cols = this.layout.colliders;
-    const live = Z.filter(z => !z.dead);
+    const P = this.player, cols = this.cols;
+    const live = this.zombies.filter(z => !z.dead);
     for (let it = 0; it < 2; it++) {
       for (let i = 0; i < live.length; i++) {
         const a = live[i], Ta = ZOMBIES[a.type];
@@ -307,10 +411,7 @@ export class Sim {
         }
         if (!P.dead) {
           const dx = a.x - P.x, dz = a.z - P.z, min = PLAYER.radius + Ta.radius * 0.8, d = Math.hypot(dx, dz);
-          if (d < min) {
-            const ux = d > 0.001 ? dx / d : 1, uz = d > 0.001 ? dz / d : 0;
-            a.x = P.x + ux * min; a.z = P.z + uz * min;
-          }
+          if (d < min) { const ux = d > 0.001 ? dx / d : 1, uz = d > 0.001 ? dz / d : 0; a.x = P.x + ux * min; a.z = P.z + uz * min; }
         }
       }
     }
@@ -326,12 +427,13 @@ export class Sim {
     const P = this.player; if (P.dead) return;
     P.hp = Math.max(0, P.hp - dmg); P.hurtT = 0.4;
     this.emit({ type: 'hurt', dmg, from: z ? { x: z.x, z: z.z } : null });
-    if (P.hp <= 0) { P.dead = true; P.deadT = 0; this.emit({ type: 'death' }); }
+    if (!P.bleed && P.hp > 0 && this.rng() < S.bleedChance) { P.bleed = true; this.emit({ type: 'tip', text: 'Vous saignez ! Utilisez un bandage' }); }
+    if (P.hp <= 0) this.killPlayer('zombie');
   }
 
-  // ---------------------------------------------------------------- objets
-  addPickup(kind, x, z, w) {
-    const pk = { id: this.nextId++, kind, x, z, w, t: 0 };
+  // ---------------------------------------------------------------- objets lâchés par les zombies
+  addPickup(kind, x, z) {
+    const pk = { id: this.nextId++, kind, x, z, t: 0 };
     this.pickups.push(pk); this.emit({ type: 'pickupAdd', id: pk.id }); return pk;
   }
 
@@ -340,59 +442,11 @@ export class Sim {
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const pk = this.pickups[i]; pk.t += dt;
       if (Math.hypot(pk.x - P.x, pk.z - P.z) > PICKUP.radius) continue;
-      if (pk.kind === 'med') P.hp = Math.min(PLAYER.hp, P.hp + PICKUP.med);
-      else if (pk.kind === 'ammo') {
-        for (const id of this.owned()) {
-          const W = WEAPONS[id], S = this.weapons[id];
-          S.reserve += Math.round(W.mag * (id === 'pistol' ? PICKUP.ammoMagsPistol : PICKUP.ammoMags));
-        }
-      } else if (pk.kind === 'weapon') {
-        const W = WEAPONS[pk.w];
-        if (!this.weapons[pk.w]) this.weapons[pk.w] = { ammo: W.mag, reserve: W.reserve };
-        else this.weapons[pk.w].reserve += W.mag * 2;
-        this.cur = pk.w; this.reloadT = 0;
-      }
+      this.inv[pk.kind] = (this.inv[pk.kind] || 0) + 1;
       this.pickups.splice(i, 1);
-      this.emit({ type: 'pickup', kind: pk.kind, w: pk.w, id: pk.id });
-    }
-  }
-
-  // ---------------------------------------------------------------- vagues
-  composeWave(n) {
-    const total = Math.min(WAVE.baseCount + n * WAVE.perWave, WAVE.maxCount), q = [];
-    for (let i = 0; i < total; i++) q.push(this.pickType(n));
-    for (let i = 0; i < Math.floor(n / 5); i++) q.push('chubby');
-    return q;
-  }
-
-  startWave(n) {
-    this.wave = n; this.queue = this.composeWave(n); this.spawnT = 0.6; this.state = 'active';
-    this.emit({ type: 'wave', n, count: this.queue.length });
-    const P = this.player;
-    const spot = (r) => { for (let i = 0; i < 20; i++) { const a = this.rng() * 6.28, x = P.x + Math.sin(a) * r, z = P.z + Math.cos(a) * r; if (this.layout.isFree(x, z, 0.8, true)) return [x, z]; } return [P.x + 3, P.z]; };
-    const u = WAVE.unlocks[n];
-    if (u) { const [x, z] = spot(7); this.addPickup('weapon', x, z, u); }
-    if (n % WAVE.medEvery === 0) { const [x, z] = spot(9); this.addPickup('med', x, z); }
-    if (n % 2 === 1) { const [x, z] = spot(8); this.addPickup('ammo', x, z); }
-  }
-
-  updateWaves(dt) {
-    if (this.state === 'intermission') {
-      this.interT -= dt;
-      if (this.interT <= 0) this.startWave(this.wave + 1);
-      return;
-    }
-    if (this.queue.length) {
-      this.spawnT -= dt;
-      if (this.spawnT <= 0 && this.alive < WAVE.maxAlive) {
-        const z = this.spawnZombie(this.queue[0]);
-        if (z) this.queue.shift();
-        this.spawnT = WAVE.spawnEvery;
-      }
-    } else if (this.zombies.every(z => z.dead || z.ambient)) {
-      const bonus = WAVE.bonus * this.wave; this.score += bonus;
-      this.state = 'intermission'; this.interT = WAVE.pause;
-      this.emit({ type: 'waveClear', n: this.wave, bonus });
+      this.emit({ type: 'pickup', kind: pk.kind, id: pk.id });
     }
   }
 }
+
+Object.assign(Sim.prototype, survivalMethods);
