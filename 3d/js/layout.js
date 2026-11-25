@@ -11,6 +11,7 @@ const DIM = {
   'environment/Container_Red': [5.71, 2.56], 'environment/Container_Green': [5.71, 2.56],
 };
 const ROAD = 8;             // taille d'une dalle de route
+const CAB = { a: -32, b: -34, n: 6 };   // cabane de départ : coin (a,b), 6 x 6 m, sur la grille de 2 m (sommets pairs)
 const HOUSE_HALF = 4.1;     // maison = 4 x 4 modules de 2 m
 
 export function buildLayout(seed = 1337) {
@@ -18,8 +19,11 @@ export function buildLayout(seed = 1337) {
   const items = [];          // { model, x, z, yaw, scale? }
   const houses = [];         // { x, z, yaw }
   const colliders = [];
-  const trees = [];          // { x, z, s }
+  const trees = [];          // { x, z, s, col }
   const ringTrees = [];
+  const rocks = [];          // { x, z, s, col } : rochers à casser à la pioche
+  const lootSpots = [];      // { id, kind, x, z, hw, hd } : points de fouille
+  const spot = (kind, x, z, hw = 0.4, hd = 0.4) => lootSpots.push({ id: lootSpots.length, kind, x, z, hw, hd });
 
   // --- routes en croix ---
   for (let k = -6; k <= 6; k++) {
@@ -28,12 +32,13 @@ export function buildLayout(seed = 1337) {
   }
   const onRoad = (x, z, m = 0) => Math.abs(z) < 4 + m || Math.abs(x) < 4 + m;
 
-  const addBox = (model, x, z, yaw, jitter = 0) => {
-    const d = DIM[model]; if (!d) return;
+  const addBox = (model, x, z, yaw, jitter = 0, h = 1.6) => {
+    const d = DIM[model]; if (!d) return null;
     const q = Math.round(yaw / (Math.PI / 2)) % 2 !== 0;   // quart de tour : on échange largeur/longueur
     const hw = (q ? d[1] : d[0]) / 2 - 0.1, hd = (q ? d[0] : d[1]) / 2 - 0.1;
     items.push({ model: model + '.gltf', x, z, yaw: yaw + jitter });
-    colliders.push({ x, z, hw, hd });
+    colliders.push({ x, z, hw, hd, h });
+    return { hw, hd };
   };
   const addCircle = (model, x, z, r, yaw = 0, scale = 1) => {
     items.push({ model: model + '.gltf', x, z, yaw, scale });
@@ -41,10 +46,40 @@ export function buildLayout(seed = 1337) {
   };
   const free = (x, z, r, roadOk = false) => {
     if (Math.abs(x) > H - 3 || Math.abs(z) > H - 3) return false;
+    if (x > CAB.a - 3 - r && x < CAB.a + CAB.n + 3 + r && z > CAB.b - 3 - r && z < CAB.b + CAB.n + 3 + r) return false;   // la cabane et ses abords restent dégagés
     if (!roadOk && onRoad(x, z, 1)) return false;
     const p = { x, z };
     return pushOut(p, r, colliders) === 0 && !houses.some(h => Math.abs(h.x - x) < HOUSE_HALF + r + 0.5 && Math.abs(h.z - z) < HOUSE_HALF + r + 0.5);
   };
+
+  // --- CABANE DE DÉPART (6 x 6 m) : murs statiques + toit + lit + caisse ; la porte est une pièce de la simulation ---
+  const { a, b, n } = CAB, cx = a + n / 2, cz = b + n / 2, cp = [];
+  const P = 'village/', PL = Math.PI;
+  const sideModels = {
+    back:  ['Wall_Plaster_Window_Wide_Flat', 'Wall_Plaster_Straight', 'Wall_Plaster_Window_Thin_Round'],
+    front: ['Wall_Plaster_Straight', null, 'Wall_Plaster_Window_Wide_Flat'],
+    left:  ['Wall_Plaster_Straight', 'Wall_Plaster_Window_Wide_Flat', 'Wall_Plaster_Straight'],
+    right: ['Wall_Plaster_Straight', 'Wall_Plaster_Window_Thin_Round', 'Wall_Plaster_Straight'],
+  };
+  for (let i = 0; i < 3; i++) {
+    const o = 1 + 2 * i;
+    const add = (side, x, z, yaw, hw, hd) => { const m = sideModels[side][i]; if (!m) return; cp.push({ m: P + m + '.gltf', x, z, yaw }); colliders.push({ x, z, hw, hd, h: 3.1 }); };
+    add('back', a + o, b, PL, 1, 0.22); add('front', a + o, b + n, 0, 1, 0.22);
+    add('left', a, b + o, -PL / 2, 0.22, 1); add('right', a + n, b + o, PL / 2, 0.22, 1);
+  }
+  for (const [x, z] of [[a, b], [a + n, b], [a, b + n], [a + n, b + n]]) cp.push({ m: P + 'Corner_Exterior_Wood.gltf', x, z, yaw: 0 });
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) cp.push({ m: P + 'Floor_WoodDark.gltf', x: a + 1 + 2 * i, z: b + 1 + 2 * j, yaw: 0, y: 0.015 });
+  cp.push({ m: P + 'Roof_RoundTiles_6x6.gltf', x: cx, z: cz, yaw: 0, y: 3.9, s: [0.74, 1, 0.75] });
+  cp.push({ m: 'environment/Couch.gltf', x: a + 2, z: b + 1.0, yaw: 0 });          // le « lit »
+  colliders.push({ x: a + 2, z: b + 1.0, hw: 1.5, hd: 0.6, h: 1.2 });
+  cp.push({ m: P + 'Prop_Crate.gltf', x: a + 5, z: b + 1, yaw: 0.3, s: [0.8, 0.8, 0.8] });   // caisse : 1 conserve + 1 bandage
+  colliders.push({ x: a + 5, z: b + 1, hw: 0.45, hd: 0.45, h: 0.9 });
+  spot('cabin', a + 5, b + 1, 0.45, 0.45);
+  cp.push({ m: 'environment/Chest.gltf', x: a + n + 4, z: b + n - 1, yaw: -PL / 2 });         // coffre à outils devant la cabane : la pioche
+  colliders.push({ x: a + n + 4, z: b + n - 1, hw: 0.55, hd: 0.55, h: 0.9 });
+  spot('tools', a + n + 4, b + n - 1, 0.55, 0.55);
+  const cabin = { a, b, n, cx, cz, pieces: cp, door: { x: a + 3, z: b + n, yaw: 0 }, models: [...new Set(cp.map(q => q.m))] };
+  const spawn = { x: cx, z: cz + 0.2, yaw: 0 };
 
   // --- maisons de part et d'autre de la route principale (axe X) ---
   const xs = [-50, -38, -26, -14, 14, 26, 38, 50];
@@ -53,7 +88,10 @@ export function buildLayout(seed = 1337) {
       if (rng() < 0.22) continue;
       const z = s * 11, yaw = s > 0 ? Math.PI : 0;     // la façade (+z local) regarde la route
       houses.push({ x, z, yaw });
-      colliders.push({ x, z, hw: HOUSE_HALF, hd: HOUSE_HALF });
+      colliders.push({ x, z, hw: HOUSE_HALF, hd: HOUSE_HALF, h: 5 });
+      const px = x, pz = z - s * 5.3;                         // porche : devant la porte, côté route
+      items.push({ model: 'village/Prop_Crate.gltf', x: px, z: pz, yaw: rng() * 3, scale: 0.55 });
+      spot('house', px, pz, 0.35, 0.35);
     }
   }
 
@@ -66,7 +104,8 @@ export function buildLayout(seed = 1337) {
     const x = alongX ? t : lane, z = alongX ? lane : t;
     const yaw = (alongX ? Math.PI / 2 : 0) + (rng() < 0.5 ? 0 : Math.PI);
     if (!free(x, z, 3, true)) continue;
-    addBox(cars[Math.floor(rng() * cars.length)], x, z, yaw, (rng() - 0.5) * 0.12);
+    const bx = addBox(cars[Math.floor(rng() * cars.length)], x, z, yaw, (rng() - 0.5) * 0.12, 1.6);
+    if (bx) spot('car', x, z, bx.hw, bx.hd);
   }
 
   // --- lampadaires le long de l'axe X ---
@@ -77,7 +116,9 @@ export function buildLayout(seed = 1337) {
     for (let tries = 0; tries < 20; tries++) {
       const x = (rng() * 2 - 1) * (H - 8), z = (rng() * 2 - 1) * (H - 8), yaw = rng() < 0.5 ? 0 : Math.PI / 2;
       if (!free(x, z, 3.2)) continue;
-      addBox(rng() < 0.5 ? 'environment/Container_Red' : 'environment/Container_Green', x, z, yaw); break;
+      const bx = addBox(rng() < 0.5 ? 'environment/Container_Red' : 'environment/Container_Green', x, z, yaw, 0, 2.6);
+      if (bx) spot('container', x, z, bx.hw, bx.hd);
+      break;
     }
   }
   const smalls = [['environment/Barrel', 0.4], ['environment/Barrel', 0.4], ['environment/PlasticBarrier', 0.5], ['environment/Pallet', 0], ['environment/TrashBag_1', 0], ['environment/TrashBag_2', 0], ['environment/TrafficCone_1', 0], ['environment/FireHydrant', 0.3], ['environment/CinderBlock', 0.25], ['environment/Wheels_Stack', 0.5]];
@@ -86,6 +127,8 @@ export function buildLayout(seed = 1337) {
     const x = (rng() * 2 - 1) * (H - 5), z = (rng() * 2 - 1) * (H - 5);
     if (!free(x, z, r + 0.4, true)) continue;
     addCircle(m, x, z, r, rng() * Math.PI * 2);
+    if (m.endsWith('Barrel') && r > 0.3) spot('barrel', x, z, 0.3, 0.3);
+    else if (m.includes('TrashBag')) spot('trash', x, z, 0.3, 0.3);
   }
   // château d'eau lointain
   for (const [x, z] of [[-40, -40], [42, 38]]) if (free(x, z, 2)) addCircle('environment/WaterTower', x, z, 1.7);
@@ -94,7 +137,23 @@ export function buildLayout(seed = 1337) {
   for (let i = 0; i < 90; i++) {
     const x = (rng() * 2 - 1) * (H - 3), z = (rng() * 2 - 1) * (H - 3);
     if (!free(x, z, 0.7)) continue;
-    const s = 0.8 + rng() * 0.7; trees.push({ x, z, s }); colliders.push({ x, z, r: 0.35 * s });
+    const s = 0.8 + rng() * 0.7, col = { x, z, r: 0.35 * s }; trees.push({ x, z, s, col }); colliders.push(col);
+  }
+  // quelques arbres et rochers à portée de la cabane (premiers matériaux)
+  const near = (list, count, rMin, rMax, rad, make) => {
+    for (let i = 0, ok = 0; i < 80 && ok < count; i++) {
+      const ang = rng() * Math.PI * 2, d = rMin + rng() * (rMax - rMin), x = cx + Math.cos(ang) * d, z = cz + Math.sin(ang) * d;
+      const q = { x, z }; if (Math.abs(x) > H - 4 || Math.abs(z) > H - 4 || pushOut(q, rad, colliders) > 0) continue;
+      if (x > a - 2 && x < a + n + 2 && z > b - 2 && z < b + n + 2) continue;
+      make(x, z); ok++;
+    }
+  };
+  near(trees, 7, 7, 15, 1.0, (x, z) => { const s = 0.9 + rng() * 0.6, col = { x, z, r: 0.35 * s }; trees.push({ x, z, s, col }); colliders.push(col); });
+  const addRock = (x, z) => { const s = 0.8 + rng() * 0.8, col = { x, z, r: 0.62 * s }; rocks.push({ x, z, s, col }); colliders.push(col); };
+  near(rocks, 3, 8, 16, 1.2, addRock);
+  for (let i = 0, ok = 0; i < 120 && ok < 16; i++) {
+    const x = (rng() * 2 - 1) * (H - 6), z = (rng() * 2 - 1) * (H - 6);
+    if (!free(x, z, 1.2)) continue; addRock(x, z); ok++;
   }
   for (let i = 0; i < 160; i++) {
     const a = rng() * Math.PI * 2, d = H + 4 + rng() * 14;
@@ -112,7 +171,7 @@ export function buildLayout(seed = 1337) {
   }
 
   const models = new Set(items.map(i => i.model));
-  return { half: H, items, houses, colliders, trees, ringTrees, grass, models: [...models], isFree: free, onRoad, rng };
+  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, models: [...models], isFree: free, onRoad, rng };
 }
 
 // Pièces d'une maison 8 x 8 m (coordonnées locales, +z = façade). Utilisé par world.js.
