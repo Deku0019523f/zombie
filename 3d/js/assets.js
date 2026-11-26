@@ -1,12 +1,34 @@
 // Chargement des modèles glTF/GLB, partage des matériaux (Lambert, léger pour mobile), instanciation.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { MODELS } from './config.js';
 
 const cache = new Map();
 const mats = new Map();
 const loader = new GLTFLoader();
+const fbxLoader = new FBXLoader();
+
+// Modèles FBX de assets/sources/… (exportés en centimètres, sans texture liée) : mis à l'échelle en mètres, centrés en x/z, posés sur y = 0.
+// Les maisons médiévales n'ont qu'un seul matériau : l'atlas de couleurs 64x64 (Texture/House_texture_atlas.png), en NearestFilter.
+let atlas = null;
+function houseMat(m) {
+  if (!atlas) {
+    atlas = new THREE.TextureLoader().load(MODELS + '../sources/medieval_houses/Texture/House_texture_atlas.png');
+    atlas.magFilter = atlas.minFilter = THREE.NearestFilter; atlas.generateMipmaps = false; atlas.colorSpace = THREE.SRGBColorSpace;
+  }
+  return share(Object.assign(new THREE.MeshLambertMaterial({ map: atlas }), { name: 'MedievalAtlas' }));
+}
+async function loadFbx(n) {
+  const o = await fbxLoader.loadAsync(MODELS + '../' + encodeURI(n));
+  o.scale.multiplyScalar(0.01); o.updateMatrixWorld(true);
+  o.traverse(m => { if (m.isMesh) m.material = Array.isArray(m.material) ? m.material.map(houseMat) : houseMat(m.material); });
+  const b = new THREE.Box3().setFromObject(o);
+  o.position.x -= (b.min.x + b.max.x) / 2; o.position.z -= (b.min.z + b.max.z) / 2; o.position.y -= b.min.y;
+  const w = new THREE.Group(); w.add(o);
+  return { scene: w, animations: [] };
+}
 
 // Meubles « Cozy Interiors » (assets/models/interiors) : un seul matériau, les couleurs viennent d'une palette PNG 8x8.
 // Palette obligatoirement en NearestFilter et sans mipmaps ; cellules 41-43 = lampes (émissif), cellule 40 = verre.
@@ -46,7 +68,7 @@ export async function loadAll(names, onProgress) {
     while (i < queue.length) {
       const n = queue[i++];
       try {
-        const g = await loader.loadAsync(MODELS + n);
+        const g = n.startsWith('sources/') ? await loadFbx(n) : await loader.loadAsync(MODELS + n);
         g.scene.traverse(o => {
           if (!o.isMesh) return;
           const f = n.startsWith('interiors/') ? paletteMat : share;

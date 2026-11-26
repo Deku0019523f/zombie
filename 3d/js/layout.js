@@ -12,12 +12,16 @@ const DIM = {
 };
 const ROAD = 8;             // taille d'une dalle de route
 const CAB = { a: -32, b: -34, n: 6 };   // cabane de départ : coin (a,b), 6 x 6 m, sur la grille de 2 m (sommets pairs)
-const HOUSE_HALF = 4.1;     // maison = 4 x 4 modules de 2 m
+// Maisons du pack médiéval (assets/sources/medieval_houses, FBX) : [largeur x, profondeur z] en mètres, mesurées dans les fichiers.
+const HD = 'sources/medieval_houses/House_Full_ordinar/';
+const HOUSE_TYPES = [[HD + 'House_01_full.fbx', 6.56, 5.2], [HD + 'House_02_full.fbx', 5.17, 5.14], [HD + 'House_03_full.fbx', 5.41, 5.41],
+  [HD + 'house_05_full.fbx', 4.39, 5.56], [HD + 'house_06_full.fbx', 5.41, 4.49], [HD + 'house_11_full.fbx', 5.35, 5.28]];
+const HOUSE_HALF = 4.1;     // marge pour les objets autour d'une maison
 
 export function buildLayout(seed = 1337) {
   const rng = makeRng(seed), H = WORLD.half;
   const items = [];          // { model, x, z, yaw, scale? }
-  const houses = [];         // { x, z, yaw }
+  const houses = [];         // { x, z, yaw, model, hw, hd }
   const colliders = [];
   const trees = [];          // { x, z, s, col }
   const ringTrees = [];
@@ -49,7 +53,7 @@ export function buildLayout(seed = 1337) {
     if (x > CAB.a - 3 - r && x < CAB.a + CAB.n + 3 + r && z > CAB.b - 3 - r && z < CAB.b + CAB.n + 3 + r) return false;   // la cabane et ses abords restent dégagés
     if (!roadOk && onRoad(x, z, 1)) return false;
     const p = { x, z };
-    return pushOut(p, r, colliders) === 0 && !houses.some(h => Math.abs(h.x - x) < HOUSE_HALF + r + 0.5 && Math.abs(h.z - z) < HOUSE_HALF + r + 0.5);
+    return pushOut(p, r, colliders) === 0 && !houses.some(h => Math.abs(h.x - x) < h.hw + r + 0.5 && Math.abs(h.z - z) < h.hd + r + 0.5);
   };
 
   // --- CABANE DE DÉPART (6 x 6 m) : murs statiques + toit + lit + caisse ; la porte est une pièce de la simulation ---
@@ -99,10 +103,11 @@ export function buildLayout(seed = 1337) {
   for (const s of [-1, 1]) {
     for (const x of xs) {
       if (rng() < 0.22) continue;
-      const z = s * 11, yaw = s > 0 ? Math.PI : 0;     // la façade (+z local) regarde la route
-      houses.push({ x, z, yaw });
-      colliders.push({ x, z, hw: HOUSE_HALF, hd: HOUSE_HALF, h: 5 });
-      const px = x, pz = z - s * 5.3;                         // porche : devant la porte, côté route
+      const [model, w, dep] = HOUSE_TYPES[Math.floor(rng() * HOUSE_TYPES.length)], hw = w / 2, hd = dep / 2;
+      const z = s * (7.5 + hd), yaw = s > 0 ? Math.PI : 0;     // la façade (+z local) regarde la route
+      houses.push({ x, z, yaw, model, hw, hd });
+      colliders.push({ x, z, hw, hd, h: 5 });
+      const px = x, pz = z - s * (hd + 0.8);                  // porche : devant la maison, côté route
       items.push({ model: 'village/Prop_Crate.gltf', x: px, z: pz, yaw: rng() * 3, scale: 0.55 });
       spot('house', px, pz, 0.35, 0.35);
     }
@@ -187,7 +192,7 @@ export function buildLayout(seed = 1337) {
   return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, models: [...models], isFree: free, onRoad, rng };
 }
 
-// Pièces d'une maison 8 x 8 m (coordonnées locales, +z = façade). Utilisé par world.js.
+// Pièces d'une maison 8 x 8 m (coordonnées locales, +z = façade). Ancien assemblage par code, plus utilisé par world.js depuis les maisons FBX.
 export function housePieces(rng) {
   const P = [], W = 'village/';
   const mods = [-3, -1, 1, 3];

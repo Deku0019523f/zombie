@@ -3,7 +3,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { instance } from './assets.js';
-import { housePieces } from './layout.js';
 import { WORLD } from './config.js';
 
 function canvasTex(w, h, draw) {
@@ -89,9 +88,7 @@ export function buildWorld(scene, layout) {
   gablesAt(root, layout.cabin.cx, layout.cabin.cz, 2.8, 2.65, 3.1, 8.2);
   for (const l of layout.cabin.lights || []) { const pl = new THREE.PointLight(0xffb866, 1.3, 7, 1.6); pl.position.set(l.x, l.y, l.z); scene.add(pl); }   // lampe de la cabane
   for (const h of layout.houses) {
-    const g = new THREE.Group(); g.position.set(h.x, 0, h.z); g.rotation.y = h.yaw; root.add(g);
-    for (const p of housePieces(layout.rng)) place(p.m + '.gltf', p.x, p.z, p.yaw, 1, p.y || 0, g);
-    gablesAt(g, 0, 0, 3.85, 3.7, 3.1, 8.3);
+    place(h.model, h.x, h.z, h.yaw);                                  // maison du pack médiéval (FBX)
   }
   const fence = 'village/Prop_MetalFence_Simple.gltf', step = 1.95;
   for (let x = -H; x <= H; x += step) { place(fence, x, H, 0); place(fence, x, -H, Math.PI); }
