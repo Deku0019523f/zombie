@@ -1,11 +1,11 @@
 {
   "name": "dernier-rempart-3d",
-  "version": "4.0.0-alpha",
+  "version": "5.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "npx serve . -l 3000",
-    "test": "node tests/sim3d.mjs",
-    "test:3d": "node tests/sim3d.mjs"
+    "test": "node tests/sim3d.mjs && node tests/p1.mjs",
+    "test:3d": "node tests/sim3d.mjs && node tests/p1.mjs"
   }
 }
