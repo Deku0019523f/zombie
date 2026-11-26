@@ -13,11 +13,11 @@ let bannerTimer = 0, hitTimer = 0;
 
 export const ui = {
   loading(p, txt) { show('screenLoad', true); $('loadBar').style.width = Math.round(p * 100) + '%'; $('loadTxt').textContent = txt || ''; },
-  menu(best, canContinue) { show('screenLoad', false); show('screenMenu', true); show('hud', false); show('screenOver', false); show('screenPause', false); show('btnContinue', !!canContinue); setText('menuBest', best > 0 ? 'Record : ' + best + (best > 1 ? ' jours' : ' jour') : ''); },
+  menu(best, canContinue) { show('screenLoad', false); show('screenMenu', true); show('hud', false); show('inv', false); show('screenOver', false); show('screenPause', false); show('btnContinue', !!canContinue); setText('menuBest', best > 0 ? 'Record : ' + best + (best > 1 ? ' jours' : ' jour') : ''); },
   hud(on) { show('hud', on); if (on) { show('screenMenu', false); show('screenOver', false); } },
   pause(on) { show('screenPause', on); },
   over(info, best, isBest) {
-    show('screenOver', true); show('hud', false);
+    show('screenOver', true); show('hud', false); show('inv', false);
     $('overStats').innerHTML = `Vous avez survécu <b>${info.days}</b> jour${info.days > 1 ? 's' : ''} · <b>${info.kills}</b> zombies abattus` + (isBest ? '<br><span class="rec">NOUVEAU RECORD !</span>' : `<br>Record : ${best} jour${best > 1 ? 's' : ''}`);
   },
   error(msg) { show('screenLoad', true); $('loadTxt').textContent = msg; $('loadTxt').classList.add('err'); },
@@ -43,9 +43,10 @@ export const ui = {
     setText('hudHp', String(Math.ceil(P.hp)));
     show('bleed', !!P.bleed);
     const inv = sim.inv;
-    // bois / pierre : « quantité / capacité » (le sac à dos double la capacité) ; 🔥 = allumettes ; 🔫 = munitions
-    setText('hudRes', `🪵 ${inv.wood || 0}/${sim.capOf('wood')}   🪨 ${inv.stone || 0}/${sim.capOf('stone')}   🔥 ${inv.match || 0}   🔫 ${inv.ammo || 0}` + (sim.hasBag() ? '   🎒' : ''));
+    // 🎒 emplacements utilisés / disponibles ; 🔥 allumettes ; 🔫 munitions (les munitions ne prennent pas de place)
+    setText('hudRes', `🎒 ${sim.slotsUsed()}/${sim.slotsMax()}   🪵 ${inv.wood || 0}   🪨 ${inv.stone || 0}   🔥 ${inv.match || 0}   🔫 ${inv.ammo || 0}`);
     setText('hc1', String(inv.bandage || 0)); setText('hc2', String(inv.food || 0)); setText('hc3', String(inv.water || 0));
+    [['1', 'bandage'], ['2', 'food'], ['3', 'water']].forEach(([n, id]) => { const el = document.querySelector(`.hslot[data-slot="${n}"]`); const none = !(inv[id] > 0); if (cache['n' + n] !== none) { cache['n' + n] = none; el.classList.toggle('none', none); } });
     setText('hudWeapon', W.name);
     setText('hudAmmo', W.melee ? '' : S.ammo + ' / ' + (inv.ammo || 0));
     $('slotAmmo').classList.toggle('empty', !W.melee && S.ammo === 0);
