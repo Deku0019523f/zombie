@@ -15,6 +15,7 @@ export const survivalMethods = {
     this.pieces = []; this.nextPid = 1;
     this.build = { on: false, piece: 'wall', ghost: null };
     this.prompt = null; this.tipT = -10; this.popT = 2; this.lootT = 0; this.warn = { h: false, t: false };
+    this._prev = {};
     const d = L.cabin.door; this.addPiece('door', d.x, d.z, d.yaw);       // la porte de la cabane : fermée au départ
     this.nightFlag = this.isNight();
   },
@@ -52,25 +53,51 @@ export const survivalMethods = {
     P.hp = 0; P.dead = true; P.deadT = 0; P.bleed = false; this.emit({ type: 'death', cause });
   },
 
-  // ---------------------------------------------------------------- inventaire
+  // ---------------------------------------------------------------- inventaire à emplacements
   canAfford(cost) { return Object.entries(cost).every(([k, n]) => (this.inv[k] || 0) >= n); },
   pay(cost) { for (const [k, n] of Object.entries(cost)) this.inv[k] -= n; },
 
-  // Capacité de transport : chaque ressource a un plafond (S.cap), multiplié par S.capBag avec le sac à dos.
-  // Les munitions et les objets absents de S.cap sont illimités.
   hasBag() { return (this.inv.backpack || 0) > 0; },
-  capOf(id) { const c = S.cap[id]; return c === undefined ? Infinity : Math.round(c * (this.hasBag() ? S.capBag : 1)); },
-  // Surplus (récolte, fouille, ramassage) : il tombe au sol à côté du joueur (4 objets au plus) au lieu d'être perdu.
-  capInventory() {
-    const P = this.player; let over = 0, what = null;
-    for (const id of Object.keys(S.cap)) {
-      const n = (this.inv[id] || 0) - this.capOf(id);
-      if (n <= 0) continue;
-      this.inv[id] -= n; over += n; what = what || id;
-      for (let i = 0; i < Math.min(n, 4); i++) { const a = this.t * 3 + i * 1.7 + over; this.addPickup(id, P.x + Math.sin(a) * 1.0, P.z + Math.cos(a) * 1.0); }
+  slotsMax() { return this.hasBag() ? S.slots.bag : S.slots.base; },
+  // emplacements pris par `n` objets de l'espèce `id` (0 pour les munitions et le sac à dos : pas de pile)
+  slotsOf(id, n = this.inv[id] || 0) { const st = ITEMS[id] && ITEMS[id].stack; return st ? Math.ceil(n / st) : 0; },
+  slotsUsed() { let u = 0; for (const id in ITEMS) u += this.slotsOf(id); return u; },
+  // combien d'objets `id` peut-on encore ajouter (places libres + fin de la dernière pile) ; Infinity pour les munitions
+  room(id) {
+    const st = ITEMS[id] && ITEMS[id].stack; if (!st) return Infinity;
+    const n = this.inv[id] || 0;
+    return Math.max(0, (this.slotsMax() - this.slotsUsed()) * st + st * Math.ceil(n / st) - n);
+  },
+  // cases du sac, dans l'ordre d'affichage : [{ id, n }] (une case par pile entamée)
+  bagCells() {
+    const out = [];
+    for (const id in ITEMS) {
+      const st = ITEMS[id].stack, n = this.inv[id] || 0; if (!st) continue;
+      for (let left = n; left > 0; left -= st) out.push({ id, n: Math.min(st, left) });
     }
-    if (over > 0 && this.t - this.tipT > 1.5) { this.tipT = this.t; this.emit({ type: 'tip', text: 'Sac plein : ' + ITEMS[what].name.toLowerCase() + ' laissé au sol' }); }
+    return out;
+  },
+
+  // Trop d'objets d'un coup (récolte, fouille, don) : ce qui dépasse tombe au sol à côté du joueur, en un seul tas.
+  // On retire d'abord les objets qui viennent d'augmenter (le dernier ramassé), jamais les munitions.
+  capInventory() {
+    const prev = this._prev || (this._prev = {}), P = this.player, lost = {};
+    if (this.slotsUsed() > this.slotsMax()) {
+      const ids = Object.keys(ITEMS).filter(id => ITEMS[id].stack).sort((a, b) => ((this.inv[b] || 0) - (prev[b] || 0)) - ((this.inv[a] || 0) - (prev[a] || 0)));
+      for (const id of ids) {
+        while (this.slotsUsed() > this.slotsMax() && (this.inv[id] || 0) > 0) { this.inv[id]--; lost[id] = (lost[id] || 0) + 1; }
+        if (this.slotsUsed() <= this.slotsMax()) break;
+      }
+    }
+    let first = null;
+    for (const id in lost) {
+      first = first || id;
+      const a = this.t * 3 + (this.nextId || 0), pk = this.addPickup(id, P.x + Math.sin(a) * 1.1, P.z + Math.cos(a) * 1.1);
+      pk.n = lost[id]; pk.away = true;
+    }
+    if (first && this.t - this.tipT > 1.5) { this.tipT = this.t; this.emit({ type: 'tip', text: 'Sac plein : ' + ITEMS[first].name.toLowerCase() + ' laissé au sol' }); }
     if ((this.inv.backpack || 0) > 1) this.inv.backpack = 1;
+    for (const id in ITEMS) prev[id] = this.inv[id] || 0;
   },
 
   // Donne un objet (ressource) ou une arme. Renvoie le libellé pour l'interface.
@@ -84,18 +111,49 @@ export const survivalMethods = {
     this.inv[id] = (this.inv[id] || 0) + n; return { id, n };
   },
 
-  // Ramassage des objets lâchés : seulement s'il reste de la place (remplace la version de sim.js).
+  // Jeter `n` objets devant soi (menu inventaire). Le tas ne se ramasse pas tant qu'on ne s'en est pas éloigné.
+  dropItem(id, n = 1) {
+    const it = ITEMS[id]; if (!it || id === 'backpack') return 0;
+    const k = Math.min(n, this.inv[id] || 0); if (k <= 0) return 0;
+    const P = this.player, pk = this.addPickup(id, P.x + Math.sin(this.yaw) * S.dropGap, P.z + Math.cos(this.yaw) * S.dropGap);
+    this.inv[id] -= k; pk.n = k; pk.away = true;
+    this.emit({ type: 'drop', id, n: k });
+    return k;
+  },
+
+  // Objets lâchés ou jetés dans un rayon r autour du joueur (liste « Au sol » de l'inventaire), les plus proches d'abord.
+  nearbyPickups(r = 3.5) {
+    const P = this.player;
+    return this.pickups.map(p => ({ p, d: Math.hypot(p.x - P.x, p.z - P.z) })).filter(o => o.d < r).sort((a, b) => a.d - b.d).map(o => o.p);
+  },
+  // Ramasse à la main (inventaire) : prend ce qui rentre, le reste reste au sol.
+  takePickup(pid) {
+    const i = this.pickups.findIndex(p => p.id === pid); if (i < 0) return 0;
+    const pk = this.pickups[i], want = pk.n || 1, k = Math.min(want, this.room(pk.kind));
+    if (k <= 0) { this.emit({ type: 'tip', text: 'Plus de place dans le sac' }); return 0; }
+    this.inv[pk.kind] = (this.inv[pk.kind] || 0) + k; pk.n = want - k;
+    if (pk.n <= 0) this.pickups.splice(i, 1);
+    this.emit({ type: 'pickup', kind: pk.kind, id: pk.id, n: k });
+    return k;
+  },
+
+  // Ramassage automatique en marchant dessus (remplace la version de sim.js) : seulement ce qui rentre.
   updatePickups(dt) {
     const P = this.player;
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const pk = this.pickups[i]; pk.t += dt;
-      if (Math.hypot(pk.x - P.x, pk.z - P.z) > PICKUP.radius) continue;
-      if ((this.inv[pk.kind] || 0) >= this.capOf(pk.kind)) continue;               // sac plein : l'objet reste au sol
-      this.inv[pk.kind] = (this.inv[pk.kind] || 0) + 1;
-      this.pickups.splice(i, 1);
-      this.emit({ type: 'pickup', kind: pk.kind, id: pk.id });
+      const d = Math.hypot(pk.x - P.x, pk.z - P.z);
+      if (pk.away) { if (d > PICKUP.radius + 0.4) pk.away = false; continue; }   // objet qu'on vient de jeter : il faut s'éloigner d'abord
+      if (d > PICKUP.radius) continue;
+      const want = pk.n || 1, k = Math.min(want, this.room(pk.kind));
+      if (k <= 0) continue;                                                     // sac plein : l'objet reste au sol
+      this.inv[pk.kind] = (this.inv[pk.kind] || 0) + k; pk.n = want - k;
+      if (pk.n <= 0) this.pickups.splice(i, 1);
+      this.emit({ type: 'pickup', kind: pk.kind, id: pk.id, n: k });
     }
   },
+
+  equip(id) { if (this.weapons[id] && this.cur !== id) { this.setWeapon(id); return true; } return false; },
 
   useItem(id) {
     const P = this.player;
@@ -247,6 +305,7 @@ export const survivalMethods = {
     for (const l of d.looted || []) { const s = this.spots[l.id]; if (s) { s.searched = true; s.at = this.t - l.age; } }
     for (const p of [...this.pieces]) this.removePiece(p);
     for (const p of d.pieces || []) { const pc = this.addPiece(p.kind, p.x, p.z, p.yaw); pc.hp = p.hp; pc.open = !!p.open; pc.col.off = pc.open; }
+    this._prev = {}; for (const id in ITEMS) this._prev[id] = this.inv[id] || 0;
     this.nightFlag = this.isNight();
     return true;
   },
