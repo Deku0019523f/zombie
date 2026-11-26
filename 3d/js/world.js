@@ -109,13 +109,14 @@ export function buildWorld(scene, layout) {
   // arbre abattu : la couronne disparaît, il reste une souche
   const fellTree = (i) => {
     const t = all[i]; if (!t) return;
-    d.position.set(t.x, 0, t.z); d.rotation.y = i * 1.7; d.scale.set(t.s * 1.25, t.s * 0.16, t.s * 1.25); d.updateMatrix();
+    d.position.set(t.x, 0, t.z); d.rotation.set(0, i * 1.7, 0); d.scale.set(t.s * 1.25, t.s * 0.16, t.s * 1.25); d.updateMatrix();
     trunks.setMatrixAt(i, d.matrix); canopies.setMatrixAt(i, zero); trunks.instanceMatrix.needsUpdate = canopies.instanceMatrix.needsUpdate = true;
   };
 
   const restoreTree = (i) => {
     const t = all[i]; if (!t) return;
-    d.position.set(t.x, 0, t.z); d.rotation.y = i * 1.7; d.scale.setScalar(t.s); d.updateMatrix();
+    d.position.set(t.x, 0, t.z); d.rotation.set(0, i * 1.7, 0); d.scale.setScalar(t.s);   // rotation x/z remise à 0 : `d` sert aussi aux rochers (3 axes), sinon les arbres restent penchés
+    d.updateMatrix();
     trunks.setMatrixAt(i, d.matrix); canopies.setMatrixAt(i, d.matrix); trunks.instanceMatrix.needsUpdate = canopies.instanceMatrix.needsUpdate = true;
   };
 

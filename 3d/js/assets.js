@@ -8,7 +8,9 @@ import { MODELS } from './config.js';
 const cache = new Map();
 const mats = new Map();
 const loader = new GLTFLoader();
-const fbxLoader = new FBXLoader();
+const fbxMgr = new THREE.LoadingManager();      // les FBX cherchent leur atlas à côté d'eux : on les renvoie vers le vrai fichier (sinon 404)
+fbxMgr.setURLModifier(u => /House_texture_atlas\.png$/i.test(u) ? MODELS + '../sources/medieval_houses/Texture/House_texture_atlas.png' : u);
+const fbxLoader = new FBXLoader(fbxMgr);
 
 // Modèles FBX de assets/sources/… (exportés en centimètres, sans texture liée) : mis à l'échelle en mètres, centrés en x/z, posés sur y = 0.
 // Les maisons médiévales n'ont qu'un seul matériau : l'atlas de couleurs 64x64 (Texture/House_texture_atlas.png), en NearestFilter.
