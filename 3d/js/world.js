@@ -78,6 +78,7 @@ export function buildWorld(scene, layout) {
   };
   for (const it of layout.items) place(it.model, it.x, it.z, it.yaw, it.scale || 1);
   for (const q of layout.cabin.pieces) place(q.m, q.x, q.z, q.yaw, q.s || 1, q.y || 0);        // la cabane de départ
+  for (const l of layout.cabin.lights || []) { const pl = new THREE.PointLight(0xffb866, 1.3, 7, 1.6); pl.position.set(l.x, l.y, l.z); scene.add(pl); }   // lampe de la cabane
   for (const h of layout.houses) {
     const g = new THREE.Group(); g.position.set(h.x, 0, h.z); g.rotation.y = h.yaw; root.add(g);
     for (const p of housePieces(layout.rng)) place(p.m + '.gltf', p.x, p.z, p.yaw, 1, p.y || 0, g);

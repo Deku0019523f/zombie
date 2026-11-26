@@ -8,6 +8,24 @@ const cache = new Map();
 const mats = new Map();
 const loader = new GLTFLoader();
 
+// Meubles « Cozy Interiors » (assets/models/interiors) : un seul matériau, les couleurs viennent d'une palette PNG 8x8.
+// Palette obligatoirement en NearestFilter et sans mipmaps ; cellules 41-43 = lampes (émissif), cellule 40 = verre.
+let palette = null;
+const palMats = new Map();
+function paletteMat(m) {
+  if (!palette) {
+    palette = new THREE.TextureLoader().load(MODELS + 'interiors/Palettes/CI_Theme_Walnut.png');
+    palette.magFilter = palette.minFilter = THREE.NearestFilter; palette.generateMipmaps = false; palette.colorSpace = THREE.SRGBColorSpace;
+  }
+  const key = m.name; let r = palMats.get(key);
+  if (!r) {
+    r = /Emissive/i.test(m.name) ? new THREE.MeshBasicMaterial({ map: palette }) : new THREE.MeshLambertMaterial({ map: palette, side: THREE.DoubleSide });
+    if (/Glass/i.test(m.name)) { r.transparent = true; r.opacity = 0.35; }
+    r.name = m.name; palMats.set(key, r);
+  }
+  return r;
+}
+
 // Un seul matériau Lambert par couple (nom, texture, couleur) : indispensable pour fusionner la ville en quelques draw calls.
 function share(m) {
   const img = m.map && m.map.image;
@@ -31,7 +49,8 @@ export async function loadAll(names, onProgress) {
         const g = await loader.loadAsync(MODELS + n);
         g.scene.traverse(o => {
           if (!o.isMesh) return;
-          o.material = Array.isArray(o.material) ? o.material.map(share) : share(o.material);
+          const f = n.startsWith('interiors/') ? paletteMat : share;
+          o.material = Array.isArray(o.material) ? o.material.map(f) : f(o.material);
           o.frustumCulled = !o.isSkinnedMesh;     // la boîte englobante d'un mesh animé est celle de la pose de repos
         });
         cache.set(n, g);

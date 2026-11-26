@@ -70,15 +70,28 @@ export function buildLayout(seed = 1337) {
   for (const [x, z] of [[a, b], [a + n, b], [a, b + n], [a + n, b + n]]) cp.push({ m: P + 'Corner_Exterior_Wood.gltf', x, z, yaw: 0 });
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) cp.push({ m: P + 'Floor_WoodDark.gltf', x: a + 1 + 2 * i, z: b + 1 + 2 * j, yaw: 0, y: 0.015 });
   cp.push({ m: P + 'Roof_RoundTiles_6x6.gltf', x: cx, z: cz, yaw: 0, y: 3.9, s: [0.74, 1, 0.75] });
-  cp.push({ m: 'environment/Couch.gltf', x: a + 2, z: b + 1.0, yaw: 0 });          // le « lit »
-  colliders.push({ x: a + 2, z: b + 1.0, hw: 1.5, hd: 0.6, h: 1.2 });
+  // mobilier « Cozy Interiors » (assets/models/interiors) : lit, table de chevet, armoire, table + chaise, tapis, lampe
+  const IN = 'interiors/';
+  cp.push({ m: IN + 'Decor/CI_Decor_Rug_LargeRect.glb', x: a + 3, z: b + 3, yaw: 0, y: 0.03 });
+  cp.push({ m: IN + 'Bedroom/CI_Bedroom_Bed_Single.glb', x: a + 0.6, z: b + 1.15, yaw: 0 });          // le « lit »
+  colliders.push({ x: a + 0.6, z: b + 1.15, hw: 0.45, hd: 1.0, h: 0.8 });
+  cp.push({ m: IN + 'Bedroom/CI_Bedroom_BedsideTable_Drawer.glb', x: a + 1.4, z: b + 0.35, yaw: 0 });
+  colliders.push({ x: a + 1.4, z: b + 0.35, hw: 0.23, hd: 0.2, h: 0.58 });
+  cp.push({ m: IN + 'Bedroom/CI_Bedroom_Wardrobe_Narrow.glb', x: a + 3.2, z: b + 0.35, yaw: 0 });
+  colliders.push({ x: a + 3.2, z: b + 0.35, hw: 0.36, hd: 0.3, h: 1.5 });
+  cp.push({ m: IN + 'Kitchen/CI_Kitchen_Table.glb', x: a + 5.1, z: b + 4.6, yaw: 0 });
+  colliders.push({ x: a + 5.1, z: b + 4.6, hw: 0.7, hd: 0.4, h: 0.75 });
+  cp.push({ m: IN + 'Kitchen/CI_Kitchen_Chair.glb', x: a + 5.1, z: b + 3.8, yaw: Math.PI });
+  colliders.push({ x: a + 5.1, z: b + 3.8, r: 0.22 });
+  cp.push({ m: IN + 'Living/CI_Living_Lamp_Floor.glb', x: a + 0.5, z: b + 5.5, yaw: 0 });
+  colliders.push({ x: a + 0.5, z: b + 5.5, r: 0.21 });
   cp.push({ m: P + 'Prop_Crate.gltf', x: a + 5, z: b + 1, yaw: 0.3, s: [0.8, 0.8, 0.8] });   // caisse : 1 conserve + 1 bandage
   colliders.push({ x: a + 5, z: b + 1, hw: 0.45, hd: 0.45, h: 0.9 });
   spot('cabin', a + 5, b + 1, 0.45, 0.45);
   cp.push({ m: 'environment/Chest.gltf', x: a + n + 4, z: b + n - 1, yaw: -PL / 2 });         // coffre à outils devant la cabane : la pioche
   colliders.push({ x: a + n + 4, z: b + n - 1, hw: 0.55, hd: 0.55, h: 0.9 });
   spot('tools', a + n + 4, b + n - 1, 0.55, 0.55);
-  const cabin = { a, b, n, cx, cz, pieces: cp, door: { x: a + 3, z: b + n, yaw: 0 }, models: [...new Set(cp.map(q => q.m))] };
+  const cabin = { a, b, n, cx, cz, lights: [{ x: a + 0.5, y: 1.4, z: b + 5.5 }], pieces: cp, door: { x: a + 3, z: b + n, yaw: 0 }, models: [...new Set(cp.map(q => q.m))] };
   const spawn = { x: cx, z: cz + 0.2, yaw: 0 };
 
   // --- maisons de part et d'autre de la route principale (axe X) ---
@@ -166,7 +179,7 @@ export function buildLayout(seed = 1337) {
   const grass = [];
   for (let i = 0; i < 260; i++) {
     const x = (rng() * 2 - 1) * (H - 1), z = (rng() * 2 - 1) * (H - 1);
-    if (onRoad(x, z, 0.5)) continue;
+    if (onRoad(x, z, 0.5) || (Math.abs(x - cabin.cx) < 5 && Math.abs(z - cabin.cz) < 5)) continue;      // pas d'herbe dans la cabane
     grass.push({ model: 'vegetation/Grass_' + (1 + Math.floor(rng() * 4)) + '.glb', x, z, yaw: rng() * Math.PI * 2, scale: 0.9 + rng() * 0.8 });
   }
 
