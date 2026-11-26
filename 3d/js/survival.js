@@ -1,6 +1,6 @@
 // Systèmes de SURVIE greffés sur la classe Sim (sim.js) : temps, besoins, inventaire, fouille, interactions,
 // construction d'abris, sauvegarde. Aucune dépendance à three.js ni au DOM (testable sous Node).
-import { PLAYER, WEAPONS, SURVIVAL as S, PIECES, PIECE_ORDER, LOOT } from './config.js';
+import { PLAYER, WEAPONS, SURVIVAL as S, PIECES, PIECE_ORDER, LOOT, ITEMS, PICKUP } from './config.js';
 import { pushOut, distToBox } from './logic.js';
 
 const SLOT_ITEMS = ['bandage', 'food', 'water'];   // barre rapide : touches / boutons 1 2 3
@@ -56,6 +56,23 @@ export const survivalMethods = {
   canAfford(cost) { return Object.entries(cost).every(([k, n]) => (this.inv[k] || 0) >= n); },
   pay(cost) { for (const [k, n] of Object.entries(cost)) this.inv[k] -= n; },
 
+  // Capacité de transport : chaque ressource a un plafond (S.cap), multiplié par S.capBag avec le sac à dos.
+  // Les munitions et les objets absents de S.cap sont illimités.
+  hasBag() { return (this.inv.backpack || 0) > 0; },
+  capOf(id) { const c = S.cap[id]; return c === undefined ? Infinity : Math.round(c * (this.hasBag() ? S.capBag : 1)); },
+  // Surplus (récolte, fouille, ramassage) : il tombe au sol à côté du joueur (4 objets au plus) au lieu d'être perdu.
+  capInventory() {
+    const P = this.player; let over = 0, what = null;
+    for (const id of Object.keys(S.cap)) {
+      const n = (this.inv[id] || 0) - this.capOf(id);
+      if (n <= 0) continue;
+      this.inv[id] -= n; over += n; what = what || id;
+      for (let i = 0; i < Math.min(n, 4); i++) { const a = this.t * 3 + i * 1.7 + over; this.addPickup(id, P.x + Math.sin(a) * 1.0, P.z + Math.cos(a) * 1.0); }
+    }
+    if (over > 0 && this.t - this.tipT > 1.5) { this.tipT = this.t; this.emit({ type: 'tip', text: 'Sac plein : ' + ITEMS[what].name.toLowerCase() + ' laissé au sol' }); }
+    if ((this.inv.backpack || 0) > 1) this.inv.backpack = 1;
+  },
+
   // Donne un objet (ressource) ou une arme. Renvoie le libellé pour l'interface.
   giveItem(id, n = 1) {
     const W = WEAPONS[id];
@@ -65,6 +82,19 @@ export const survivalMethods = {
       return { id, n: 1, weapon: true };
     }
     this.inv[id] = (this.inv[id] || 0) + n; return { id, n };
+  },
+
+  // Ramassage des objets lâchés : seulement s'il reste de la place (remplace la version de sim.js).
+  updatePickups(dt) {
+    const P = this.player;
+    for (let i = this.pickups.length - 1; i >= 0; i--) {
+      const pk = this.pickups[i]; pk.t += dt;
+      if (Math.hypot(pk.x - P.x, pk.z - P.z) > PICKUP.radius) continue;
+      if ((this.inv[pk.kind] || 0) >= this.capOf(pk.kind)) continue;               // sac plein : l'objet reste au sol
+      this.inv[pk.kind] = (this.inv[pk.kind] || 0) + 1;
+      this.pickups.splice(i, 1);
+      this.emit({ type: 'pickup', kind: pk.kind, id: pk.id });
+    }
   },
 
   useItem(id) {
@@ -84,12 +114,16 @@ export const survivalMethods = {
   },
   updateItems(inp) {
     if (inp.slot && !this.build.on && SLOT_ITEMS[inp.slot - 1]) this.useItem(SLOT_ITEMS[inp.slot - 1]);
+    this.capInventory();
   },
 
   // ---------------------------------------------------------------- fouille et interactions
   search(sp) {
     const table = LOOT[sp.kind] || LOOT.house, got = [];
-    for (const [id, a, b, ch] of table.rolls) if (this.rng() < ch) got.push(this.giveItem(id, a + Math.floor(this.rng() * (b - a + 1))));
+    for (const [id, a, b, ch] of table.rolls) {
+      if (id === 'backpack' && this.hasBag()) continue;                  // un seul sac à dos
+      if (this.rng() < ch) got.push(this.giveItem(id, a + Math.floor(this.rng() * (b - a + 1))));
+    }
     sp.searched = true; sp.at = this.t;
     this.emit({ type: 'loot', got, spot: sp.id });
   },
@@ -154,7 +188,7 @@ export const survivalMethods = {
     else if (Math.abs(Math.cos(this.yaw)) >= Math.abs(Math.sin(this.yaw))) { x = Math.floor(tx / g) * g + g / 2; z = Math.round(tz / g) * g; }
     else { x = Math.round(tx / g) * g; z = Math.floor(tz / g) * g + g / 2; yaw = Math.PI / 2; }
     let ok = true, why = '';
-    if (!this.canAfford(D.cost)) { ok = false; why = 'Pas assez de ' + Object.keys(D.cost).map(c => c === 'wood' ? 'bois' : 'pierre').join(', '); }
+    if (!this.canAfford(D.cost)) { ok = false; why = 'Pas assez de ' + Object.keys(D.cost).filter(c => (this.inv[c] || 0) < D.cost[c]).map(c => ITEMS[c].name.toLowerCase()).join(', '); }
     else if (this.pieces.some(p => Math.abs(p.x - x) < 0.3 && Math.abs(p.z - z) < 0.3)) { ok = false; why = 'Emplacement occupé'; }
     else {
       const ax = Math.abs(Math.sin(yaw)) < 0.5, pts = k === 'fire' ? [[0, 0]] : [-0.5, 0, 0.5].map(o => (ax ? [o, 0] : [0, o]));
