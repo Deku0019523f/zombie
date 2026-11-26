@@ -5,6 +5,7 @@ import { Sim } from './sim.js';
 import { loadAll, has } from './assets.js';
 import { View } from './view.js';
 import { createInput } from './input.js';
+import { createInventory } from './inventory.js';
 import { ui } from './ui.js';
 import * as audio from './audio.js';
 
@@ -39,8 +40,14 @@ export async function boot() {
   let mode = 'menu', paused = false, best = bestGet(), groanT = 0;
   window.__game = { sim, view, layout };          // pratique pour déboguer dans la console
 
+  // rejoue les événements de la simulation (sons, bannières, rendu) et rafraîchit le HUD
+  const flush = () => { const ev = sim.drain(); view.handle(ev); react(ev); ui.update(sim); };
+  const inv = createInventory(sim, flush);
+  const closeInv = () => { if (inv.isOpen()) inv.show(false); input.clear(); };
+  const toggleInv = () => { if (mode !== 'play' || paused || sim.player.dead || sim.over) return; if (inv.isOpen()) closeInv(); else { input.clear(); inv.show(true); } };
+
   const begin = (save) => {
-    audio.unlock(); sim.reset(save); input.clear(); mode = 'play'; paused = false; ui.hud(true); ui.pause(false);
+    audio.unlock(); sim.reset(save); input.clear(); inv.show(false); mode = 'play'; paused = false; ui.hud(true); ui.pause(false);
     view.syncWorld();
     ui.banner(save ? 'DE RETOUR' : 'VOUS VOUS RÉVEILLEZ', save ? 'Jour ' + sim.day() : 'Cabane abandonnée… trouvez de quoi survivre', 3200);
     if (document.documentElement.requestFullscreen && matchMedia('(pointer:coarse)').matches) document.documentElement.requestFullscreen().catch(() => {});
@@ -49,21 +56,21 @@ export async function boot() {
   const cont = () => begin(saveGet());
   const doSave = () => { if (mode === 'play' && !sim.player.dead && !sim.over) saveSet(sim.serialize()); };
   let saveT = 0;
-  const setPause = (p) => { if (mode !== 'play') return; if (p) doSave(); paused = p; ui.pause(p); input.clear(); if (document.pointerLockElement) document.exitPointerLock(); };
+  const setPause = (p) => { if (mode !== 'play') return; if (p) { doSave(); inv.show(false); } paused = p; ui.pause(p); input.clear(); if (document.pointerLockElement) document.exitPointerLock(); };
 
   document.getElementById('btnContinue').addEventListener('click', cont);
   document.getElementById('btnStart').addEventListener('click', start);
   document.getElementById('btnRestart').addEventListener('click', start);
   document.getElementById('btnResume').addEventListener('click', () => { audio.unlock(); setPause(false); });
-  document.querySelectorAll('.js-menu').forEach(b => b.addEventListener('click', () => { doSave(); mode = 'menu'; paused = false; sim.reset(); view.syncWorld(); ui.menu(best, !!saveGet()); }));
-  document.getElementById('btnMute').addEventListener('click', (e) => { audio.setMuted(!audio.isMuted()); e.currentTarget.textContent = audio.isMuted() ? '🔇' : '🔊'; });
+  document.querySelectorAll('.js-menu').forEach(b => b.addEventListener('click', () => { doSave(); inv.show(false); mode = 'menu'; paused = false; sim.reset(); view.syncWorld(); ui.menu(best, !!saveGet()); }));
+  document.getElementById('btnMute').addEventListener('click', (e) => { audio.setMuted(!audio.isMuted()); e.currentTarget.classList.toggle('muted', audio.isMuted()); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) setPause(true); });
   window.addEventListener('blur', () => setPause(true));
   document.addEventListener('pointerdown', audio.unlock, { passive: true });
 
   const A = audio.sfx;
   const NAME = { wood: 'bois', stone: 'pierre', food: 'conserve', water: 'eau', bandage: 'bandage', ammo: 'munitions', match: 'allumette', backpack: 'sac à dos' };
-  const react = (events) => {
+  function react(events) {
     for (const e of events) {
       switch (e.type) {
         case 'shot': if (e.first) A.shot(e.w); break;
@@ -80,39 +87,43 @@ export async function boot() {
         case 'pieceHit': A.pieceHit(); break;
         case 'pieceBreak': A.pieceBreak(); break;
         case 'use': ({ food: A.eat, water: A.drink, bandage: A.bandage })[e.id]?.(); break;
-        case 'loot': A.loot(); ui.banner(e.got.length ? 'TROUVÉ' : 'Rien ici…', e.got.map(g => g.weapon ? WEAPONS[g.id].name : g.id === 'backpack' ? 'Sac à dos : capacité ×2' : '+' + g.n + ' ' + (NAME[g.id] || g.id)).join(' · '), 1800); break;
-        case 'pickup': A.pickup(); ui.banner('+1 ' + (NAME[e.kind] || e.kind), null, 900); break;
+        case 'loot': A.loot(); ui.banner(e.got.length ? 'TROUVÉ' : 'Rien ici…', e.got.map(g => g.weapon ? WEAPONS[g.id].name : g.id === 'backpack' ? 'Sac à dos : 20 emplacements' : '+' + g.n + ' ' + (NAME[g.id] || g.id)).join(' · '), 1800); break;
+        case 'pickup': A.pickup(); ui.banner('+' + (e.n || 1) + ' ' + (NAME[e.kind] || e.kind), null, 900); break;
+        case 'drop': A.swap(); ui.banner('Jeté : ' + e.n + ' ' + (NAME[e.id] || e.id), null, 900); break;
         case 'tip': A.tip(); ui.banner(e.text, null, 2200); break;
         case 'phase': e.night ? (A.dusk(), ui.banner('LA NUIT TOMBE', 'Barricadez-vous', 3000)) : (A.dawn(), ui.banner('JOUR ' + e.day, 'Le soleil se lève', 2600)); break;
         case 'death': A.death(); break;
         case 'gameover': {
           saveSet(null);
           const isBest = e.days > best; if (isBest) { best = e.days; bestSet(best); }
-          mode = 'over'; ui.over(e, best, isBest); break;
+          inv.show(false); mode = 'over'; ui.over(e, best, isBest); break;
         }
       }
     }
-  };
+  }
 
+  window.addEventListener('keydown', (e) => { if (e.code === 'Escape' && inv.isOpen()) { closeInv(); } });
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const frozen = paused || inv.isOpen();            // inventaire ouvert : le monde s'arrête
     if (mode === 'play' && !paused) {
       const inp = input.poll();
-      if (inp.pause) setPause(true);
+      if (input.takeInv()) toggleInv();
+      if (inv.isOpen()) input.takeLook();   // monde figé : on ignore les autres touches
+      else if (inp.pause) setPause(true);
       else {
         const lk = input.takeLook();
         sim.look(-lk.x * CAMERA.sens, -lk.y * CAMERA.sens);
         sim.update(dt, inp);
-        const ev = sim.drain(); view.handle(ev); react(ev);
-        ui.update(sim);
+        flush();
         saveT += dt; if (saveT > 20) { saveT = 0; doSave(); }
         groanT -= dt;
         if (groanT <= 0) { groanT = 1.2 + Math.random(); if (sim.zombies.some(z => !z.dead && z.state === 'chase' && Math.hypot(z.x - sim.player.x, z.z - sim.player.z) < 16)) audio.sfx.groan(); }
       }
     }
-    view.render(paused ? 0 : dt, mode === 'menu' ? 'menu' : 'play');
+    view.render(frozen ? 0 : dt, mode === 'menu' ? 'menu' : 'play');
   }
   ui.menu(best, !!saveGet());
   requestAnimationFrame(frame);

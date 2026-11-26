@@ -9,6 +9,7 @@
 <title>Dernier Rempart — Survie</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/ui-skin.css">
+<link rel="stylesheet" href="css/ui-inventory.css">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -25,36 +26,37 @@
   <div id="lookZone"></div>
 
   <div id="topLeft" class="panel">
-    <div id="hudClock">Jour 1 · 07:30</div>
-    <div class="need"><i>🍖</i><div class="nbar"><div id="barFood"></div></div></div>
-    <div class="need"><i>💧</i><div class="nbar"><div id="barWater"></div></div></div>
+    <div id="hudClock"><span id="clockTxt">Jour 1 · 07:30</span><img id="clockIco" class="ico" src="../assets/ui/icons/sun.svg" alt=""></div>
+    <div class="need"><img class="ico need-ico" src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_CannedFood_Used_Common_64.png" alt=""><div class="nbar"><div id="barFood"></div></div></div>
+    <div class="need"><img class="ico need-ico" src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_WaterCanister_Used_Common_64.png" alt=""><div class="nbar"><div id="barWater"></div></div></div>
     <div id="hudRes" class="res"></div>
   </div>
   <div id="topRight">
-    <button id="btnBuild" class="round sm" aria-label="Construire">🔨</button>
-    <button id="btnMute" class="round sm" aria-label="Son">🔊</button>
-    <button id="btnPause" class="round sm" aria-label="Pause">⏸</button>
+    <button id="btnInv" class="round sm" aria-label="Inventaire"><img class="ico" src="../assets/ui/icons/backpack.svg" alt=""></button>
+    <button id="btnBuild" class="round sm" aria-label="Construire"><img class="ico" src="../assets/ui/icons/hammer.svg" alt=""></button>
+    <button id="btnMute" class="round sm" aria-label="Son"></button>
+    <button id="btnPause" class="round sm" aria-label="Pause"></button>
   </div>
 
   <div id="cross"><i></i></div>
   <div id="hitmark"></div>
   <div id="banner"></div>
-  <div id="bleed" class="hidden">🩸 Saignement</div>
+  <div id="bleed" class="hidden"><img class="ico" src="../assets/ui/icons/blood.svg" alt=""><span>Saignement</span></div>
 
   <div id="bottom">
     <div id="buildBar" class="hidden">
       <div id="buildInfo"></div>
       <div class="brow">
-        <button class="bp round sm" data-p="1" aria-label="Mur en bois">🪵</button>
-        <button class="bp round sm" data-p="2" aria-label="Mur en pierre">🧱</button>
-        <button class="bp round sm" data-p="3" aria-label="Porte">🚪</button>
-        <button class="bp round sm" data-p="4" aria-label="Feu de camp">🔥</button>
+        <button class="bp round sm" data-p="1" aria-label="Mur en bois"><img class="ico" src="../assets/ui/icons/wood.svg" alt=""></button>
+        <button class="bp round sm" data-p="2" aria-label="Mur en pierre"><img class="ico" src="../assets/ui/icons/stone.svg" alt=""></button>
+        <button class="bp round sm" data-p="3" aria-label="Porte"><img class="ico" src="../assets/ui/icons/door.svg" alt=""></button>
+        <button class="bp round sm" data-p="4" aria-label="Feu de camp"><img class="ico" src="../assets/ui/icons/flame.svg" alt=""></button>
       </div>
     </div>
     <div id="hotbar">
-      <button class="hslot" data-slot="1" aria-label="Bandage"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_MedicalKit_Used_Uncommon_64.png" alt="🩹"></span><b id="hc1">0</b></button>
-      <button class="hslot" data-slot="2" aria-label="Conserve"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_CannedFood_Used_Common_64.png" alt="🥫"></span><b id="hc2">0</b></button>
-      <button class="hslot" data-slot="3" aria-label="Eau"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_WaterCanister_Used_Common_64.png" alt="💧"></span><b id="hc3">1</b></button>
+      <button class="hslot" data-slot="1" aria-label="Bandage"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_MedicalKit_Used_Uncommon_64.png" alt=""></span><b id="hc1">0</b></button>
+      <button class="hslot" data-slot="2" aria-label="Conserve"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_CannedFood_Used_Common_64.png" alt=""></span><b id="hc2">0</b></button>
+      <button class="hslot" data-slot="3" aria-label="Eau"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_WaterCanister_Used_Common_64.png" alt=""></span><b id="hc3">1</b></button>
       <div id="slotAmmo" class="slot">
         <div id="hudWeapon">Couteau</div>
         <div id="hudAmmo"></div>
@@ -69,11 +71,23 @@
   </div>
 
   <button id="btnFire" class="round big" aria-label="Attaquer"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="24" r="4" fill="currentColor"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9" stroke="currentColor" stroke-width="3"/></svg></button>
-  <button id="btnReload" class="round md hidden" aria-label="Recharger">⟳</button>
-  <button id="btnSwap" class="round md" aria-label="Changer d'arme">⇄</button>
-  <button id="btnSprint" class="round md" aria-label="Sprint">»</button>
-  <button id="btnUse" class="round md hidden" aria-label="Utiliser">✋<small id="useLbl"></small></button>
+  <button id="btnReload" class="round md hidden" aria-label="Recharger"><img class="ico" src="../assets/ui/icons/reload.svg" alt=""></button>
+  <button id="btnSwap" class="round md" aria-label="Changer d'arme"><img class="ico" src="../assets/ui/icons/swap.svg" alt=""></button>
+  <button id="btnSprint" class="round md" aria-label="Sprint"><img class="ico" src="../assets/ui/icons/sprint.svg" alt=""></button>
+  <button id="btnUse" class="round md hidden" aria-label="Utiliser"><img class="ico" src="../assets/ui/icons/hand.svg" alt=""><small id="useLbl"></small></button>
 </div>
+
+<section id="inv" class="hidden" aria-label="Inventaire">
+  <div class="invwin">
+    <div class="invhead"><h3>INVENTAIRE</h3><div id="invStats"></div><button id="invClose" aria-label="Fermer"></button></div>
+    <div class="invcols">
+      <div class="invcol"><h4>AU SOL</h4><div id="invGround" class="invlist"></div></div>
+      <div class="invcol"><h4>ÉQUIPEMENT</h4><div id="invGear" class="invlist"></div></div>
+      <div class="invcol"><h4>SAC <span id="invSlots"></span></h4><div class="invlist"><div id="invGrid"></div><div id="invAmmo"></div></div></div>
+    </div>
+    <div id="invInfo" class="invinfo"></div>
+  </div>
+</section>
 
 <section id="screenLoad" class="screen">
   <h1>DERNIER <span>REMPART</span></h1>
@@ -87,7 +101,7 @@
   <button id="btnContinue" class="btn primary hidden">CONTINUER</button>
   <button id="btnStart" class="btn primary">NOUVELLE PARTIE</button>
   <p id="menuBest" class="best"></p>
-  <p class="help">Vous vous réveillez dans une cabane avec presque rien. Fouillez, récoltez du bois et de la pierre, construisez un abri avant la nuit.<br>Tactile : joystick à gauche · glisser à droite pour viser · gros bouton = frapper / poser · ✋ = utiliser · 🔨 = construire<br>Clavier : ZQSD/WASD · souris · E utiliser · B construire · 1-3 objets · X arme · Maj sprint</p>
+  <p class="help">Vous vous réveillez dans une cabane avec presque rien. Fouillez, récoltez du bois et de la pierre, construisez un abri avant la nuit.<br>Tactile : joystick à gauche · glisser à droite pour viser · gros bouton = frapper / poser · main = utiliser · marteau = construire · sac = inventaire<br>Clavier : ZQSD/WASD · souris · E utiliser · B construire · I inventaire · 1-3 objets · X arme · Maj sprint</p>
 </section>
 
 <section id="screenPause" class="screen hidden dim">

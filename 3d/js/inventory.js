@@ -1,6 +1,7 @@
 // Écran d'inventaire (sac à emplacements, objets au sol, équipement). Ne touche la simulation que via ses méthodes
 // (useItem, dropItem, takePickup, equip) ; `act()` est appelé après chaque action pour que le jeu rejoue les événements.
 import { ITEMS, WEAPONS } from './config.js';
+import { ico } from './icons.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -12,7 +13,7 @@ export function createInventory(sim, act) {
   const isOpen = () => open;
   const show = (on) => { open = on; root.classList.toggle('hidden', !on); if (on) { sel = null; render(); } };
 
-  const cellHtml = (c, i) => `<button class="cell${sel && sel.k === 'bag' && sel.id === c.id ? ' sel' : ''}" data-k="bag" data-id="${c.id}" aria-label="${esc(ITEMS[c.id].name)}"><i class="ic">${ITEMS[c.id].icon}</i><b>${c.n}</b></button>`;
+  const cellHtml = (c, i) => `<button class="cell${sel && sel.k === 'bag' && sel.id === c.id ? ' sel' : ''}" data-k="bag" data-id="${c.id}" aria-label="${esc(ITEMS[c.id].name)}">${ico(c.id, "ic")}<b>${c.n}</b></button>`;
 
   function render() {
     if (!open) return;
@@ -23,19 +24,19 @@ export function createInventory(sim, act) {
     $('invGrid').innerHTML = grid.join('');
     $('invSlots').innerHTML = `<b class="${used >= max ? 'full' : ''}">${used}/${max}</b>`;
     const am = sim.inv.ammo || 0;
-    $('invAmmo').innerHTML = `<button class="chip${sel && sel.k === 'bag' && sel.id === 'ammo' ? ' sel' : ''}" data-k="bag" data-id="ammo">• Munitions<b>${am}</b></button>`;
+    $('invAmmo').innerHTML = `<button class="chip${sel && sel.k === 'bag' && sel.id === 'ammo' ? ' sel' : ''}" data-k="bag" data-id="ammo">${ico("ammo", "ic")} Munitions<b>${am}</b></button>`;
 
     const near = sim.nearbyPickups(3.5);
     $('invGround').innerHTML = near.length ? near.map(p => {
-      const it = ITEMS[p.kind] || { name: p.kind, icon: '•' };
-      return `<button class="row${sel && sel.k === 'ground' && sel.id === p.id ? ' sel' : ''}" data-k="ground" data-id="${p.id}"><i class="ic">${it.icon}</i><span>${esc(it.name)}</span><span class="n">×${p.n || 1}</span></button>`;
+      const it = ITEMS[p.kind] || { name: p.kind };
+      return `<button class="row${sel && sel.k === 'ground' && sel.id === p.id ? ' sel' : ''}" data-k="ground" data-id="${p.id}">${ico(p.kind, "ic")}<span>${esc(it.name)}</span><span class="n">×${p.n || 1}</span></button>`;
     }).join('') : '<div class="invempty">Rien autour de vous.</div>';
 
     const gear = sim.owned().map(id => {
       const W = WEAPONS[id];
-      return `<button class="gcard${id === sim.cur ? ' cur' : ''}${sel && sel.k === 'gear' && sel.id === id ? ' sel' : ''}" data-k="gear" data-id="${id}"><i class="ic">${W.icon || '🔪'}</i><span>${esc(W.name)}<small>${W.melee ? 'Mêlée' : 'Munitions ' + sim.weapons[id].ammo + '/' + W.mag}</small></span></button>`;
+      return `<button class="gcard${id === sim.cur ? ' cur' : ''}${sel && sel.k === 'gear' && sel.id === id ? ' sel' : ''}" data-k="gear" data-id="${id}">${ico(id, "ic")}<span>${esc(W.name)}<small>${W.melee ? 'Mêlée' : 'Munitions ' + sim.weapons[id].ammo + '/' + W.mag}</small></span></button>`;
     });
-    gear.push(`<div class="gcard bag${sim.hasBag() ? '' : ' none'}"><i class="ic">🎒</i><span>Sac à dos<small>${sim.hasBag() ? '20 emplacements' : 'Aucun (8 emplacements)'}</small></span></div>`);
+    gear.push(`<div class="gcard bag${sim.hasBag() ? '' : ' none'}">${ico("backpack", "ic")}<span>Sac à dos<small>${sim.hasBag() ? '20 emplacements' : 'Aucun (8 emplacements)'}</small></span></div>`);
     $('invGear').innerHTML = gear.join('');
     info();
   }

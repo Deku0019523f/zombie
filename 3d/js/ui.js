@@ -1,5 +1,6 @@
 // Interface (HUD, écrans) : lit l'état de la simulation, n'écrit jamais dedans.
 import { WEAPONS, PLAYER, PIECES, PIECE_ORDER } from './config.js';
+import { ico, ICON } from './icons.js';
 const NAMES = { wall: 'Mur en bois', stone: 'Mur en pierre', door: 'Porte', fire: 'Feu de camp' };
 const RES = { wood: 'bois', stone: 'pierre', match: 'allumette' };
 
@@ -35,7 +36,8 @@ export const ui = {
   update(sim) {
     const P = sim.player, W = WEAPONS[sim.cur], S = sim.weapons[sim.cur];
     const h = sim.hour(), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
-    setText('hudClock', `Jour ${sim.day()} · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` + (sim.isNight() ? ' 🌙' : ' ☀'));
+    setText('clockTxt', `Jour ${sim.day()} · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+    const night = sim.isNight(); if (cache.night !== night) { cache.night = night; $('clockIco').src = night ? ICON.moon : ICON.sun; }
     setW('barHp', (P.hp / PLAYER.hp) * 100); setW('barSt', (P.stamina / PLAYER.stamina) * 100);
     setW('barFood', P.hunger); setW('barWater', P.thirst);
     $('barFood').classList.toggle('low', P.hunger < 20); $('barWater').classList.toggle('low', P.thirst < 20);
@@ -43,8 +45,10 @@ export const ui = {
     setText('hudHp', String(Math.ceil(P.hp)));
     show('bleed', !!P.bleed);
     const inv = sim.inv;
-    // 🎒 emplacements utilisés / disponibles ; 🔥 allumettes ; 🔫 munitions (les munitions ne prennent pas de place)
-    setText('hudRes', `🎒 ${sim.slotsUsed()}/${sim.slotsMax()}   🪵 ${inv.wood || 0}   🪨 ${inv.stone || 0}   🔥 ${inv.match || 0}   🔫 ${inv.ammo || 0}`);
+    // emplacements utilisés / disponibles, bois, pierre, allumettes, munitions (les munitions ne prennent pas de place)
+    const res = `<span>${ico('backpack')}${sim.slotsUsed()}/${sim.slotsMax()}</span><span>${ico('wood')}${inv.wood || 0}</span><span>${ico('stone')}${inv.stone || 0}</span><span>${ico('match')}${inv.match || 0}</span><span>${ico('ammo')}${inv.ammo || 0}</span>`;
+    if (cache.res !== res) { cache.res = res; $('hudRes').innerHTML = res; }
+
     setText('hc1', String(inv.bandage || 0)); setText('hc2', String(inv.food || 0)); setText('hc3', String(inv.water || 0));
     [['1', 'bandage'], ['2', 'food'], ['3', 'water']].forEach(([n, id]) => { const el = document.querySelector(`.hslot[data-slot="${n}"]`); const none = !(inv[id] > 0); if (cache['n' + n] !== none) { cache['n' + n] = none; el.classList.toggle('none', none); } });
     setText('hudWeapon', W.name);
@@ -64,7 +68,7 @@ export const ui = {
       document.querySelectorAll('.bp').forEach(b => b.classList.toggle('sel', PIECE_ORDER[+b.dataset.p - 1] === B.piece));
       const D = PIECES[B.piece], g = B.ghost;
       const cost = Object.entries(D.cost).map(([k, n]) => `${n} ${RES[k]}`).join(', ');
-      setText('buildInfo', `${NAMES[B.piece]} — ${cost}` + (g && !g.ok ? ' ✖ ' + g.why : ''));
+      setText('buildInfo', `${NAMES[B.piece]} — ${cost}` + (g && !g.ok ? ' · ' + g.why : ''));
     }
   },
 };
