@@ -1,5 +1,5 @@
 // Équilibrage et constantes du jeu 3D. Aucun import : module pur (testable sous Node).
-export const VERSION = '5.0.0-survie';
+export const VERSION = '5.1.0-survie';
 export const MODELS = '../assets/models/';
 
 export const WORLD = { half: 56, fogNear: 22, fogFar: 85 };
@@ -35,14 +35,20 @@ export const WEAPON_HAND = {
   hide: ['Knife', 'WoodenBat_Saw'],
 };
 
-export const WEAPON_ORDER = ['knife', 'bat', 'axe', 'pick', 'pistol', 'shotgun', 'smg', 'rifle'];
+export const WEAPON_ORDER = ['knife', 'bat', 'guitar', 'club', 'spear', 'axe', 'pick', 'pistol', 'shotgun', 'smg', 'rifle'];
 // melee : pas de munitions. tree / rock = ressources récoltées par coup (0 = impossible). noise = rayon (m) où les zombies entendent le coup.
 // builtin : objet déjà présent dans le modèle du joueur (couteau, batte) ; model : objet à attacher à la main.
+// fit (outils de mêlée) : { len: longueur réelle en mètres, rot: rotation [x,y,z] en degrés pour amener la TÊTE de l'outil vers +Z
+//   (le repère du couteau tenu en main), grip: distance, en unités du modèle depuis le bout du manche, où la main serre l'outil }.
+//   view.js mesure l'échelle réelle de la main et en déduit l'échelle du modèle : plus aucun coefficient « au hasard ».
 export const WEAPONS = {
   knife:   { name: 'Couteau', melee: true, builtin: 'Knife',         dmg: 26, interval: 0.50, range: 1.9, arc: 1.0, tree: 1, rock: 0, noise: 6, anim: 'Stab' },
   bat:     { name: 'Batte',   melee: true, builtin: 'WoodenBat_Saw', dmg: 42, interval: 0.80, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 8, anim: 'Slash' },
+  guitar:  { name: 'Guitare', melee: true, model: 'weapons/Guitar.gltf', fit: { len: 0.8, rot: [-90, 0, 0], grip: 0.3 }, dmg: 34, interval: 0.80, range: 2.0, arc: 1.2, tree: 0, rock: 0, noise: 16, anim: 'Slash' },
+  club:    { name: 'Batte à clous', melee: true, model: 'weapons/WoodenBat_Barbed.gltf', fit: { len: 0.85, rot: [0, 0, 0], grip: 0.33 }, dmg: 55, interval: 0.85, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 9, anim: 'Slash' },
+  spear:   { name: 'Lance',   melee: true, model: 'weapons/Spear.gltf', fit: { len: 1.7, rot: [0, 0, 0], grip: 0.75 }, dmg: 40, interval: 0.70, range: 2.7, arc: 0.5, tree: 0, rock: 0, noise: 5, anim: 'Stab' },
   axe:     { name: 'Hache',   melee: true, model: 'weapons/Axe.gltf', dmg: 48, interval: 0.75, range: 2.0, arc: 1.1, tree: 2, rock: 0, noise: 9, anim: 'Slash' },
-  pick:    { name: 'Pioche',  melee: true, model: 'props/Shovel.glb', dmg: 30, interval: 0.85, range: 2.0, arc: 0.9, tree: 1, rock: 2, noise: 10, anim: 'Slash' },
+  pick:    { name: 'Pioche',  melee: true, model: 'props/Shovel.glb', fit: { len: 1.05, rot: [-90, 0, 0], grip: 1.3 }, dmg: 30, interval: 0.85, range: 2.0, arc: 0.9, tree: 1, rock: 2, noise: 10, anim: 'Slash' },
   pistol:  { name: 'Pistolet',   model: 'weapons/Pistol.gltf',  dmg: 24, interval: 0.30, mag: 12, reload: 1.3, spread: 0.014, range: 30, pellets: 1, auto: false, pierce: 1, kick: 0.012 },
   shotgun: { name: 'Fusil à pompe', model: 'weapons/Shotgun.gltf', dmg: 12, interval: 0.85, mag: 6,  reload: 2.1, spread: 0.095, range: 15, pellets: 8, auto: false, pierce: 1, kick: 0.04 },
   smg:     { name: 'Mitraillette', model: 'weapons/SMG.gltf',    dmg: 11, interval: 0.085, mag: 30, reload: 1.8, spread: 0.04,  range: 26, pellets: 1, auto: true,  pierce: 1, kick: 0.008 },
@@ -99,12 +105,12 @@ export const PIECES = {
 };
 export const PIECE_ORDER = ['wall', 'stone', 'door', 'fire'];
 
-// Tables de butin : [objet, min, max, chance]. « w » : arme possible [id, chance].
+// Tables de butin : [objet, min, max, chance]. Un objet qui est une arme (WEAPONS) donne l'arme.
 export const LOOT = {
   cabin:     { rolls: [['food', 1, 1, 1], ['bandage', 1, 1, 1]] },
   tools:     { rolls: [['pick', 1, 1, 1]] },
-  house:     { rolls: [['food', 1, 2, 0.65], ['water', 1, 2, 0.6], ['bandage', 1, 1, 0.4], ['wood', 1, 2, 0.3], ['ammo', 3, 6, 0.1], ['bat', 1, 1, 0.07], ['axe', 1, 1, 0.07], ['pistol', 1, 1, 0.05]] },
-  container: { rolls: [['food', 1, 2, 0.5], ['water', 1, 2, 0.5], ['bandage', 1, 2, 0.5], ['ammo', 4, 8, 0.3], ['axe', 1, 1, 0.12], ['pistol', 1, 1, 0.12], ['shotgun', 1, 1, 0.04]] },
+  house:     { rolls: [['food', 1, 2, 0.65], ['water', 1, 2, 0.6], ['bandage', 1, 1, 0.4], ['wood', 1, 2, 0.3], ['ammo', 3, 6, 0.1], ['bat', 1, 1, 0.07], ['axe', 1, 1, 0.07], ['pistol', 1, 1, 0.05], ['guitar', 1, 1, 0.05], ['club', 1, 1, 0.04], ['spear', 1, 1, 0.04]] },
+  container: { rolls: [['food', 1, 2, 0.5], ['water', 1, 2, 0.5], ['bandage', 1, 2, 0.5], ['ammo', 4, 8, 0.3], ['axe', 1, 1, 0.12], ['pistol', 1, 1, 0.12], ['shotgun', 1, 1, 0.04], ['club', 1, 1, 0.06], ['spear', 1, 1, 0.06]] },
   car:       { rolls: [['water', 1, 1, 0.3], ['bandage', 1, 1, 0.25], ['ammo', 2, 5, 0.25], ['wood', 1, 1, 0.2]] },
   barrel:    { rolls: [['water', 1, 1, 0.35], ['wood', 1, 2, 0.4]] },
   trash:     { rolls: [['food', 1, 1, 0.3], ['bandage', 1, 1, 0.12], ['wood', 1, 1, 0.25]] },

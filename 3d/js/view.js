@@ -7,6 +7,7 @@ import { Fx, shadowTexture } from './fx.js';
 
 const _qh = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qa = new THREE.Quaternion(), _ax = new THREE.Vector3(1, 0, 0);
 const _qf = new THREE.Quaternion(...(WEAPON_HAND.fix || [0, 0, 0, 1]));
+const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
 
 class Actor {
   constructor(inst, scale) {
@@ -77,15 +78,37 @@ export class View {
     this.setWeapon(this.sim.cur);
   }
 
+  // Échelle réelle (monde) de l'os de la main : sert à donner à chaque arme sa vraie longueur en mètres.
+  handScale() {
+    this.player.root.updateMatrixWorld(true);
+    this.hand.matrixWorld.decompose(_p, _q, _s);
+    return (_s.x + _s.y + _s.z) / 3 || 1;
+  }
+
+  // Outil de mêlée « ajusté » : on tourne le modèle pour que la tête soit vers +Z (comme la lame du couteau), on le met à
+  // l'échelle réelle (fit.len mètres) et on le décale pour que la main serre le manche à fit.grip (unités du modèle).
+  fitTool(obj, fit) {
+    const holder = new THREE.Group();
+    obj.scale.setScalar(1); obj.position.set(0, 0, 0);
+    obj.quaternion.setFromEuler(new THREE.Euler(...fit.rot.map(d => d * Math.PI / 180)));
+    obj.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(obj), L = (b.max.z - b.min.z) || 1;
+    const k = fit.len / L / this.handScale();
+    obj.scale.setScalar(k);
+    obj.position.set(-((b.min.x + b.max.x) / 2) * k, -((b.min.y + b.max.y) / 2) * k, -(b.min.z + fit.grip) * k);
+    holder.add(obj); return holder;
+  }
+
   setWeapon(id) {
     if (this.weaponObj) this.hand.remove(this.weaponObj);
     const W = WEAPONS[id];
     for (const n of WEAPON_HAND.hide) { const o = this.find(n); if (o) o.visible = (n === W.builtin); }
     if (W.builtin) { this.weaponObj = null; this.weaponId = id; return; }
     const inst = instance(W.model);
-    this.weaponObj = inst ? inst.object : null; this.weaponId = id;
-    if (!this.weaponObj) return;
-    if (W.melee) this.weaponObj.scale.setScalar(0.5);
+    this.weaponId = id;
+    if (!inst) { this.weaponObj = null; return; }
+    if (W.fit) this.weaponObj = this.fitTool(inst.object, W.fit);
+    else { this.weaponObj = inst.object; if (W.melee) this.weaponObj.scale.setScalar(0.5); }
     this.weaponObj.position.set(...WEAPON_HAND.pos);
     this.weaponObj.quaternion.set(...WEAPON_HAND.quat);
     this.hand.add(this.weaponObj);
