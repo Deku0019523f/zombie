@@ -49,7 +49,7 @@ export function createInput() {
   hold($('btnFire'), () => { btnFire = true; st.fireP = true; }, () => { btnFire = false; }, true);   // on peut viser en tirant
   hold($('btnSprint'), () => { setSprint(!sprintLatch); }, () => {});
   hold($('btnReload'), () => { st.reload = true; }, () => {});
-  hold($('btnSwap'), () => { st.swap = 1; }, () => {});
+  hold($('slotAmmo'), () => { st.swap = 1; }, () => {});          // toucher l'arme affichée en bas = arme suivante (l'inventaire permet de choisir)
   hold($('btnUse'), () => { st.use = true; }, () => {});
   hold($('btnBuild'), () => { st.build = true; }, () => {});
   hold($('btnInv'), () => { st.inv = true; }, () => {});

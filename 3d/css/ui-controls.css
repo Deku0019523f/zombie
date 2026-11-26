@@ -1,0 +1,25 @@
+/* Commandes tactiles — disposition inspirée des jeux de survie mobiles (Rust mobile, Unturned, Last Day on Earth, Dead Trigger) :
+   pouce droit = action principale + boutons contextuels autour ; haut = menus ; bas = barre rapide.
+   Le bouton « changer d'arme » (⇄, inutile avec 11 armes) est remplacé par un toucher sur l'arme affichée en bas.
+   Le bouton son est passé dans le menu pause. Chargé en dernier. */
+:root { --bd: 56px; --bf: 100px; }
+#hud .round.big { right: calc(var(--safe-r) + 24px); bottom: calc(var(--safe-b) + 26px); }
+#btnSprint { right: calc(var(--safe-r) + 36px); bottom: calc(var(--safe-b) + 140px); }
+#btnUse    { right: calc(var(--safe-r) + 140px); bottom: calc(var(--safe-b) + 52px); width: 64px; height: 64px; }   /* action contextuelle : grosse et proche du pouce */
+#btnReload { right: calc(var(--safe-r) + 120px); bottom: calc(var(--safe-b) + 126px); }
+#btnUse:not(.hidden) ~ #btnReload { right: calc(var(--safe-r) + 120px); }
+@media (max-height: 430px) {
+  :root { --bd: 50px; --bf: 92px; }
+  #hud .round.big { right: calc(var(--safe-r) + 18px); bottom: calc(var(--safe-b) + 20px); }
+  #btnSprint { right: calc(var(--safe-r) + 30px); bottom: calc(var(--safe-b) + 120px); }
+  #btnUse    { right: calc(var(--safe-r) + 122px); bottom: calc(var(--safe-b) + 40px); width: 58px; height: 58px; }
+  #btnReload { right: calc(var(--safe-r) + 108px); bottom: calc(var(--safe-b) + 108px); }
+  #btnUse:not(.hidden) ~ #btnReload { right: calc(var(--safe-r) + 108px); }
+}
+/* l'arme affichée en bas est un bouton (le conteneur #hud > * désactivait les touches : on les réactive) */
+#hotbar .slot { pointer-events: auto; cursor: pointer; touch-action: none; transition: transform .06s, filter .06s; }
+#hotbar .slot.down { transform: scale(.96); filter: brightness(1.3); }
+#hotbar .slot::after { content: ""; position: absolute; inset: -4px; }
+#hotbar .slot { position: relative; }
+/* la zone « regarder » (z-index 1) recouvrait la barre du bas : cases 1-3 et arme étaient intouchables */
+#bottom { z-index: 3; }

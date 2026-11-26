@@ -63,7 +63,8 @@ export async function boot() {
   document.getElementById('btnRestart').addEventListener('click', start);
   document.getElementById('btnResume').addEventListener('click', () => { audio.unlock(); setPause(false); });
   document.querySelectorAll('.js-menu').forEach(b => b.addEventListener('click', () => { doSave(); inv.show(false); mode = 'menu'; paused = false; sim.reset(); view.syncWorld(); ui.menu(best, !!saveGet()); }));
-  document.getElementById('btnMute').addEventListener('click', (e) => { audio.setMuted(!audio.isMuted()); e.currentTarget.classList.toggle('muted', audio.isMuted()); });
+  const snd = document.getElementById('btnSound');
+  snd.addEventListener('click', () => { audio.setMuted(!audio.isMuted()); snd.textContent = audio.isMuted() ? 'SON : NON' : 'SON : OUI'; });
   document.addEventListener('visibilitychange', () => { if (document.hidden) setPause(true); });
   window.addEventListener('blur', () => setPause(true));
   document.addEventListener('pointerdown', audio.unlock, { passive: true });

@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/ui-skin.css">
 <link rel="stylesheet" href="css/ui-inventory.css">
+<link rel="stylesheet" href="css/ui-controls.css">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -34,7 +35,6 @@
   <div id="topRight">
     <button id="btnInv" class="round sm" aria-label="Inventaire"><img class="ico" src="../assets/ui/icons/backpack.svg" alt=""></button>
     <button id="btnBuild" class="round sm" aria-label="Construire"><img class="ico" src="../assets/ui/icons/hammer.svg" alt=""></button>
-    <button id="btnMute" class="round sm" aria-label="Son"></button>
     <button id="btnPause" class="round sm" aria-label="Pause"></button>
   </div>
 
@@ -57,7 +57,7 @@
       <button class="hslot" data-slot="1" aria-label="Bandage"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_MedicalKit_Used_Uncommon_64.png" alt=""></span><b id="hc1">0</b></button>
       <button class="hslot" data-slot="2" aria-label="Conserve"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_CannedFood_Used_Common_64.png" alt=""></span><b id="hc2">0</b></button>
       <button class="hslot" data-slot="3" aria-label="Eau"><span><img src="../assets/ui/bunker-exodus/icons-64/BE_ITEM_WaterCanister_Used_Common_64.png" alt=""></span><b id="hc3">1</b></button>
-      <div id="slotAmmo" class="slot">
+      <div id="slotAmmo" class="slot" role="button" aria-label="Changer d'arme">
         <div id="hudWeapon">Couteau</div>
         <div id="hudAmmo"></div>
         <div id="slotDots"></div>
@@ -72,7 +72,6 @@
 
   <button id="btnFire" class="round big" aria-label="Attaquer"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="24" r="4" fill="currentColor"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9" stroke="currentColor" stroke-width="3"/></svg></button>
   <button id="btnReload" class="round md hidden" aria-label="Recharger"><img class="ico" src="../assets/ui/icons/reload.svg" alt=""></button>
-  <button id="btnSwap" class="round md" aria-label="Changer d'arme"><img class="ico" src="../assets/ui/icons/swap.svg" alt=""></button>
   <button id="btnSprint" class="round md" aria-label="Sprint"><img class="ico" src="../assets/ui/icons/sprint.svg" alt=""></button>
   <button id="btnUse" class="round md hidden" aria-label="Utiliser"><img class="ico" src="../assets/ui/icons/hand.svg" alt=""><small id="useLbl"></small></button>
 </div>
@@ -101,12 +100,13 @@
   <button id="btnContinue" class="btn primary hidden">CONTINUER</button>
   <button id="btnStart" class="btn primary">NOUVELLE PARTIE</button>
   <p id="menuBest" class="best"></p>
-  <p class="help">Vous vous réveillez dans une cabane avec presque rien. Fouillez, récoltez du bois et de la pierre, construisez un abri avant la nuit.<br>Tactile : joystick à gauche · glisser à droite pour viser · gros bouton = frapper / poser · main = utiliser · marteau = construire · sac = inventaire<br>Clavier : ZQSD/WASD · souris · E utiliser · B construire · I inventaire · 1-3 objets · X arme · Maj sprint</p>
+  <p class="help">Vous vous réveillez dans une cabane avec presque rien. Fouillez, récoltez du bois et de la pierre, construisez un abri avant la nuit.<br>Tactile : joystick à gauche · glisser à droite pour viser · gros bouton = frapper / tirer / poser · main = fouiller / ouvrir · flèches » = sprint · sac = inventaire · marteau = construire · toucher l'arme en bas = changer d'arme · cases 1-3 = bandage, conserve, eau<br>Clavier : ZQSD/WASD · souris · E utiliser · B construire · I inventaire · 1-3 objets · X arme · Maj sprint</p>
 </section>
 
 <section id="screenPause" class="screen hidden dim">
   <h2>PAUSE</h2>
   <button id="btnResume" class="btn primary">REPRENDRE</button>
+  <button id="btnSound" class="btn">SON : OUI</button>
   <button class="btn js-menu">MENU</button>
 </section>
 
