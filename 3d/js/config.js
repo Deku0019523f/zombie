@@ -1,5 +1,5 @@
 // Équilibrage et constantes du jeu 3D. Aucun import : module pur (testable sous Node).
-export const VERSION = '5.1.0-survie';
+export const VERSION = '5.2.0-survie';
 export const MODELS = '../assets/models/';
 
 export const WORLD = { half: 56, fogNear: 22, fogFar: 85 };
@@ -34,6 +34,9 @@ export const WEAPON_HAND = {
   quat: [0.433318317, 0.556886971, 0.439809144, 0.555589914],
   hide: ['Knife', 'WoodenBat_Saw'],
 };
+
+// Sac à dos affiché dans le dos du joueur (props/Backpack.glb, 3,3 unités de large : normalisé à `width` mètres).
+export const BACKPACK_VIEW = { model: 'props/Backpack.glb', width: 0.42, y: 1.18, z: -0.2 };
 
 export const WEAPON_ORDER = ['knife', 'bat', 'guitar', 'club', 'spear', 'axe', 'pick', 'pistol', 'shotgun', 'smg', 'rifle'];
 // melee : pas de munitions. tree / rock = ressources récoltées par coup (0 = impossible). noise = rayon (m) où les zombies entendent le coup.
@@ -85,6 +88,9 @@ export const SURVIVAL = {
   reach: 2.6, grid: 2,       // construction : distance devant le joueur, pas de la grille
   fireRadius: 3.2, fireHeal: 1.2,
   wanderRatio: 0.4,
+  // capacité de transport par ressource (sans sac à dos) ; les munitions et les objets absents de la liste sont illimités
+  cap: { wood: 10, stone: 8, food: 4, water: 4, bandage: 4, match: 5 },
+  capBag: 2,                 // le sac à dos double chaque plafond
 };
 
 export const ITEMS = {
@@ -94,26 +100,29 @@ export const ITEMS = {
   water:   { name: 'Eau',       icon: '💧' },
   bandage: { name: 'Bandage',   icon: '🩹' },
   ammo:    { name: 'Munitions', icon: '•' },
+  match:   { name: 'Allumette', icon: '🔥' },
+  backpack:{ name: 'Sac à dos', icon: '🎒' },
 };
 
 // Pièces constructibles. Une pierre dure 3 fois plus longtemps que le bois (demande d'Alec).
+// Le feu de camp consomme une allumette (boîte trouvée dans la cabane, les maisons, les voitures…).
 export const PIECES = {
   wall:  { name: 'Mur en bois',   cost: { wood: 2 },  hp: 120, h: 2.4 },
   stone: { name: 'Mur en pierre', cost: { stone: 3 }, hp: 360, h: 2.4 },
   door:  { name: 'Porte',         cost: { wood: 3 },  hp: 90,  h: 2.2 },
-  fire:  { name: 'Feu de camp',   cost: { wood: 3 },  hp: 40,  h: 0.6 },
+  fire:  { name: 'Feu de camp',   cost: { wood: 3, match: 1 }, hp: 40, h: 0.6 },
 };
 export const PIECE_ORDER = ['wall', 'stone', 'door', 'fire'];
 
 // Tables de butin : [objet, min, max, chance]. Un objet qui est une arme (WEAPONS) donne l'arme.
 export const LOOT = {
-  cabin:     { rolls: [['food', 1, 1, 1], ['bandage', 1, 1, 1]] },
+  cabin:     { rolls: [['food', 1, 1, 1], ['bandage', 1, 1, 1], ['match', 2, 3, 1]] },
   tools:     { rolls: [['pick', 1, 1, 1]] },
-  house:     { rolls: [['food', 1, 2, 0.65], ['water', 1, 2, 0.6], ['bandage', 1, 1, 0.4], ['wood', 1, 2, 0.3], ['ammo', 3, 6, 0.1], ['bat', 1, 1, 0.07], ['axe', 1, 1, 0.07], ['pistol', 1, 1, 0.05], ['guitar', 1, 1, 0.05], ['club', 1, 1, 0.04], ['spear', 1, 1, 0.04]] },
-  container: { rolls: [['food', 1, 2, 0.5], ['water', 1, 2, 0.5], ['bandage', 1, 2, 0.5], ['ammo', 4, 8, 0.3], ['axe', 1, 1, 0.12], ['pistol', 1, 1, 0.12], ['shotgun', 1, 1, 0.04], ['club', 1, 1, 0.06], ['spear', 1, 1, 0.06]] },
-  car:       { rolls: [['water', 1, 1, 0.3], ['bandage', 1, 1, 0.25], ['ammo', 2, 5, 0.25], ['wood', 1, 1, 0.2]] },
+  house:     { rolls: [['food', 1, 2, 0.65], ['water', 1, 2, 0.6], ['bandage', 1, 1, 0.4], ['wood', 1, 2, 0.3], ['match', 1, 2, 0.3], ['ammo', 3, 6, 0.1], ['bat', 1, 1, 0.07], ['axe', 1, 1, 0.07], ['pistol', 1, 1, 0.05], ['guitar', 1, 1, 0.05], ['club', 1, 1, 0.04], ['spear', 1, 1, 0.04], ['backpack', 1, 1, 0.06]] },
+  container: { rolls: [['food', 1, 2, 0.5], ['water', 1, 2, 0.5], ['bandage', 1, 2, 0.5], ['match', 1, 2, 0.25], ['ammo', 4, 8, 0.3], ['axe', 1, 1, 0.12], ['pistol', 1, 1, 0.12], ['shotgun', 1, 1, 0.04], ['club', 1, 1, 0.06], ['spear', 1, 1, 0.06], ['backpack', 1, 1, 0.12]] },
+  car:       { rolls: [['water', 1, 1, 0.3], ['bandage', 1, 1, 0.25], ['ammo', 2, 5, 0.25], ['wood', 1, 1, 0.2], ['match', 1, 1, 0.15], ['backpack', 1, 1, 0.08]] },
   barrel:    { rolls: [['water', 1, 1, 0.35], ['wood', 1, 2, 0.4]] },
-  trash:     { rolls: [['food', 1, 1, 0.3], ['bandage', 1, 1, 0.12], ['wood', 1, 1, 0.25]] },
+  trash:     { rolls: [['food', 1, 1, 0.3], ['bandage', 1, 1, 0.12], ['wood', 1, 1, 0.25], ['match', 1, 1, 0.1]] },
 };
 
 export const PICKUP = {
