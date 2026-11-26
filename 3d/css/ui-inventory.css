@@ -1,0 +1,124 @@
+/* Boutons du HUD (zones tactiles, disposition en arc autour du bouton d'action) + écran d'inventaire.
+   Chargé en dernier : il remplace les positions de style.css. */
+
+:root { --bd: 58px; --bf: 100px; --cell: 44px; }
+
+/* ================= boutons : grandes zones tactiles, retour visuel immédiat ================= */
+#hud .round { transition: transform .06s ease-out, filter .06s; will-change: transform; }
+#hud .round.down, #hud .hslot.down { transform: scale(.92); filter: brightness(1.25); }
+#hud .round::after, #hud .hslot::before { content: ""; position: absolute; inset: -7px; border-radius: 50%; }   /* zone tactile 14 px plus large que le dessin */
+#hud .hslot::before { border-radius: 8px; inset: -4px; }
+#hud .round.sm { position: relative; width: 48px; height: 48px; font-size: 20px; }
+#topRight { gap: 12px; }
+#hud .round.md { width: var(--bd); height: var(--bd); font-size: 26px; }
+#hud .round.big { width: var(--bf); height: var(--bf); right: calc(var(--safe-r) + 28px); bottom: calc(var(--safe-b) + 30px); }
+/* arc de pouce autour du bouton d'action (ordre de fréquence : action > utiliser > sprint > arme > recharger) */
+#btnSprint { right: calc(var(--safe-r) + 34px);  bottom: calc(var(--safe-b) + 146px); }
+#btnSwap   { right: calc(var(--safe-r) + 110px); bottom: calc(var(--safe-b) + 136px); }
+#btnReload { right: calc(var(--safe-r) + 150px); bottom: calc(var(--safe-b) + 66px); }
+#btnUse    { right: calc(var(--safe-r) + 150px); bottom: calc(var(--safe-b) + 66px); }       /* même place que Recharger : on n'a jamais besoin des deux (fouille / porte ≠ arme à feu vide) */
+#btnUse:not(.hidden) ~ #btnReload { right: calc(var(--safe-r) + 214px); }
+@media (max-height: 430px) {
+  :root { --bd: 52px; --bf: 92px; }
+  #hud .round.sm { width: 44px; height: 44px; }
+  #hud .round.big { right: calc(var(--safe-r) + 20px); bottom: calc(var(--safe-b) + 22px); }
+  #btnSprint { right: calc(var(--safe-r) + 28px);  bottom: calc(var(--safe-b) + 126px); }
+  #btnSwap   { right: calc(var(--safe-r) + 98px);  bottom: calc(var(--safe-b) + 118px); }
+  #btnReload, #btnUse { right: calc(var(--safe-r) + 132px); bottom: calc(var(--safe-b) + 54px); }
+  #btnUse:not(.hidden) ~ #btnReload { right: calc(var(--safe-r) + 192px); }
+}
+#btnUse small { font-family: "Barlow Condensed", sans-serif; font-size: 15px; font-weight: 600; padding: 2px 9px; }
+#btnSprint.on { filter: drop-shadow(0 0 6px rgba(255, 170, 60, .9)); }
+
+/* boutons du haut : l'icône est dans l'image du pack (plus d'emoji bleus qui jurent) */
+#btnPause, #btnMute { font-size: 0; }
+#btnPause { background-image: url(../../assets/ui/survival/round/pause_normal.png) !important; }
+#btnPause.down { background-image: url(../../assets/ui/survival/round/pause_pressed.png) !important; }
+#btnMute { background-image: url(../../assets/ui/survival/round/sound_normal.png) !important; }
+#btnMute.down { background-image: url(../../assets/ui/survival/round/sound_pressed.png) !important; }
+#btnMute.muted { background-image: url(../../assets/ui/survival/round/mute_normal.png) !important; }
+#btnMute.muted.down { background-image: url(../../assets/ui/survival/round/mute_pressed.png) !important; }
+
+/* indicateurs de la barre rapide : objet absent = case éteinte ; barre de santé lisible */
+#hud .hslot.none img { filter: grayscale(1) brightness(.7); }
+.bar.hp { height: 12px; } .bar.st { height: 6px; }
+.bar.hp span { font-family: "Plex Mono", monospace; }
+
+/* ================= inventaire ================= */
+#inv { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; background: rgba(4, 6, 5, .8);
+  padding: calc(var(--safe-t) + 6px) calc(var(--safe-r) + 8px) calc(var(--safe-b) + 6px) calc(var(--safe-l) + 8px); touch-action: none; }
+.invwin { width: min(100%, 860px); height: 100%; max-height: 400px; display: flex; flex-direction: column; gap: 4px; min-height: 0;
+  background-color: rgba(20, 25, 22, .97); border: 12px solid transparent;
+  border-image: url(../../assets/ui/bunker-exodus/components/be_panel_frame@2x.png) 48 fill / 12px stretch; padding: 0 4px; }
+.invhead { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+.invhead h3 { margin: 0; font-size: 20px; letter-spacing: .16em; font-weight: 600; color: var(--accent); }
+#invStats { flex: 1; font-size: 15px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#invStats b { font-family: "Plex Mono", monospace; font-weight: 500; }
+#invClose { position: relative; width: 40px; height: 40px; border: 0; padding: 0; background: url(../../assets/ui/survival/round/x_normal.png) center/100% 100% no-repeat; cursor: pointer; font-size: 0; }
+#invClose:active { background-image: url(../../assets/ui/survival/round/x_pressed.png); }
+#invClose::after { content: ""; position: absolute; inset: -6px; }
+.invcols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1.15fr 1.55fr; gap: 8px; }
+.invcol { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.invcol h4 { margin: 0; padding: 2px 8px; font-size: 14px; letter-spacing: .14em; font-weight: 600; background: rgba(255, 255, 255, .07); border-left: 3px solid var(--accent); display: flex; justify-content: space-between; }
+.invcol h4 b { font-family: "Plex Mono", monospace; font-weight: 500; letter-spacing: 0; color: var(--accent); }
+.invcol h4 b.full { color: var(--red); }
+.invlist { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.invempty { opacity: .5; font-size: 14px; padding: 6px 4px; }
+
+/* grille du sac : une case par pile */
+#invGrid { display: grid; grid-template-columns: repeat(5, var(--cell)); gap: 4px; justify-content: start; align-content: start; }
+.cell { position: relative; width: var(--cell); height: var(--cell); padding: 0; border: 0; color: var(--ink); font-family: inherit;
+  background: url(../../assets/ui/bunker-exodus/components/be_slot_frame_normal@2x.png) center/100% 100% no-repeat, rgba(10, 12, 11, .6); cursor: pointer; }
+.cell.empty { background-image: url(../../assets/ui/bunker-exodus/components/be_slot_frame_disabled@2x.png); cursor: default; opacity: .75; }
+.cell.sel, .row.sel, .gcard.sel { background-image: url(../../assets/ui/bunker-exodus/components/be_slot_frame_selected@2x.png); }
+.cell img, .row img, .gcard img { width: 30px; height: 30px; object-fit: contain; pointer-events: none; }
+.cell b { position: absolute; right: 4px; bottom: 1px; font-family: "Plex Mono", monospace; font-weight: 500; font-size: 12px; text-shadow: 0 1px 2px #000; }
+.chip { align-self: start; margin-top: 2px; padding: 4px 10px; border: 0; color: var(--ink); font: 600 15px "Barlow Condensed", sans-serif; background: rgba(255, 255, 255, .08); border-left: 3px solid #8aa; cursor: pointer; }
+.chip b { font-family: "Plex Mono", monospace; font-weight: 500; margin-left: 6px; }
+.chip.sel { border-left-color: var(--accent); background: rgba(255, 138, 31, .18); }
+
+/* listes : au sol, équipement */
+.row, .gcard { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 42px; padding: 3px 8px; border: 0; text-align: left; color: var(--ink); font: 600 16px "Barlow Condensed", sans-serif; cursor: pointer;
+  background: url(../../assets/ui/bunker-exodus/components/be_slot_frame_normal@2x.png) center/100% 100% no-repeat, rgba(10, 12, 11, .6); }
+.row small, .gcard small { display: block; font-weight: 400; font-size: 13px; opacity: .75; }
+.row .n, .gcard .n { margin-left: auto; font-family: "Plex Mono", monospace; font-weight: 500; font-size: 14px; }
+.gcard.cur { box-shadow: inset 3px 0 0 var(--accent); }
+.gcard.cur small::after { content: " · en main"; color: var(--accent); }
+.gcard.bag { cursor: default; opacity: .9; }
+.gcard.bag.none { opacity: .5; }
+
+/* barre d'infos / actions */
+.invinfo { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 8px; background: rgba(255, 255, 255, .05); border-top: 1px solid rgba(255, 255, 255, .12); }
+.invinfo .txt { flex: 1; min-width: 0; }
+.invinfo .txt b { font-size: 18px; font-weight: 600; letter-spacing: .06em; }
+.invinfo .txt span { display: block; font-size: 14px; opacity: .8; line-height: 1.15; }
+.invinfo .acts { display: flex; gap: 6px; flex-wrap: nowrap; }
+.btn.sm { min-width: 0; font-size: 17px; letter-spacing: .08em; padding: 11px 6px; border-width: 0 14px; border-image-width: 0 14px; white-space: nowrap; }
+.btn.sm[disabled] { opacity: .45; pointer-events: none; }
+@media (max-height: 360px) { :root { --cell: 40px; } .invwin { max-height: none; } .invhead { min-height: 30px; } }
+@media (orientation: portrait) { .invcols { grid-template-columns: 1fr; overflow-y: auto; } .invwin { max-height: none; } }
+
+/* ================= icônes (images, jamais d'emoji) ================= */
+.ico { width: 1.15em; height: 1.15em; object-fit: contain; vertical-align: -0.2em; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+#hud .round > .ico { position: absolute; left: 50%; top: 50%; width: 52%; height: 52%; transform: translate(-50%, -50%); }
+#hud .round.big { color: #e9e6da; }
+#btnUse small { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); white-space: nowrap; }
+#hud .bp.round > .ico { width: 56%; height: 56%; }
+#hudRes { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
+#hudRes span { display: inline-flex; align-items: center; gap: 3px; }
+#hudRes .ico { width: 20px; height: 20px; vertical-align: 0; }
+.need { display: flex; align-items: center; gap: 6px; }
+.need .need-ico { width: 20px; height: 20px; flex: none; }
+#hudClock { display: flex; align-items: center; gap: 6px; }
+#hudClock .ico { width: 18px; height: 18px; vertical-align: 0; }
+#bleed { display: flex; align-items: center; gap: 6px; }
+#bleed .ico { width: 20px; height: 20px; vertical-align: 0; }
+#btnPause, #btnMute { color: transparent; }
+#hud .hslot img { filter: none; }
+#hud .hslot.none img { filter: grayscale(1) brightness(.7); }
+
+/* inventaire : images dans les cases, listes et fiches */
+.cell img.ic { position: absolute; left: 50%; top: 46%; width: 30px; height: 30px; transform: translate(-50%, -50%); object-fit: contain; }
+.row img.ic, .gcard img.ic { width: 30px; height: 30px; flex: none; object-fit: contain; }
+.chip img.ic { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; }
+img[src$="gun.png"], img[src$="knife.png"], img[src$="bullet.png"] { filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .7)) brightness(1.15); }

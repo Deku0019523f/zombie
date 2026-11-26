@@ -13,12 +13,10 @@ h1, h2, .btn, #hudClock, .b1 { font-weight: 600; }
 /* ---------- panneaux (haut gauche, arme en cours, construction) ---------- */
 .panel, #hotbar .slot, #buildBar {
   background-color: rgba(14, 16, 15, .72);
-  border: 14px solid transparent; border-image: url(../../assets/ui/bunker-exodus/components/be_panel_frame@2x.png) 48 fill / 14px stretch;
-  border-radius: 0; padding: 2px 6px;
+  border: 10px solid transparent; border-image: url(../../assets/ui/bunker-exodus/components/be_panel_frame@2x.png) 48 fill / 10px stretch;
+  border-radius: 0; padding: 0 4px;
 }
-.panel { padding: 0 4px; min-width: 168px; }
-#hotbar .slot { padding: 0 4px; }
-#buildBar { padding: 0 2px; }
+.panel { min-width: 160px; }
 @supports not (border-image: url(x) 1) { .panel { border: 1px solid rgba(255,255,255,.2); } }
 
 /* ---------- boutons ronds (UI survival) ---------- */
@@ -26,21 +24,21 @@ h1, h2, .btn, #hudClock, .b1 { font-weight: 600; }
   background-color: transparent; background-image: url(../../assets/ui/survival/round/button_empty.png);
   background-size: 100% 100%; background-repeat: no-repeat; border: 0; color: #e9e6da; text-shadow: 0 1px 2px #000;
 }
-#hud .round.sm.down, #hud .round.md.down { background-image: url(../../assets/ui/survival/round/button_pressed.png); transform: scale(.94); }
-#hud .bp.sel, #btnBuild.on { background-image: url(../../assets/ui/survival/round/button_hover.png); border: 0; background-color: transparent; }
-/* le bouton d'attaque garde sa teinte rouge, plus grand : repère principal */
+#hud .round.sm.down, #hud .round.md.down { background-image: url(../../assets/ui/survival/round/button_pressed.png); }
+#hud .bp.sel, #btnBuild.on, #btnInv.on, #btnSprint.on { background-image: url(../../assets/ui/survival/round/button_hover.png); border: 0; background-color: transparent; }
 #hud .round.big { border-width: 3px; }
 
 /* ---------- barre rapide : cases Bunker Exodus ---------- */
 #hud .hslot {
   width: 50px; height: 50px; background-color: rgba(10, 12, 11, .6); color: transparent;
-  border: 12px solid transparent; border-image: url(../../assets/ui/bunker-exodus/components/be_slot_frame_normal@2x.png) 24 fill / 12px stretch;
-  border-radius: 0;
+  border: 0; border-radius: 0;
+  background-image: url(../../assets/ui/bunker-exodus/components/be_slot_frame_normal@2x.png); background-size: 100% 100%; background-repeat: no-repeat;
 }
-#hud .hslot.down { background-color: rgba(255, 138, 31, .25); border-image-source: url(../../assets/ui/bunker-exodus/components/be_slot_frame_selected@2x.png); }
-#hud .hslot span { position: absolute; inset: -6px; display: grid; place-items: center; }
-#hud .hslot img { width: 28px; height: 28px; object-fit: contain; pointer-events: none; }
-#hud .hslot b { right: -4px; bottom: -6px; color: var(--ink); }
+#hud .hslot.down { background-color: transparent; background-image: url(../../assets/ui/bunker-exodus/components/be_slot_frame_selected@2x.png); }
+#hud .hslot.none { opacity: .45; }
+#hud .hslot span { position: absolute; inset: 0; display: grid; place-items: center; }
+#hud .hslot img { width: 30px; height: 30px; object-fit: contain; pointer-events: none; }
+#hud .hslot b { right: 3px; bottom: 1px; color: var(--ink); }
 
 /* ---------- barres ---------- */
 .nbar, .bar { border-radius: 0; border-color: rgba(190, 180, 150, .45); }
@@ -48,8 +46,8 @@ h1, h2, .btn, #hudClock, .b1 { font-weight: 600; }
 
 /* ---------- boutons des écrans (menu, pause, game over) ---------- */
 .btn {
-  min-width: 240px; padding: 14px 30px; border: 0; border-radius: 0; background-color: rgba(60, 70, 64, .85); color: var(--ink);
-  border: 16px solid transparent; border-image: url(../../assets/ui/bunker-exodus/components/be_button_normal@2x.png) 0 32 fill / 0 16px stretch; padding: 14px 14px; letter-spacing: .16em;
+  min-width: 240px; font-size: 20px; border-radius: 0; background-color: rgba(60, 70, 64, .85); color: var(--ink);
+  border: 0 solid transparent; border-width: 0 16px; border-image: url(../../assets/ui/bunker-exodus/components/be_button_normal@2x.png) 0 32 fill / 0 16px stretch; padding: 14px 14px; letter-spacing: .16em;
 }
 .btn:active { border-image-source: url(../../assets/ui/bunker-exodus/components/be_button_pressed@2x.png); }
 .btn.primary { background-color: var(--accent); color: #1a0f02; border-image-source: url(../../assets/ui/bunker-exodus/components/be_button_primary_normal@2x.png); }
