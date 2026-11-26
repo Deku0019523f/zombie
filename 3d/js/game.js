@@ -1,5 +1,5 @@
 // Chef d'orchestre : chargement, boucle principale, branchement simulation ↔ rendu ↔ HUD ↔ sons.
-import { CAMERA, PLAYER, WEAPONS, ZOMBIES, WEAPON_ORDER } from './config.js';
+import { CAMERA, PLAYER, WEAPONS, ZOMBIES, WEAPON_ORDER, BACKPACK_VIEW } from './config.js';
 import { buildLayout } from './layout.js';
 import { Sim } from './sim.js';
 import { loadAll, has } from './assets.js';
@@ -22,7 +22,9 @@ export async function boot() {
   const list = [
     PLAYER.model, ...WEAPON_ORDER.map(w => WEAPONS[w].model).filter(Boolean), ...Object.values(ZOMBIES).map(z => z.model),
     ...layout.models, ...HOUSE, ...[1, 2, 3, 4].map(i => `vegetation/Grass_${i}.glb`),
-    'props/Bandages.glb', 'props/Can_Closed.glb', 'props/WaterBottle_1.glb', 'props/Bonfire.glb', 'props/Bonfire_Fire.glb', 'props/Shovel.glb', ...(layout.cabin.models || []),
+    'props/Bandages.glb', 'props/Can_Closed.glb', 'props/WaterBottle_1.glb', 'props/Bonfire.glb', 'props/Bonfire_Fire.glb', 'props/Shovel.glb',
+    BACKPACK_VIEW.model, 'props/WoodLog.glb', 'props/Matchbox.glb',
+    ...(layout.cabin.models || []),
   ];
   const failed = await loadAll(list, (p, n) => ui.loading(p, 'Chargement… ' + Math.round(p * 100) + ' %'));
   if (!has(PLAYER.model)) {
@@ -60,7 +62,7 @@ export async function boot() {
   document.addEventListener('pointerdown', audio.unlock, { passive: true });
 
   const A = audio.sfx;
-  const NAME = { wood: 'bois', stone: 'pierre', food: 'conserve', water: 'eau', bandage: 'bandage', ammo: 'munitions' };
+  const NAME = { wood: 'bois', stone: 'pierre', food: 'conserve', water: 'eau', bandage: 'bandage', ammo: 'munitions', match: 'allumette', backpack: 'sac à dos' };
   const react = (events) => {
     for (const e of events) {
       switch (e.type) {
@@ -78,7 +80,7 @@ export async function boot() {
         case 'pieceHit': A.pieceHit(); break;
         case 'pieceBreak': A.pieceBreak(); break;
         case 'use': ({ food: A.eat, water: A.drink, bandage: A.bandage })[e.id]?.(); break;
-        case 'loot': A.loot(); ui.banner(e.got.length ? 'TROUVÉ' : 'Rien ici…', e.got.map(g => g.weapon ? WEAPONS[g.id].name : '+' + g.n + ' ' + (NAME[g.id] || g.id)).join(' · '), 1800); break;
+        case 'loot': A.loot(); ui.banner(e.got.length ? 'TROUVÉ' : 'Rien ici…', e.got.map(g => g.weapon ? WEAPONS[g.id].name : g.id === 'backpack' ? 'Sac à dos : capacité ×2' : '+' + g.n + ' ' + (NAME[g.id] || g.id)).join(' · '), 1800); break;
         case 'pickup': A.pickup(); ui.banner('+1 ' + (NAME[e.kind] || e.kind), null, 900); break;
         case 'tip': A.tip(); ui.banner(e.text, null, 2200); break;
         case 'phase': e.night ? (A.dusk(), ui.banner('LA NUIT TOMBE', 'Barricadez-vous', 3000)) : (A.dawn(), ui.banner('JOUR ' + e.day, 'Le soleil se lève', 2600)); break;
