@@ -1,0 +1,911 @@
+{
+ "schema": "uikit.components/1",
+ "kit": "bunker_exodus",
+ "title": "Bunker Exodus - FREE UI Starter",
+ "pipeline_version": "0.1.0",
+ "exported_at": "2026-11-14T12:34:06+00:00",
+ "scales": {
+  "@1x": 1,
+  "@2x": 2
+ },
+ "master_scale": "@2x",
+ "slice_order_note": "slice = per-side borders in px; Unity spriteBorder order is L,B,R,T; Godot uses patch_margin_*",
+ "components": [
+  {
+   "id": "panel_frame",
+   "file_prefix": "be_panel_frame",
+   "category": "frame",
+   "type": "nine_slice",
+   "stretch": "both",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     128,
+     128
+    ],
+    "@2x": [
+     256,
+     256
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 24,
+     "top": 24,
+     "right": 24,
+     "bottom": 24
+    },
+    "@2x": {
+     "left": 48,
+     "top": 48,
+     "right": 48,
+     "bottom": 48
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_panel_frame@1x.png",
+     "@2x": "Components/@2x/be_panel_frame@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      24,
+      24,
+      24,
+      24
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 24,
+      "top": 24,
+      "right": 24,
+      "bottom": 24
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "header_strip",
+   "file_prefix": "be_header_strip",
+   "category": "plate",
+   "type": "three_slice",
+   "stretch": "horizontal",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     256,
+     40
+    ],
+    "@2x": [
+     512,
+     80
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 32,
+     "top": 0,
+     "right": 32,
+     "bottom": 0
+    },
+    "@2x": {
+     "left": 64,
+     "top": 0,
+     "right": 64,
+     "bottom": 0
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_header_strip@1x.png",
+     "@2x": "Components/@2x/be_header_strip@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      32,
+      0,
+      32,
+      0
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 32,
+      "top": 0,
+      "right": 32,
+      "bottom": 0
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "brass_tag",
+   "file_prefix": "be_brass_tag",
+   "category": "plate",
+   "type": "three_slice",
+   "stretch": "horizontal",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     160,
+     28
+    ],
+    "@2x": [
+     320,
+     56
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 20,
+     "top": 0,
+     "right": 20,
+     "bottom": 0
+    },
+    "@2x": {
+     "left": 40,
+     "top": 0,
+     "right": 40,
+     "bottom": 0
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_brass_tag@1x.png",
+     "@2x": "Components/@2x/be_brass_tag@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      20,
+      0,
+      20,
+      0
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 20,
+      "top": 0,
+      "right": 20,
+      "bottom": 0
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "subheader_strip",
+   "file_prefix": "be_subheader_strip",
+   "category": "plate",
+   "type": "three_slice",
+   "stretch": "horizontal",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     256,
+     32
+    ],
+    "@2x": [
+     512,
+     64
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 16,
+     "top": 0,
+     "right": 16,
+     "bottom": 0
+    },
+    "@2x": {
+     "left": 32,
+     "top": 0,
+     "right": 32,
+     "bottom": 0
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_subheader_strip@1x.png",
+     "@2x": "Components/@2x/be_subheader_strip@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      16,
+      0,
+      16,
+      0
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 16,
+      "top": 0,
+      "right": 16,
+      "bottom": 0
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "slot_frame",
+   "file_prefix": "be_slot_frame",
+   "category": "frame",
+   "type": "nine_slice",
+   "stretch": "both",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     80,
+     80
+    ],
+    "@2x": [
+     160,
+     160
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 12,
+     "top": 12,
+     "right": 12,
+     "bottom": 12
+    },
+    "@2x": {
+     "left": 24,
+     "top": 24,
+     "right": 24,
+     "bottom": 24
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_slot_frame_normal@1x.png",
+     "@2x": "Components/@2x/be_slot_frame_normal@2x.png"
+    },
+    "hover": {
+     "@1x": "Components/@1x/be_slot_frame_hover@1x.png",
+     "@2x": "Components/@2x/be_slot_frame_hover@2x.png"
+    },
+    "selected": {
+     "@1x": "Components/@1x/be_slot_frame_selected@1x.png",
+     "@2x": "Components/@2x/be_slot_frame_selected@2x.png"
+    },
+    "disabled": {
+     "@1x": "Components/@1x/be_slot_frame_disabled@1x.png",
+     "@2x": "Components/@2x/be_slot_frame_disabled@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      12,
+      12,
+      12,
+      12
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 12,
+      "top": 12,
+      "right": 12,
+      "bottom": 12
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "button",
+   "file_prefix": "be_button",
+   "category": "control",
+   "type": "three_slice",
+   "stretch": "horizontal",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     160,
+     48
+    ],
+    "@2x": [
+     320,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 16,
+     "top": 0,
+     "right": 16,
+     "bottom": 0
+    },
+    "@2x": {
+     "left": 32,
+     "top": 0,
+     "right": 32,
+     "bottom": 0
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_button_normal@1x.png",
+     "@2x": "Components/@2x/be_button_normal@2x.png"
+    },
+    "hover": {
+     "@1x": "Components/@1x/be_button_hover@1x.png",
+     "@2x": "Components/@2x/be_button_hover@2x.png"
+    },
+    "pressed": {
+     "@1x": "Components/@1x/be_button_pressed@1x.png",
+     "@2x": "Components/@2x/be_button_pressed@2x.png"
+    },
+    "disabled": {
+     "@1x": "Components/@1x/be_button_disabled@1x.png",
+     "@2x": "Components/@2x/be_button_disabled@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      16,
+      0,
+      16,
+      0
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 16,
+      "top": 0,
+      "right": 16,
+      "bottom": 0
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "button_primary",
+   "file_prefix": "be_button_primary",
+   "category": "control",
+   "type": "three_slice",
+   "stretch": "horizontal",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     160,
+     48
+    ],
+    "@2x": [
+     320,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 16,
+     "top": 0,
+     "right": 16,
+     "bottom": 0
+    },
+    "@2x": {
+     "left": 32,
+     "top": 0,
+     "right": 32,
+     "bottom": 0
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_button_primary_normal@1x.png",
+     "@2x": "Components/@2x/be_button_primary_normal@2x.png"
+    },
+    "hover": {
+     "@1x": "Components/@1x/be_button_primary_hover@1x.png",
+     "@2x": "Components/@2x/be_button_primary_hover@2x.png"
+    },
+    "pressed": {
+     "@1x": "Components/@1x/be_button_primary_pressed@1x.png",
+     "@2x": "Components/@2x/be_button_primary_pressed@2x.png"
+    },
+    "disabled": {
+     "@1x": "Components/@1x/be_button_primary_disabled@1x.png",
+     "@2x": "Components/@2x/be_button_primary_disabled@2x.png"
+    }
+   },
+   "method": "derive",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      16,
+      0,
+      16,
+      0
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 16,
+      "top": 0,
+      "right": 16,
+      "bottom": 0
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "tab",
+   "file_prefix": "be_tab",
+   "category": "control",
+   "type": "three_slice",
+   "stretch": "horizontal",
+   "center": "opaque",
+   "size": {
+    "@1x": [
+     128,
+     32
+    ],
+    "@2x": [
+     256,
+     64
+    ]
+   },
+   "slice": {
+    "@1x": {
+     "left": 12,
+     "top": 0,
+     "right": 12,
+     "bottom": 0
+    },
+    "@2x": {
+     "left": 24,
+     "top": 0,
+     "right": 24,
+     "bottom": 0
+    }
+   },
+   "states": {
+    "normal": {
+     "@1x": "Components/@1x/be_tab_normal@1x.png",
+     "@2x": "Components/@2x/be_tab_normal@2x.png"
+    },
+    "hover": {
+     "@1x": "Components/@1x/be_tab_hover@1x.png",
+     "@2x": "Components/@2x/be_tab_hover@2x.png"
+    },
+    "selected": {
+     "@1x": "Components/@1x/be_tab_selected@1x.png",
+     "@2x": "Components/@2x/be_tab_selected@2x.png"
+    },
+    "disabled": {
+     "@1x": "Components/@1x/be_tab_disabled@1x.png",
+     "@2x": "Components/@2x/be_tab_disabled@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": [
+      12,
+      0,
+      12,
+      0
+     ],
+     "imageType": "Sliced"
+    },
+    "godot": {
+     "node": "NinePatchRect",
+     "patch_margin_at_1x": {
+      "left": 12,
+      "top": 0,
+      "right": 12,
+      "bottom": 0
+     },
+     "draw_center": true
+    }
+   }
+  },
+  {
+   "id": "g_eq_head",
+   "file_prefix": "be_g_eq_head",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_eq_head@1x.png",
+     "@2x": "Glyphs/@2x/be_g_eq_head@2x.png"
+    }
+   },
+   "method": "code",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  },
+  {
+   "id": "g_eq_body",
+   "file_prefix": "be_g_eq_body",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_eq_body@1x.png",
+     "@2x": "Glyphs/@2x/be_g_eq_body@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  },
+  {
+   "id": "g_weight",
+   "file_prefix": "be_g_weight",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_weight@1x.png",
+     "@2x": "Glyphs/@2x/be_g_weight@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  },
+  {
+   "id": "g_warning",
+   "file_prefix": "be_g_warning",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_warning@1x.png",
+     "@2x": "Glyphs/@2x/be_g_warning@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  },
+  {
+   "id": "g_lock",
+   "file_prefix": "be_g_lock",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_lock@1x.png",
+     "@2x": "Glyphs/@2x/be_g_lock@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  },
+  {
+   "id": "g_rad",
+   "file_prefix": "be_g_rad",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_rad@1x.png",
+     "@2x": "Glyphs/@2x/be_g_rad@2x.png"
+    }
+   },
+   "method": "code",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  },
+  {
+   "id": "g_check",
+   "file_prefix": "be_g_check",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_check@1x.png",
+     "@2x": "Glyphs/@2x/be_g_check@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  },
+  {
+   "id": "g_caret",
+   "file_prefix": "be_g_caret",
+   "category": "glyph",
+   "type": "sprite",
+   "stretch": "none",
+   "center": null,
+   "size": {
+    "@1x": [
+     48,
+     48
+    ],
+    "@2x": [
+     96,
+     96
+    ]
+   },
+   "slice": {
+    "@1x": null,
+    "@2x": null
+   },
+   "states": {
+    "normal": {
+     "@1x": "Glyphs/@1x/be_g_caret@1x.png",
+     "@2x": "Glyphs/@2x/be_g_caret@2x.png"
+    }
+   },
+   "method": "generate",
+   "engine_hints": {
+    "unity": {
+     "textureType": "Sprite (2D and UI)",
+     "meshType": "Full Rect",
+     "pixelsPerUnit_at_1x": 100,
+     "spriteBorder_LBRT_at_1x": null,
+     "imageType": "Simple"
+    },
+    "godot": {
+     "node": "TextureRect",
+     "patch_margin_at_1x": null,
+     "draw_center": null
+    }
+   }
+  }
+ ]
+}
