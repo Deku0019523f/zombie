@@ -1,7 +1,7 @@
 // Construction du décor : sol, routes, maisons modulaires, accessoires, arbres, enceinte.
 // Toute la géométrie statique est FUSIONNÉE par matériau (quelques draw calls au lieu de centaines).
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/loaders/../utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { instance } from './assets.js';
 import { WORLD } from './config.js';
 

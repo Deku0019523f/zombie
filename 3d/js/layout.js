@@ -14,8 +14,10 @@ const ROAD = 8;             // taille d'une dalle de route
 const CAB = { a: -32, b: -34, n: 6 };   // cabane de départ : coin (a,b), 6 x 6 m, sur la grille de 2 m (sommets pairs)
 // Maisons du pack médiéval (assets/sources/medieval_houses, FBX) : [largeur x, profondeur z] en mètres, mesurées dans les fichiers.
 const HD = 'sources/medieval_houses/House_Full_ordinar/';
-const HOUSE_TYPES = [[HD + 'House_01_full.fbx', 6.56, 5.2], [HD + 'House_02_full.fbx', 5.17, 5.14], [HD + 'House_03_full.fbx', 5.41, 5.41],
-  [HD + 'house_05_full.fbx', 4.39, 5.56], [HD + 'house_06_full.fbx', 5.41, 4.49], [HD + 'house_11_full.fbx', 5.35, 5.28]];
+// [modèle, largeur x, profondeur z, décalage x de la porte (repère « porte sur +z »), largeur de la porte, rotation du modèle pour amener sa porte sur +z]
+const HOUSE_TYPES = [[HD + 'House_01_full.fbx', 6.56, 5.2, -1.5, 3.0, 0], [HD + 'House_02_full.fbx', 5.17, 5.14, 1.0, 1.0, 0], [HD + 'House_03_full.fbx', 5.41, 5.41, 1.0, 1.0, 0],
+  [HD + 'house_05_full.fbx', 4.39, 5.56, 1.59, 1.0, 0], [HD + 'house_06_full.fbx', 5.41, 4.49, 2.0, 1.0, 0], [HD + 'house_11_full.fbx', 5.28, 5.35, -1.0, 1.0, Math.PI / 2]];
+const FURN = 'interiors/';
 const HOUSE_HALF = 4.1;     // marge pour les objets autour d'une maison
 
 export function buildLayout(seed = 1337) {
@@ -103,10 +105,23 @@ export function buildLayout(seed = 1337) {
   for (const s of [-1, 1]) {
     for (const x of xs) {
       if (rng() < 0.22) continue;
-      const [model, w, dep] = HOUSE_TYPES[Math.floor(rng() * HOUSE_TYPES.length)], hw = w / 2, hd = dep / 2;
-      const z = s * (7.5 + hd), yaw = s > 0 ? Math.PI : 0;     // la façade (+z local) regarde la route
-      houses.push({ x, z, yaw, model, hw, hd });
-      colliders.push({ x, z, hw, hd, h: 5 });
+      const [model, w, dep, doff, dw, ry] = HOUSE_TYPES[Math.floor(rng() * HOUSE_TYPES.length)], hw = w / 2, hd = dep / 2;
+      const z = s * (7.5 + hd), base = s > 0 ? Math.PI : 0, yaw = base + ry;     // la porte (+z local) regarde la route
+      const c = Math.cos(base), L = (lx, lz) => [x + lx * c, z + lz * c];        // repère « porte » -> monde (base = 0 ou π)
+      houses.push({ x, z, yaw, model, hw, hd, door: { x: L(doff, hd)[0], z: L(doff, hd)[1], w: dw } });
+      // murs : quatre boîtes, la façade est coupée par la porte -> on peut entrer
+      const T = 0.3, wall = (lx, lz, a, b) => { const [wx, wz] = L(lx, lz); colliders.push({ x: wx, z: wz, hw: a, hd: b, h: 5 }); };
+      wall(0, -hd + T / 2, hw, T / 2); wall(-hw + T / 2, 0, T / 2, hd); wall(hw - T / 2, 0, T / 2, hd);
+      const l0 = -hw, l1 = doff - dw / 2, r0 = doff + dw / 2, r1 = hw;
+      if (l1 - l0 > 0.05) wall((l0 + l1) / 2, hd - T / 2, (l1 - l0) / 2, T / 2);
+      if (r1 - r0 > 0.05) wall((r0 + r1) / 2, hd - T / 2, (r1 - r0) / 2, T / 2);
+      // intérieur : armoire au fond, table et coffre à butin
+      const furn = (m, lx, lz, fy, hx, hz, hh) => { const [wx, wz] = L(lx, lz); items.push({ model: FURN + m + '.glb', x: wx, z: wz, yaw: base + fy }); if (hh) colliders.push({ x: wx, z: wz, hw: hx, hd: hz, h: hh }); };
+      const side = doff > 0 ? -1 : 1;                             // meubles du côté opposé à la porte
+      furn('Bedroom/CI_Bedroom_Wardrobe_Narrow', side * (hw - 0.8), -hd + 0.55, 0, 0.36, 0.3, 1.5);
+      furn('Kitchen/CI_Kitchen_Table', -side * 0.3, -0.2, 0, 0.7, 0.4, 0.75);
+      { const [cx2, cz2] = L(side * (hw - 0.8), -hd + 1.5); spot('house', cx2, cz2, 0.6, 0.6); items.push({ model: 'village/Prop_Crate.gltf', x: cx2, z: cz2, yaw: rng() * 3, scale: 0.55 }); colliders.push({ x: cx2, z: cz2, hw: 0.3, hd: 0.3, h: 0.6 }); }
+      houses[houses.length - 1].floor = { x, z, w: w - 2 * T, d: dep - 2 * T };
       const px = x, pz = z - s * (hd + 0.8);                  // porche : devant la maison, côté route
       items.push({ model: 'village/Prop_Crate.gltf', x: px, z: pz, yaw: rng() * 3, scale: 0.55 });
       spot('house', px, pz, 0.35, 0.35);
