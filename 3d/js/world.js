@@ -77,11 +77,21 @@ export function buildWorld(scene, layout) {
     parent.add(o); return o;
   };
   for (const it of layout.items) place(it.model, it.x, it.z, it.yaw, it.scale || 1);
+  // pignons : le toit du pack village est ouvert aux deux bouts (triangle vide) ; on bouche chaque bout avec un triangle d'enduit
+  const gableM = new THREE.MeshLambertMaterial({ color: 0xc4b89c, side: THREE.DoubleSide });
+  const gablesAt = (parent, cx, cz, halfD, halfW, y0, y1) => {
+    for (const k of [-1, 1]) {
+      const sh = new THREE.Shape([new THREE.Vector2(-halfW, 0), new THREE.Vector2(halfW, 0), new THREE.Vector2(0.06, y1 - y0), new THREE.Vector2(-0.06, y1 - y0)]);
+      const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), gableM); m.position.set(cx, y0, cz + k * halfD); parent.add(m);
+    }
+  };
   for (const q of layout.cabin.pieces) place(q.m, q.x, q.z, q.yaw, q.s || 1, q.y || 0);        // la cabane de départ
+  gablesAt(root, layout.cabin.cx, layout.cabin.cz, 2.8, 2.65, 3.1, 8.2);
   for (const l of layout.cabin.lights || []) { const pl = new THREE.PointLight(0xffb866, 1.3, 7, 1.6); pl.position.set(l.x, l.y, l.z); scene.add(pl); }   // lampe de la cabane
   for (const h of layout.houses) {
     const g = new THREE.Group(); g.position.set(h.x, 0, h.z); g.rotation.y = h.yaw; root.add(g);
     for (const p of housePieces(layout.rng)) place(p.m + '.gltf', p.x, p.z, p.yaw, 1, p.y || 0, g);
+    gablesAt(g, 0, 0, 3.85, 3.7, 3.1, 8.3);
   }
   const fence = 'village/Prop_MetalFence_Simple.gltf', step = 1.95;
   for (let x = -H; x <= H; x += step) { place(fence, x, H, 0); place(fence, x, -H, Math.PI); }
