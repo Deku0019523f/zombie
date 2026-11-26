@@ -1,6 +1,6 @@
 // Couche de rendu : transforme l'état de la simulation en scène three.js (aucune logique de jeu ici).
 import * as THREE from 'three';
-import { CAMERA, PLAYER, ZOMBIES, WEAPONS, WEAPON_HAND, PIECES } from './config.js';
+import { CAMERA, PLAYER, ZOMBIES, WEAPONS, WEAPON_HAND, PIECES, BACKPACK_VIEW } from './config.js';
 import { instance, placeholder } from './assets.js';
 import { buildWorld } from './world.js';
 import { Fx, shadowTexture } from './fx.js';
@@ -75,7 +75,19 @@ export class View {
     if (!this.hand) { console.warn('[view] os de la main introuvable :', WEAPON_HAND.bone); this.hand = this.player.root; }
     this.weaponObj = null; this.weaponId = null;
     this.scene.add(this.player.root);
+    this.makeBackpack();
     this.setWeapon(this.sim.cur);
+  }
+
+  // Sac à dos dans le dos : normalisé à BACKPACK_VIEW.width mètres de large (le modèle fait 3,3 unités), visible une fois trouvé.
+  makeBackpack() {
+    const inst = instance(BACKPACK_VIEW.model);
+    this.bag = null; if (!inst) return;
+    const obj = inst.object, b = new THREE.Box3().setFromObject(obj), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+    const k = BACKPACK_VIEW.width / (sz.x || 1);
+    obj.scale.setScalar(k); obj.position.set(-c.x * k, -c.y * k, -c.z * k);
+    const g = new THREE.Group(); g.add(obj); g.position.set(0, BACKPACK_VIEW.y, BACKPACK_VIEW.z); g.visible = false;
+    this.player.root.add(g); this.bag = g;
   }
 
   // Échelle réelle (monde) de l'os de la main : sert à donner à chaque arme sa vraie longueur en mètres.
@@ -148,9 +160,13 @@ export class View {
   }
 
   // ---------------------------------------------------------------- objets ramassables
+  // [modèle, échelle, couleur de l'anneau] — les modèles de props/ sont en grandes unités (bûche 3,8 ; sac 3,3 ; allumettes 1,1).
   makePickup(pk) {
     const g = new THREE.Group();
-    const spec = { bandage: ['props/Bandages.glb', 1.3, 0x33dd66], food: ['props/Can_Closed.glb', 0.7, 0xffc833], water: ['props/WaterBottle_1.glb', 0.3, 0x44aaff] }[pk.kind] || ['village/Prop_Crate.gltf', 0.35, 0xffffff];
+    const spec = {
+      bandage: ['props/Bandages.glb', 1.3, 0x33dd66], food: ['props/Can_Closed.glb', 0.7, 0xffc833], water: ['props/WaterBottle_1.glb', 0.3, 0x44aaff],
+      wood: ['props/WoodLog.glb', 0.13, 0xb07a40], match: ['props/Matchbox.glb', 0.45, 0xff8844], backpack: ['props/Backpack.glb', 0.16, 0x9ccf5a],
+    }[pk.kind] || ['village/Prop_Crate.gltf', 0.35, 0xffffff];
     const inst = instance(spec[0]) || placeholder(spec[2], 0.5, 0.25);
     inst.object.scale.setScalar(spec[1]); g.add(inst.object);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 28), new THREE.MeshBasicMaterial({ color: spec[2], transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
@@ -233,6 +249,7 @@ export class View {
     // joueur
     const pa = this.player;
     pa.root.position.set(P.x, 0, P.z); pa.root.rotation.y = P.face;
+    if (this.bag) this.bag.visible = sim.hasBag();
     const W = WEAPONS[sim.cur], gun = !W.melee, sfx = gun ? '_Gun' : '';
     const alt = (n, f) => (pa.has(n) ? n : f);
     this.swingAnim = Math.max(0, this.swingAnim - dt);
