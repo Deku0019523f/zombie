@@ -24,6 +24,7 @@ function houseMat(m) {
 }
 async function loadFbx(n) {
   const o = await fbxLoader.loadAsync(MODELS + '../' + encodeURI(n));
+  const doors = []; o.traverse(m => { if (m.isMesh && /^DOOR/i.test(m.name)) doors.push(m); }); doors.forEach(m => m.parent.remove(m));   // la porte pleine est retirée : le passage reste ouvert
   o.scale.multiplyScalar(0.01); o.updateMatrixWorld(true);
   o.traverse(m => { if (m.isMesh) m.material = Array.isArray(m.material) ? m.material.map(houseMat) : houseMat(m.material); });
   const b = new THREE.Box3().setFromObject(o);
@@ -116,6 +117,6 @@ export function instance(n) {
 
 // Forme de secours si un fichier manque : le jeu reste jouable.
 export function placeholder(color = 0xff00ff, h = 1.7, r = 0.35) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 8).translate(0, h / 2, 0), new THREE.MeshLambertMaterial({ color }));
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 8).translate(0, h / 2, 0), new THREE.MeshLambertMaterial({ color: 0xff00ff }));
   return { object: m, clips: [] };
 }
