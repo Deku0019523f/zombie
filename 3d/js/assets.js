@@ -117,6 +117,6 @@ export function instance(n) {
 
 // Forme de secours si un fichier manque : le jeu reste jouable.
 export function placeholder(color = 0xff00ff, h = 1.7, r = 0.35) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 8).translate(0, h / 2, 0), new THREE.MeshLambertMaterial({ color: 0xff00ff }));
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 8).translate(0, h / 2, 0), new THREE.MeshLambertMaterial({ color }));
   return { object: m, clips: [] };
 }
