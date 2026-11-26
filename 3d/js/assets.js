@@ -32,6 +32,25 @@ async function loadFbx(n) {
   return { scene: w, animations: [] };
 }
 
+// Pack d'armes de mêlée (assets/sources/melee_weapons) : UN seul FBX de 28 armes (cm, longueur sur l'axe y) + sa couleur de base.
+// Un nom « fichier.fbx#War_Pick » désigne une seule arme du pack : on la détache, on cuit sa position dans sa géométrie.
+let packP = null, packTex = null;
+async function loadPart(n) {
+  const [file, part] = n.split('#');
+  packP = packP || fbxLoader.loadAsync(MODELS + '../' + encodeURI(file)).then(o => { o.updateMatrixWorld(true); return o; });
+  const pack = await packP;
+  let src = null; pack.traverse(m => { if (m.isMesh && m.name === part) src = m; });
+  if (!src) throw new Error('arme absente du pack : ' + part);
+  if (!packTex) {
+    packTex = new THREE.TextureLoader().load(MODELS + '../sources/melee_weapons/Melee_Survival_Weapons_BaseColor_1k.jpg');
+    packTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const g = src.geometry.clone(); g.applyMatrix4(src.matrixWorld);
+  const mesh = new THREE.Mesh(g, share(Object.assign(new THREE.MeshLambertMaterial({ map: packTex }), { name: 'MeleePack' })));
+  const w = new THREE.Group(); w.add(mesh);
+  return { scene: w, animations: [] };
+}
+
 // Meubles « Cozy Interiors » (assets/models/interiors) : un seul matériau, les couleurs viennent d'une palette PNG 8x8.
 // Palette obligatoirement en NearestFilter et sans mipmaps ; cellules 41-43 = lampes (émissif), cellule 40 = verre.
 let palette = null;
@@ -70,7 +89,7 @@ export async function loadAll(names, onProgress) {
     while (i < queue.length) {
       const n = queue[i++];
       try {
-        const g = n.startsWith('sources/') ? await loadFbx(n) : await loader.loadAsync(MODELS + n);
+        const g = n.includes('#') ? await loadPart(n) : n.startsWith('sources/') ? await loadFbx(n) : await loader.loadAsync(MODELS + n);
         g.scene.traverse(o => {
           if (!o.isMesh) return;
           const f = n.startsWith('interiors/') ? paletteMat : share;

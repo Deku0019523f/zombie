@@ -91,7 +91,8 @@ t('modèles : tous les fichiers cités par la configuration existent dans assets
   for (const W of Object.values(WEAPONS)) if (W.model) list.add(W.model);
   for (const Z of Object.values(ZOMBIES)) list.add(Z.model);
   for (const m of L.models) list.add(m);
-  const missing = [...list].filter(m => !fs.existsSync(path.join(base, m)));
+  // `sources/…` = dossier assets/sources (FBX) ; `fichier#Partie` = une arme détachée du pack de mêlée
+  const missing = [...list].filter(m => !fs.existsSync(path.join(m.startsWith('sources/') ? path.resolve('assets') : base, m.split('#')[0])));
   assert.deepEqual(missing, [], 'modèles manquants : ' + missing.join(', '));
 });
 

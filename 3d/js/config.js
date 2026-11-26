@@ -38,9 +38,11 @@ export const WEAPON_HAND = {
 // Sac à dos affiché dans le dos du joueur (props/Backpack.glb, 3,3 unités de large : normalisé à `width` mètres).
 export const BACKPACK_VIEW = { model: 'props/Backpack.glb', width: 0.42, y: 1.18, z: -0.2 };
 
+// Armes de mêlée détachées du pack assets/sources/melee_weapons (un seul FBX, voir assets.js : loadPart)
+const MP = 'sources/melee_weapons/Melee_Survival_Weapons_2k.fbx#';
 export const WEAPON_ORDER = ['knife', 'bat', 'guitar', 'club', 'spear', 'axe', 'pick', 'pistol', 'shotgun', 'smg', 'rifle'];
 // melee : pas de munitions. tree / rock = ressources récoltées par coup (0 = impossible). noise = rayon (m) où les zombies entendent le coup.
-// builtin : objet déjà présent dans le modèle du joueur (couteau, batte) ; model : objet à attacher à la main.
+// builtin : objet déjà présent dans le modèle du joueur (couteau, bâtte) ; model : objet à attacher à la main.
 // fit (outils de mêlée) : { len: longueur réelle en mètres, rot: rotation [x,y,z] en degrés pour amener la TÊTE de l'outil vers +Z
 //   (le repère du couteau tenu en main), grip: distance, en unités du modèle depuis le bout du manche, où la main serre l'outil }.
 //   view.js mesure l'échelle réelle de la main et en déduit l'échelle du modèle : plus aucun coefficient « au hasard ».
@@ -50,8 +52,8 @@ export const WEAPONS = {
   guitar:  { name: 'Guitare', melee: true, model: 'weapons/Guitar.gltf', fit: { len: 0.8, rot: [-90, 0, 0], grip: 0.3 }, dmg: 34, interval: 0.80, range: 2.0, arc: 1.2, tree: 0, rock: 0, noise: 16, anim: 'Slash' },
   club:    { name: 'Batte à clous', melee: true, model: 'weapons/WoodenBat_Barbed.gltf', fit: { len: 0.85, rot: [0, 0, 0], grip: 0.33 }, dmg: 55, interval: 0.85, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 9, anim: 'Slash' },
   spear:   { name: 'Lance',   melee: true, model: 'weapons/Spear.gltf', fit: { len: 1.7, rot: [0, 0, 0], grip: 0.75 }, dmg: 40, interval: 0.70, range: 2.7, arc: 0.5, tree: 0, rock: 0, noise: 5, anim: 'Stab' },
-  axe:     { name: 'Hache',   melee: true, model: 'weapons/Axe.gltf', dmg: 48, interval: 0.75, range: 2.0, arc: 1.1, tree: 2, rock: 0, noise: 9, anim: 'Slash' },
-  pick:    { name: 'Pioche',  melee: true, model: 'props/Shovel.glb', fit: { len: 1.05, rot: [-90, 0, 0], grip: 1.3 }, dmg: 30, interval: 0.85, range: 2.0, arc: 0.9, tree: 1, rock: 2, noise: 10, anim: 'Slash' },
+  axe:     { name: 'Hache',   melee: true, model: MP + 'Axe', fit: { len: 1.15, rot: [90, 0, 0], grip: 26 }, dmg: 48, interval: 0.75, range: 2.0, arc: 1.1, tree: 2, rock: 0, noise: 9, anim: 'Slash' },
+  pick:    { name: 'Pioche',  melee: true, model: MP + 'War_Pick', fit: { len: 1.25, rot: [90, 0, 0], grip: 18 }, dmg: 30, interval: 0.85, range: 2.0, arc: 0.9, tree: 1, rock: 2, noise: 10, anim: 'Slash' },
   pistol:  { name: 'Pistolet',   model: 'weapons/Pistol.gltf',  dmg: 24, interval: 0.30, mag: 12, reload: 1.3, spread: 0.014, range: 30, pellets: 1, auto: false, pierce: 1, kick: 0.012 },
   shotgun: { name: 'Fusil à pompe', model: 'weapons/Shotgun.gltf', dmg: 12, interval: 0.85, mag: 6,  reload: 2.1, spread: 0.095, range: 15, pellets: 8, auto: false, pierce: 1, kick: 0.04 },
   smg:     { name: 'Mitraillette', model: 'weapons/SMG.gltf',    dmg: 11, interval: 0.085, mag: 30, reload: 1.8, spread: 0.04,  range: 26, pellets: 1, auto: true,  pierce: 1, kick: 0.008 },
