@@ -1,7 +1,7 @@
 // Interface (HUD, écrans) : lit l'état de la simulation, n'écrit jamais dedans.
 import { WEAPONS, PLAYER, PIECES, PIECE_ORDER } from './config.js';
 const NAMES = { wall: 'Mur en bois', stone: 'Mur en pierre', door: 'Porte', fire: 'Feu de camp' };
-const RES = { wood: 'bois', stone: 'pierre' };
+const RES = { wood: 'bois', stone: 'pierre', match: 'allumette' };
 
 const $ = (id) => document.getElementById(id);
 const cache = {};
@@ -43,7 +43,8 @@ export const ui = {
     setText('hudHp', String(Math.ceil(P.hp)));
     show('bleed', !!P.bleed);
     const inv = sim.inv;
-    setText('hudRes', `🪵 ${inv.wood || 0}   🪨 ${inv.stone || 0}   ·  🔫 ${inv.ammo || 0}`);
+    // bois / pierre : « quantité / capacité » (le sac à dos double la capacité) ; 🔥 = allumettes ; 🔫 = munitions
+    setText('hudRes', `🪵 ${inv.wood || 0}/${sim.capOf('wood')}   🪨 ${inv.stone || 0}/${sim.capOf('stone')}   🔥 ${inv.match || 0}   🔫 ${inv.ammo || 0}` + (sim.hasBag() ? '   🎒' : ''));
     setText('hc1', String(inv.bandage || 0)); setText('hc2', String(inv.food || 0)); setText('hc3', String(inv.water || 0));
     setText('hudWeapon', W.name);
     setText('hudAmmo', W.melee ? '' : S.ammo + ' / ' + (inv.ammo || 0));
