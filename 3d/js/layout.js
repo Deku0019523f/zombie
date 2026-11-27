@@ -2,6 +2,7 @@
 // Le rendu (world.js) instancie ces éléments ; la simulation (sim.js) utilise `colliders`.
 import { WORLD } from './config.js';
 import { makeRng, pushOut } from './logic.js';
+import { HOUSE_PLANS, planModels, wallBoxes, doorX } from './housePlans.js';
 
 // Dimensions [largeur x, longueur z] des modèles (yaw 0), mesurées dans les fichiers glTF.
 const DIM = {
@@ -12,12 +13,6 @@ const DIM = {
 };
 const ROAD = 8;             // taille d'une dalle de route
 const CAB = { a: -32, b: -34, n: 6 };   // cabane de départ : coin (a,b), 6 x 6 m, sur la grille de 2 m (sommets pairs)
-// Maisons du pack médiéval (assets/sources/medieval_houses, FBX) : [largeur x, profondeur z] en mètres, mesurées dans les fichiers.
-const HD = 'sources/medieval_houses/House_Full_ordinar/';
-// [modèle, largeur x, profondeur z, décalage x de la porte (repère « porte sur +z »), largeur de la porte, rotation du modèle pour amener sa porte sur +z]
-const HOUSE_TYPES = [[HD + 'House_01_full.fbx', 6.56, 5.2, -1.5, 3.0, 0], [HD + 'House_02_full.fbx', 5.17, 5.14, 1.0, 1.0, 0], [HD + 'House_03_full.fbx', 5.41, 5.41, 1.0, 1.0, 0],
-  [HD + 'house_05_full.fbx', 4.39, 5.56, 1.59, 1.0, 0], [HD + 'house_06_full.fbx', 5.41, 4.49, 2.0, 1.0, 0], [HD + 'house_11_full.fbx', 5.28, 5.35, -1.0, 1.0, Math.PI / 2]];
-const FURN = 'interiors/';
 const HOUSE_HALF = 4.1;     // marge pour les objets autour d'une maison
 
 export function buildLayout(seed = 1337) {
@@ -100,31 +95,24 @@ export function buildLayout(seed = 1337) {
   const cabin = { a, b, n, cx, cz, lights: [{ x: a + 0.5, y: 1.4, z: b + 5.5 }], pieces: cp, door: { x: a + 3, z: b + n, yaw: 0 }, models: [...new Set(cp.map(q => q.m))] };
   const spawn = { x: cx, z: cz + 0.2, yaw: 0 };
 
-  // --- maisons de part et d'autre de la route principale (axe X) ---
+  // --- maisons de part et d'autre de la route principale (axe X) : 6 modèles bâtis avec Parts/ (voir housePlans.js) ---
   const xs = [-50, -38, -26, -14, 14, 26, 38, 50];
+  let prev = -1;                                           // deux maisons voisines ne sont jamais identiques
   for (const s of [-1, 1]) {
     for (const x of xs) {
       if (rng() < 0.22) continue;
-      const [model, w, dep, doff, dw, ry] = HOUSE_TYPES[Math.floor(rng() * HOUSE_TYPES.length)], hw = w / 2, hd = dep / 2;
-      const z = s * (7.5 + hd), base = s > 0 ? Math.PI : 0, yaw = base + ry;     // la porte (+z local) regarde la route
-      const c = Math.cos(base), L = (lx, lz) => [x + lx * c, z + lz * c];        // repère « porte » -> monde (base = 0 ou π)
-      houses.push({ x, z, yaw, model, hw, hd, door: { x: L(doff, hd)[0], z: L(doff, hd)[1], w: dw } });
-      // murs : quatre boîtes, la façade est coupée par la porte -> on peut entrer
-      const T = 0.3, wall = (lx, lz, a, b) => { const [wx, wz] = L(lx, lz); colliders.push({ x: wx, z: wz, hw: a, hd: b, h: 5 }); };
-      wall(0, -hd + T / 2, hw, T / 2); wall(-hw + T / 2, 0, T / 2, hd); wall(hw - T / 2, 0, T / 2, hd);
-      const l0 = -hw, l1 = doff - dw / 2, r0 = doff + dw / 2, r1 = hw;
-      if (l1 - l0 > 0.05) wall((l0 + l1) / 2, hd - T / 2, (l1 - l0) / 2, T / 2);
-      if (r1 - r0 > 0.05) wall((r0 + r1) / 2, hd - T / 2, (r1 - r0) / 2, T / 2);
-      // intérieur : armoire au fond, table et coffre à butin
-      const furn = (m, lx, lz, fy, hx, hz, hh) => { const [wx, wz] = L(lx, lz); items.push({ model: FURN + m + '.glb', x: wx, z: wz, yaw: base + fy }); if (hh) colliders.push({ x: wx, z: wz, hw: hx, hd: hz, h: hh }); };
-      const side = doff > 0 ? -1 : 1;                             // meubles du côté opposé à la porte
-      furn('Bedroom/CI_Bedroom_Wardrobe_Narrow', side * (hw - 0.8), -hd + 0.55, 0, 0.36, 0.3, 1.5);
-      furn('Kitchen/CI_Kitchen_Table', -side * 0.3, -0.2, 0, 0.7, 0.4, 0.75);
-      { const [cx2, cz2] = L(side * (hw - 0.8), -hd + 1.5); spot('house', cx2, cz2, 0.6, 0.6); items.push({ model: 'village/Prop_Crate.gltf', x: cx2, z: cz2, yaw: rng() * 3, scale: 0.55 }); colliders.push({ x: cx2, z: cz2, hw: 0.3, hd: 0.3, h: 0.6 }); }
-      houses[houses.length - 1].floor = { x, z, w: w - 2 * T, d: dep - 2 * T };
-      const px = x, pz = z - s * (hd + 0.8);                  // porche : devant la maison, côté route
-      items.push({ model: 'village/Prop_Crate.gltf', x: px, z: pz, yaw: rng() * 3, scale: 0.55 });
-      spot('house', px, pz, 0.35, 0.35);
+      prev = (prev + 1 + Math.floor(rng() * (HOUSE_PLANS.length - 1)) + HOUSE_PLANS.length) % HOUSE_PLANS.length;
+      const plan = HOUSE_PLANS[prev], W = plan.W, D = plan.D;
+      const cz = s * (7.5 + D / 2), flip = s > 0;                 // côté +z : la maison est tournée de π, sa façade regarde la route
+      const T = (lx, lz) => flip ? [x + W / 2 - lx, cz + D / 2 - lz] : [x - W / 2 + lx, cz - D / 2 + lz];   // repère maison -> monde
+      const dx = doorX(plan), door = T(dx, D);
+      houses.push({ x, z: cz, yaw: flip ? Math.PI : 0, plan, hw: W / 2, hd: D / 2, door: { x: door[0], z: door[1] } });
+      for (const [bx, bz, hx, hz] of wallBoxes(plan)) { const [wx, wz] = T(bx, bz); colliders.push({ x: wx, z: wz, hw: hx, hd: hz, h: 5 }); }
+      for (const [, px, pz, yw, hx, hz] of plan.props) { const [wx, wz] = T(px, pz), q = Math.abs(Math.sin(yw)) > 0.5; colliders.push({ x: wx, z: wz, hw: q ? hz : hx, hd: q ? hx : hz, h: 1.2 }); }
+      { const [lx, lz] = T(plan.loot[0], plan.loot[1]); spot('house', lx, lz, 0.6, 0.6); houses[houses.length - 1].crate = { x: lx, z: lz }; colliders.push({ x: lx, z: lz, hw: 0.3, hd: 0.3, h: 0.6 }); }
+      const [px, pz] = T(dx, D + 0.9);                          // porche : une caisse devant la porte
+      items.push({ model: 'village/Prop_Crate.gltf', x: px + (flip ? -1.4 : 1.4), z: pz, yaw: rng() * 3, scale: 0.55 });
+      spot('house', px + (flip ? -1.4 : 1.4), pz, 0.35, 0.35);
     }
   }
 
@@ -204,24 +192,5 @@ export function buildLayout(seed = 1337) {
   }
 
   const models = new Set(items.map(i => i.model));
-  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, models: [...models], isFree: free, onRoad, rng };
-}
-
-// Pièces d'une maison 8 x 8 m (coordonnées locales, +z = façade). Ancien assemblage par code, plus utilisé par world.js depuis les maisons FBX.
-export function housePieces(rng) {
-  const P = [], W = 'village/';
-  const mods = [-3, -1, 1, 3];
-  const pick = (a) => a[Math.floor(rng() * a.length)];
-  const doorAt = Math.floor(rng() * 4);
-  const wallSet = rng() < 0.6 ? ['Wall_Plaster_Straight', 'Wall_Plaster_Window_Wide_Flat', 'Wall_Plaster_Window_Thin_Round'] : ['Wall_UnevenBrick_Straight', 'Wall_UnevenBrick_Window_Wide_Flat', 'Wall_UnevenBrick_Door_Flat'];
-  const door = wallSet[0].includes('Uneven') ? 'Wall_UnevenBrick_Door_Flat' : 'Wall_Plaster_Door_Flat';
-  mods.forEach((m, i) => {
-    P.push({ m: W + (i === doorAt ? door : pick(wallSet)), x: m, z: 4, yaw: 0 });                      // façade
-    P.push({ m: W + pick(wallSet.slice(0, 2)), x: m, z: -4, yaw: Math.PI });                           // arrière
-    P.push({ m: W + pick(wallSet.slice(0, 2)), x: 4, z: m, yaw: Math.PI / 2 });                        // côté droit
-    P.push({ m: W + pick(wallSet.slice(0, 2)), x: -4, z: m, yaw: -Math.PI / 2 });                      // côté gauche
-  });
-  for (const [x, z] of [[4, 4], [-4, 4], [4, -4], [-4, -4]]) P.push({ m: W + 'Corner_Exterior_Wood', x, z, yaw: 0 });
-  P.push({ m: W + 'Roof_RoundTiles_6x6', x: 0, z: 0, yaw: rng() < 0.5 ? 0 : Math.PI, y: 3.12 + 0.78 });
-  return P;
+  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng };
 }
