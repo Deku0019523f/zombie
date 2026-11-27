@@ -49,4 +49,17 @@ t('équiper / au sol', () => {
   const a = s.addPickup('food', 1, 0), b = s.addPickup('wood', 0.5, 0), c = s.addPickup('wood', 9, 0);
   assert.deepEqual(s.nearbyPickups().map(p => p.id), [b.id, a.id]);
 });
+t('piège à ours : dégâts, immobilisation, usure, pas de collision', () => {
+  const s = mk(); s.pieces = []; s.cols = []; s.nextPid = 1; s.zombies = [];
+  s.damageZombie = (z, d) => { z.hp -= d; if (z.hp <= 0) z.dead = true; };
+  const pc = s.addPiece('trap', 5, 5, 0); assert.equal(s.cols.length, 0); assert.equal(pc.hp, 3);
+  assert.equal(s.touchedPiece(5, 5, 1), null);
+  const far = { x: 20, z: 20, hp: 100, dead: false }, near = { x: 5.3, z: 5, hp: 100, dead: false };
+  s.zombies.push(far, near); s.updateTraps();
+  assert.equal(far.hp, 100); assert.equal(near.hp, 30); assert.ok(near.stagger >= 3.5); assert.equal(pc.hp, 2);
+  s.updateTraps(); assert.equal(near.hp, 30, 'une seule fois par zombie');
+  s.t += 10; s.updateTraps(); assert.ok(near.dead); assert.equal(pc.hp, 1);
+  const z2 = { x: 5, z: 5, hp: 500, dead: false }, z3 = { x: 5, z: 5.2, hp: 500, dead: false }; s.zombies.push(z2, z3); s.t += 10; s.updateTraps();
+  assert.equal(s.pieces.length, 0, 'piège cassé après 3 déclenchements');
+});
 console.log(`\n${ok} tests emplacements OK`);

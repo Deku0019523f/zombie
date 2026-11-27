@@ -1,5 +1,5 @@
 // Équilibrage et constantes du jeu 3D. Aucun import : module pur (testable sous Node).
-export const VERSION = '5.3.0-survie';
+export const VERSION = '5.4.0-survie';
 export const MODELS = '../assets/models/';
 
 export const WORLD = { half: 56, fogNear: 22, fogFar: 85 };
@@ -44,19 +44,18 @@ export const WEAPON_ORDER = ['knife', 'bat', 'guitar', 'club', 'spear', 'axe', '
 // fit (outils de mêlée) : { len: longueur réelle en mètres, rot: rotation [x,y,z] en degrés pour amener la TÊTE de l'outil vers +Z
 //   (le repère du couteau tenu en main), grip: distance, en unités du modèle depuis le bout du manche, où la main serre l'outil }.
 //   view.js mesure l'échelle réelle de la main et en déduit l'échelle du modèle : plus aucun coefficient « au hasard ».
-// icon : pastille de l'inventaire.
 export const WEAPONS = {
-  knife:   { name: 'Couteau', icon: '🔪', melee: true, builtin: 'Knife',         dmg: 26, interval: 0.50, range: 1.9, arc: 1.0, tree: 1, rock: 0, noise: 6, anim: 'Stab' },
-  bat:     { name: 'Batte',   icon: '🏏', melee: true, builtin: 'WoodenBat_Saw', dmg: 42, interval: 0.80, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 8, anim: 'Slash' },
-  guitar:  { name: 'Guitare', icon: '🎸', melee: true, model: 'weapons/Guitar.gltf', fit: { len: 0.8, rot: [-90, 0, 0], grip: 0.3 }, dmg: 34, interval: 0.80, range: 2.0, arc: 1.2, tree: 0, rock: 0, noise: 16, anim: 'Slash' },
-  club:    { name: 'Batte à clous', icon: '⚔️', melee: true, model: 'weapons/WoodenBat_Barbed.gltf', fit: { len: 0.85, rot: [0, 0, 0], grip: 0.33 }, dmg: 55, interval: 0.85, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 9, anim: 'Slash' },
-  spear:   { name: 'Lance',   icon: '🔱', melee: true, model: 'weapons/Spear.gltf', fit: { len: 1.7, rot: [0, 0, 0], grip: 0.75 }, dmg: 40, interval: 0.70, range: 2.7, arc: 0.5, tree: 0, rock: 0, noise: 5, anim: 'Stab' },
-  axe:     { name: 'Hache',   icon: '🪓', melee: true, model: 'weapons/Axe.gltf', dmg: 48, interval: 0.75, range: 2.0, arc: 1.1, tree: 2, rock: 0, noise: 9, anim: 'Slash' },
-  pick:    { name: 'Pioche',  icon: '⛏️', melee: true, model: 'props/Shovel.glb', fit: { len: 1.05, rot: [-90, 0, 0], grip: 1.3 }, dmg: 30, interval: 0.85, range: 2.0, arc: 0.9, tree: 1, rock: 2, noise: 10, anim: 'Slash' },
-  pistol:  { name: 'Pistolet',   icon: '🔫', model: 'weapons/Pistol.gltf',  dmg: 24, interval: 0.30, mag: 12, reload: 1.3, spread: 0.014, range: 30, pellets: 1, auto: false, pierce: 1, kick: 0.012 },
-  shotgun: { name: 'Fusil à pompe', icon: '🔫', model: 'weapons/Shotgun.gltf', dmg: 12, interval: 0.85, mag: 6,  reload: 2.1, spread: 0.095, range: 15, pellets: 8, auto: false, pierce: 1, kick: 0.04 },
-  smg:     { name: 'Mitraillette', icon: '🔫', model: 'weapons/SMG.gltf',    dmg: 11, interval: 0.085, mag: 30, reload: 1.8, spread: 0.04,  range: 26, pellets: 1, auto: true,  pierce: 1, kick: 0.008 },
-  rifle:   { name: 'Fusil',      icon: '🎯', model: 'weapons/Rifle.gltf',   dmg: 52, interval: 0.55, mag: 8,  reload: 2.0, spread: 0.004, range: 60, pellets: 1, auto: false, pierce: 3, kick: 0.025 },
+  knife:   { name: 'Couteau', melee: true, builtin: 'Knife',         dmg: 26, interval: 0.50, range: 1.9, arc: 1.0, tree: 1, rock: 0, noise: 6, anim: 'Stab' },
+  bat:     { name: 'Batte',   melee: true, builtin: 'WoodenBat_Saw', dmg: 42, interval: 0.80, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 8, anim: 'Slash' },
+  guitar:  { name: 'Guitare', melee: true, model: 'weapons/Guitar.gltf', fit: { len: 0.8, rot: [-90, 0, 0], grip: 0.3 }, dmg: 34, interval: 0.80, range: 2.0, arc: 1.2, tree: 0, rock: 0, noise: 16, anim: 'Slash' },
+  club:    { name: 'Batte à clous', melee: true, model: 'weapons/WoodenBat_Barbed.gltf', fit: { len: 0.85, rot: [0, 0, 0], grip: 0.33 }, dmg: 55, interval: 0.85, range: 2.1, arc: 1.2, tree: 1, rock: 0, noise: 9, anim: 'Slash' },
+  spear:   { name: 'Lance',   melee: true, model: 'weapons/Spear.gltf', fit: { len: 1.7, rot: [0, 0, 0], grip: 0.75 }, dmg: 40, interval: 0.70, range: 2.7, arc: 0.5, tree: 0, rock: 0, noise: 5, anim: 'Stab' },
+  axe:     { name: 'Hache',   melee: true, model: 'weapons/Axe.gltf', dmg: 48, interval: 0.75, range: 2.0, arc: 1.1, tree: 2, rock: 0, noise: 9, anim: 'Slash' },
+  pick:    { name: 'Pioche',  melee: true, model: 'props/Shovel.glb', fit: { len: 1.05, rot: [-90, 0, 0], grip: 1.3 }, dmg: 30, interval: 0.85, range: 2.0, arc: 0.9, tree: 1, rock: 2, noise: 10, anim: 'Slash' },
+  pistol:  { name: 'Pistolet',   model: 'weapons/Pistol.gltf',  dmg: 24, interval: 0.30, mag: 12, reload: 1.3, spread: 0.014, range: 30, pellets: 1, auto: false, pierce: 1, kick: 0.012 },
+  shotgun: { name: 'Fusil à pompe', model: 'weapons/Shotgun.gltf', dmg: 12, interval: 0.85, mag: 6,  reload: 2.1, spread: 0.095, range: 15, pellets: 8, auto: false, pierce: 1, kick: 0.04 },
+  smg:     { name: 'Mitraillette', model: 'weapons/SMG.gltf',    dmg: 11, interval: 0.085, mag: 30, reload: 1.8, spread: 0.04,  range: 26, pellets: 1, auto: true,  pierce: 1, kick: 0.008 },
+  rifle:   { name: 'Fusil',      model: 'weapons/Rifle.gltf',   dmg: 52, interval: 0.55, mag: 8,  reload: 2.0, spread: 0.004, range: 60, pellets: 1, auto: false, pierce: 3, kick: 0.025 },
 };
 export const ASSIST = 0.17;       // visée assistée (rad ≈ 10°) : indispensable au tactile
 export const HEAD_MULT = 2.2;
@@ -93,18 +92,19 @@ export const SURVIVAL = {
   // ceil(quantité / pile) emplacements. Poches : `base` emplacements ; avec le sac à dos : `bag`.
   // Les munitions (pas de `stack`) ne prennent pas de place : elles ont leur propre pochette.
   slots: { base: 8, bag: 20 },
+  trapDmg: 70, trapStun: 3.5, trapR: 0.9,   // piège à ours : dégâts, immobilisation (s), rayon de déclenchement (m)
   dropGap: 1.3,              // distance devant le joueur où l'on jette un objet
 };
 
 export const ITEMS = {
-  wood:    { name: 'Bois',      icon: '🪵', stack: 5, desc: 'Pour construire murs, portes et feux de camp.' },
-  stone:   { name: 'Pierre',    icon: '🪨', stack: 4, desc: 'Un mur en pierre dure trois fois plus longtemps.' },
-  food:    { name: 'Conserve',  icon: '🥫', stack: 2, desc: 'Calme la faim.', use: 'Manger' },
-  water:   { name: 'Eau',       icon: '💧', stack: 2, desc: 'Calme la soif.', use: 'Boire' },
-  bandage: { name: 'Bandage',   icon: '🩹', stack: 3, desc: 'Arrête le saignement et soigne un peu.', use: 'Soigner' },
-  match:   { name: 'Allumette', icon: '🔥', stack: 5, desc: 'Une allumette allume un feu de camp.' },
-  ammo:    { name: 'Munitions', icon: '•',  desc: 'Pour les armes à feu. Ne prennent pas de place.' },
-  backpack:{ name: 'Sac à dos', icon: '🎒', desc: 'Passe les emplacements de 8 à 20.' },
+  wood:    { name: 'Bois',      stack: 5, desc: 'Pour construire murs, portes et feux de camp.' },
+  stone:   { name: 'Pierre',    stack: 4, desc: 'Un mur en pierre dure trois fois plus longtemps.' },
+  food:    { name: 'Conserve',  stack: 2, desc: 'Calme la faim.', use: 'Manger' },
+  water:   { name: 'Eau',       stack: 2, desc: 'Calme la soif.', use: 'Boire' },
+  bandage: { name: 'Bandage',   stack: 3, desc: 'Arrête le saignement et soigne un peu.', use: 'Soigner' },
+  match:   { name: 'Allumette', stack: 5, desc: 'Une allumette allume un feu de camp.' },
+  ammo:    { name: 'Munitions',  desc: 'Pour les armes à feu. Ne prennent pas de place.' },
+  backpack:{ name: 'Sac à dos', desc: 'Passe les emplacements de 8 à 20.' },
 };
 
 // Pièces constructibles. Une pierre dure 3 fois plus longtemps que le bois (demande d'Alec).
@@ -114,8 +114,9 @@ export const PIECES = {
   stone: { name: 'Mur en pierre', cost: { stone: 3 }, hp: 360, h: 2.4 },
   door:  { name: 'Porte',         cost: { wood: 3 },  hp: 90,  h: 2.2 },
   fire:  { name: 'Feu de camp',   cost: { wood: 3, match: 1 }, hp: 40, h: 0.6 },
+  trap:  { name: 'Piège à ours',  cost: { wood: 2, stone: 2 }, hp: 3, h: 0.3 },     // hp = nombre de déclenchements avant de casser
 };
-export const PIECE_ORDER = ['wall', 'stone', 'door', 'fire'];
+export const PIECE_ORDER = ['wall', 'stone', 'door', 'fire', 'trap'];
 
 // Tables de butin : [objet, min, max, chance]. Un objet qui est une arme (WEAPONS) donne l'arme.
 export const LOOT = {
