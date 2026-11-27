@@ -3,9 +3,9 @@ const $ = (id) => document.getElementById(id);
 const buzz = (ms = 8) => { try { navigator.vibrate && navigator.vibrate(ms); } catch { /* non supporté */ } };
 
 export function createInput() {
-  const st = { mx: 0, my: 0, fire: false, sprint: false, reload: false, swap: 0, select: 0, pause: false, use: false, build: false, piece: 0, slot: 0, fireP: false, lookX: 0, lookY: 0, inv: false };
+  const st = { mx: 0, my: 0, fire: false, sprint: false, reload: false, swap: 0, select: 0, pause: false, use: false, build: false, piece: 0, slot: 0, fireP: false, lookX: 0, lookY: 0, inv: false, jump: false, crouch: false, ads: false };
   const keys = new Set();
-  let spaceHeld = false, stickOn = false, mouseFire = false, btnFire = false, sprintLatch = false;
+  let stickOn = false, mouseFire = false, btnFire = false, btnFire2 = false, sprintLatch = false;
 
   // ----- joystick (toute la moitié gauche de l'écran) -----
   const zone = $('stickZone'), base = $('stickBase'), knob = $('stickKnob'), R = 56;
@@ -21,6 +21,7 @@ export function createInput() {
     const dx = e.clientX - ox, dy = e.clientY - oy, l = Math.hypot(dx, dy), k = l > R ? R / l : 1;
     knob.style.transform = `translate(${dx * k}px,${dy * k}px)`;
     st.mx = (dx * k) / R; st.my = -(dy * k) / R;
+    if (l > R * 1.35 && !sprintLatch) { setSprint(true); buzz(6); }   // pousser le joystick à fond = sprint (comme CODM)
   });
   const stickEnd = (e) => {
     if (e.pointerId !== sid) return; sid = null; stickOn = false; st.mx = st.my = 0;
@@ -47,6 +48,10 @@ export function createInput() {
   // sprint : un toucher l'enclenche, un second l'arrête (ou on lâche le joystick) — plus besoin de tenir le pouce dessus
   const setSprint = (on) => { sprintLatch = on; $('btnSprint').classList.toggle('on', on); };
   hold($('btnFire'), () => { btnFire = true; st.fireP = true; }, () => { btnFire = false; }, true);   // on peut viser en tirant
+  hold($('btnFire2'), () => { btnFire2 = true; st.fireP = true; }, () => { btnFire2 = false; }, true);   // second bouton de tir, côté gauche
+  hold($('btnJump'), () => { st.jump = true; }, () => {});
+  hold($('btnCrouch'), () => { st.crouch = true; }, () => {});
+  hold($('btnAds'), () => { st.ads = true; }, () => {});
   hold($('btnSprint'), () => { setSprint(!sprintLatch); }, () => {});
   hold($('btnReload'), () => { st.reload = true; }, () => {});
   hold($('slotAmmo'), () => { st.swap = 1; }, () => {});          // toucher l'arme affichée en bas = arme suivante (l'inventaire permet de choisir)
@@ -61,18 +66,21 @@ export function createInput() {
   const canvas = $('gl');
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Tab') e.preventDefault();
+    if (e.code === 'Space') e.preventDefault();
     if (e.repeat) return; keys.add(e.code);
     if (e.code === 'KeyR') st.reload = true;
     else if (e.code === 'KeyX') st.swap = 1;
     else if (e.code === 'KeyE' || e.code === 'KeyF') st.use = true;
     else if (e.code === 'KeyB') st.build = true;
+    else if (e.code === 'Space') st.jump = true;
+    else if (e.code === 'KeyC' || e.code === 'ControlLeft') st.crouch = true;
     else if (e.code === 'KeyI' || e.code === 'Tab') st.inv = true;
     else if (e.code === 'Escape' || e.code === 'KeyP') st.pause = true;
     else if (/^Digit[1-5]$/.test(e.code)) { st.slot = +e.code.slice(5); st.piece = st.slot; }
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
   window.addEventListener('blur', () => { keys.clear(); mouseFire = false; });
-  canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { if (document.pointerLockElement !== canvas) canvas.requestPointerLock?.(); mouseFire = true; st.fireP = true; } });
+  canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { if (document.pointerLockElement !== canvas) canvas.requestPointerLock?.(); mouseFire = true; st.fireP = true; } else if (e.button === 2) st.ads = true; });
   window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseFire = false; });
   window.addEventListener('mousemove', (e) => { if (document.pointerLockElement === canvas) { st.lookX += e.movementX; st.lookY += e.movementY; } });
   window.addEventListener('wheel', (e) => { if (e.deltaY) st.swap = e.deltaY > 0 ? 1 : -1; }, { passive: true });
@@ -87,14 +95,13 @@ export function createInput() {
         mx = k('KeyD', 'ArrowRight') - k('KeyA', 'KeyQ', 'ArrowLeft');
         my = k('KeyW', 'KeyZ', 'ArrowUp') - k('KeyS', 'ArrowDown');
       }
-      const o = { mx, my, fire: btnFire || mouseFire || keys.has('Space'), sprint: sprintLatch || keys.has('ShiftLeft') || keys.has('ShiftRight'), reload: st.reload, swap: st.swap, select: 0, pause: st.pause, use: st.use, build: st.build, piece: st.piece, slot: st.slot, firePressed: st.fireP || (keys.has('Space') && !spaceHeld) };
-      spaceHeld = keys.has('Space');
-      st.reload = false; st.swap = 0; st.pause = false; st.use = false; st.build = false; st.piece = 0; st.slot = 0; st.fireP = false;
+      const o = { mx, my, fire: btnFire || btnFire2 || mouseFire, sprint: sprintLatch || keys.has('ShiftLeft') || keys.has('ShiftRight'), reload: st.reload, swap: st.swap, select: 0, pause: st.pause, use: st.use, build: st.build, piece: st.piece, slot: st.slot, firePressed: st.fireP, jump: st.jump, crouch: st.crouch, ads: st.ads };
+      st.reload = false; st.swap = 0; st.pause = false; st.use = false; st.build = false; st.piece = 0; st.slot = 0; st.fireP = false; st.jump = false; st.crouch = false; st.ads = false;
       return o;
     },
     takeInv() { const v = st.inv; st.inv = false; return v; },
     takePause() { const v = st.pause; st.pause = false; return v; },
     takeLook() { const l = { x: st.lookX, y: st.lookY }; st.lookX = st.lookY = 0; return l; },
-    clear() { keys.clear(); st.mx = st.my = 0; btnFire = mouseFire = false; setSprint(false); st.inv = false; },
+    clear() { keys.clear(); st.mx = st.my = 0; btnFire = btnFire2 = mouseFire = false; st.jump = st.crouch = st.ads = false; setSprint(false); st.inv = false; },
   };
 }

@@ -53,7 +53,8 @@ export const ui = {
     setText('hudWeapon', W.name);
     setText('hudAmmo', W.melee ? '' : S.ammo + ' / ' + (inv.ammo || 0));
     $('slotAmmo').classList.toggle('empty', !W.melee && S.ammo === 0);
-    show('btnReload', !W.melee);
+    show('btnReload', !W.melee); show('btnAds', !W.melee);
+    $('btnCrouch').classList.toggle('on', !!P.crouch); $('btnAds').classList.toggle('on', !!P.ads);
     const rl = sim.reloadT > 0 ? 100 * (1 - sim.reloadT / sim.reloadTotal) : 0;
     setW('barReload', rl); show('reloadWrap', sim.reloadT > 0);
     const dots = sim.owned().map(id => `<i class="${id === sim.cur ? 'cur' : ''}"></i>`).join('');
