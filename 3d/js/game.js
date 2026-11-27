@@ -6,6 +6,7 @@ import { loadAll, has } from './assets.js';
 import { View } from './view.js';
 import { createInput } from './input.js';
 import { createInventory } from './inventory.js';
+import { createMap } from './map.js';
 import { ui } from './ui.js';
 import * as audio from './audio.js';
 
@@ -43,6 +44,7 @@ export async function boot() {
   // rejoue les événements de la simulation (sons, bannières, rendu) et rafraîchit le HUD
   const flush = () => { const ev = sim.drain(); view.handle(ev); react(ev); ui.update(sim); };
   const inv = createInventory(sim, flush);
+  const map = createMap(sim);
   const closeInv = () => { if (inv.isOpen()) inv.show(false); input.clear(); };
   const toggleInv = () => { if (mode !== 'play' || paused || sim.player.dead || sim.over) return; if (inv.isOpen()) closeInv(); else { input.clear(); inv.show(true); } };
 
@@ -109,11 +111,11 @@ export async function boot() {
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    const frozen = paused || inv.isOpen();            // inventaire ouvert : le monde s'arrête
+    const frozen = paused || inv.isOpen() || map.isOpen();            // inventaire ou carte ouverts : le monde s'arrête
     if (mode === 'play' && !paused) {
       const inp = input.poll();
       if (input.takeInv()) toggleInv();
-      if (inv.isOpen()) input.takeLook();   // monde figé : on ignore les autres touches
+      if (inv.isOpen() || map.isOpen()) input.takeLook();   // monde figé : on ignore les autres touches
       else if (inp.pause) setPause(true);
       else {
         const lk = input.takeLook();
@@ -125,6 +127,7 @@ export async function boot() {
         if (groanT <= 0) { groanT = 1.2 + Math.random(); if (sim.zombies.some(z => !z.dead && z.state === 'chase' && Math.hypot(z.x - sim.player.x, z.z - sim.player.z) < 16)) audio.sfx.groan(); }
       }
     }
+    if (mode === 'play') map.update(dt);
     view.render(frozen ? 0 : dt, mode === 'menu' ? 'menu' : 'play');
   }
   ui.menu(best, !!saveGet());

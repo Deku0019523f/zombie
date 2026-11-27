@@ -3,6 +3,7 @@
 import { WORLD } from './config.js';
 import { makeRng, pushOut } from './logic.js';
 import { HOUSE_PLANS, planModels, wallBoxes, doorX } from './housePlans.js';
+import { zoneAt, VILLAGE_HALF } from './zones.js';
 
 // Dimensions [largeur x, longueur z] des modèles (yaw 0), mesurées dans les fichiers glTF.
 const DIM = {
@@ -12,7 +13,7 @@ const DIM = {
   'environment/Container_Red': [5.71, 2.56], 'environment/Container_Green': [5.71, 2.56],
 };
 const ROAD = 8;             // taille d'une dalle de route
-const CAB = { a: -32, b: -34, n: 6 };   // cabane de départ : coin (a,b), 6 x 6 m, sur la grille de 2 m (sommets pairs)
+const CAB = { a: -110, b: -104, n: 6 };   // cabane de départ (au cœur de la forêt) : coin (a,b), 6 x 6 m, sur la grille de 2 m (sommets pairs)
 const HOUSE_HALF = 4.1;     // marge pour les objets autour d'une maison
 
 export function buildLayout(seed = 1337) {
@@ -26,8 +27,9 @@ export function buildLayout(seed = 1337) {
   const lootSpots = [];      // { id, kind, x, z, hw, hd } : points de fouille
   const spot = (kind, x, z, hw = 0.4, hd = 0.4) => lootSpots.push({ id: lootSpots.length, kind, x, z, hw, hd });
 
-  // --- routes en croix ---
-  for (let k = -6; k <= 6; k++) {
+  // --- routes en croix (traversent tout le territoire) ---
+  const RK = Math.floor((H - 4) / ROAD);
+  for (let k = -RK; k <= RK; k++) {
     items.push({ model: k === 0 ? 'environment/Street_4Way.gltf' : 'environment/Street_Straight.gltf', x: k * ROAD, z: 0, yaw: k === 0 ? 0 : Math.PI / 2 });
     if (k !== 0) items.push({ model: 'environment/Street_Straight.gltf', x: 0, z: k * ROAD, yaw: 0 });
   }
@@ -95,31 +97,62 @@ export function buildLayout(seed = 1337) {
   const cabin = { a, b, n, cx, cz, lights: [{ x: a + 0.5, y: 1.4, z: b + 5.5 }], pieces: cp, door: { x: a + 3, z: b + n, yaw: 0 }, models: [...new Set(cp.map(q => q.m))] };
   const spawn = { x: cx, z: cz + 0.2, yaw: 0 };
 
-  // --- maisons de part et d'autre de la route principale (axe X) : 6 modèles bâtis avec Parts/ (voir housePlans.js) ---
-  const xs = [-50, -38, -26, -14, 14, 26, 38, 50];
-  let prev = -1;                                           // deux maisons voisines ne sont jamais identiques
-  for (const s of [-1, 1]) {
-    for (const x of xs) {
-      if (rng() < 0.22) continue;
-      prev = (prev + 1 + Math.floor(rng() * (HOUSE_PLANS.length - 1)) + HOUSE_PLANS.length) % HOUSE_PLANS.length;
-      const plan = HOUSE_PLANS[prev], W = plan.W, D = plan.D;
-      const cz = s * (7.5 + D / 2), flip = s > 0;                 // côté +z : la maison est tournée de π, sa façade regarde la route
-      const T = (lx, lz) => flip ? [x + W / 2 - lx, cz + D / 2 - lz] : [x - W / 2 + lx, cz - D / 2 + lz];   // repère maison -> monde
-      const dx = doorX(plan), door = T(dx, D);
-      houses.push({ x, z: cz, yaw: flip ? Math.PI : 0, plan, hw: W / 2, hd: D / 2, door: { x: door[0], z: door[1] } });
-      for (const [bx, bz, hx, hz] of wallBoxes(plan)) { const [wx, wz] = T(bx, bz); colliders.push({ x: wx, z: wz, hw: hx, hd: hz, h: 5 }); }
-      for (const [, px, pz, yw, hx, hz] of plan.props) { const [wx, wz] = T(px, pz), q = Math.abs(Math.sin(yw)) > 0.5; colliders.push({ x: wx, z: wz, hw: q ? hz : hx, hd: q ? hx : hz, h: 1.2 }); }
-      { const [lx, lz] = T(plan.loot[0], plan.loot[1]); spot('house', lx, lz, 0.6, 0.6); houses[houses.length - 1].crate = { x: lx, z: lz }; colliders.push({ x: lx, z: lz, hw: 0.3, hd: 0.3, h: 0.6 }); }
-      const [px, pz] = T(dx, D + 0.9);                          // porche : une caisse devant la porte
-      items.push({ model: 'village/Prop_Crate.gltf', x: px + (flip ? -1.4 : 1.4), z: pz, yaw: rng() * 3, scale: 0.55 });
-      spot('house', px + (flip ? -1.4 : 1.4), pz, 0.35, 0.35);
+  // --- aides de placement ---
+  const V = VILLAGE_HALF, rnd = (lo, hi) => lo + rng() * (hi - lo);
+  const scatter = (zone, n, fn, r = 1, roadOk = false) => {
+    for (let i = 0, ok = 0; i < n * 8 && ok < n; i++) {
+      const x = rnd(-H + 6, H - 6), z = rnd(-H + 6, H - 6);
+      if (zoneAt(x, z) !== zone || !free(x, z, r, roadOk)) continue;
+      fn(x, z); ok++;
+    }
+  };
+
+  // --- maisons : 6 modèles bâtis avec Parts/ (voir housePlans.js). phi = rotation ; la façade regarde (sin phi, cos phi). ---
+  const placeHouse = (plan, cxw, czw, phi) => {
+    const W = plan.W, D = plan.D, q = Math.abs(Math.round(phi / (Math.PI / 2))) % 2 === 1, ex = (q ? D : W) / 2, ez = (q ? W : D) / 2;
+    if (Math.abs(cxw) + ex > H - 8 || Math.abs(czw) + ez > H - 8) return false;
+    if (cxw + ex > CAB.a - 6 && cxw - ex < CAB.a + CAB.n + 6 && czw + ez > CAB.b - 6 && czw - ez < CAB.b + CAB.n + 6) return false;
+    if ((cxw + ex > -5.5 && cxw - ex < 5.5) || (czw + ez > -5.5 && czw - ez < 5.5)) return false;   // jamais sur la route
+    if (houses.some(h => Math.abs(h.x - cxw) < h.ex + ex + 1.5 && Math.abs(h.z - czw) < h.ez + ez + 1.5)) return false;
+    const c = Math.cos(phi), sn = Math.sin(phi);
+    const T = (lx, lz) => { const u = lx - W / 2, v = lz - D / 2; return [cxw + u * c + v * sn, czw - u * sn + v * c]; };   // repère maison -> monde
+    const dx = doorX(plan), door = T(dx, D);
+    const h = { x: cxw, z: czw, yaw: phi, plan, hw: W / 2, hd: D / 2, ex, ez, door: { x: door[0], z: door[1] } };
+    houses.push(h);
+    for (const [bx, bz, hx, hz] of wallBoxes(plan)) { const [wx, wz] = T(bx, bz); colliders.push({ x: wx, z: wz, hw: q ? hz : hx, hd: q ? hx : hz, h: 5 }); }
+    for (const [, px, pz, yw, hx, hz] of plan.props) { const [wx, wz] = T(px, pz), qq = Math.abs(Math.sin(yw + phi)) > 0.5; colliders.push({ x: wx, z: wz, hw: qq ? hz : hx, hd: qq ? hx : hz, h: 1.2 }); }
+    { const [lx, lz] = T(plan.loot[0], plan.loot[1]); spot('house', lx, lz, 0.6, 0.6); h.crate = { x: lx, z: lz }; colliders.push({ x: lx, z: lz, hw: 0.3, hd: 0.3, h: 0.6 }); }
+    const [px, pz] = T(dx + 1.4, D + 0.9);                          // porche : une caisse devant la porte
+    items.push({ model: 'village/Prop_Crate.gltf', x: px, z: pz, yaw: rng() * 3, scale: 0.55 });
+    spot('house', px, pz, 0.35, 0.35);
+    return true;
+  };
+  const pickPlan = (list) => HOUSE_PLANS[list[Math.floor(rng() * list.length)]];
+  // village : deux rues de maisons le long de chaque axe (jamais deux voisines identiques)
+  let prev = -1;
+  const along = [-62, -50, -38, -26, -14, 14, 26, 38, 50, 62];
+  for (const axis of ['x', 'z']) for (const s of [-1, 1]) for (const t of along) {
+    if (rng() < 0.2) continue;
+    prev = (prev + 1 + Math.floor(rng() * (HOUSE_PLANS.length - 1)) + HOUSE_PLANS.length) % HOUSE_PLANS.length;
+    const plan = HOUSE_PLANS[prev];
+    if (axis === 'x') placeHouse(plan, t, s * (7.5 + plan.D / 2), s < 0 ? 0 : Math.PI);
+    else placeHouse(plan, s * (7.5 + plan.D / 2), t, s < 0 ? Math.PI / 2 : -Math.PI / 2);
+  }
+  // hors du village : habitations isolées selon la zone (indices : 0 cabane, 1 maisonnette, 2 familiale, 3 ferme, 4 étage, 5 villa)
+  const outskirts = { forest: [[0, 1], 5], farm: [[3, 3, 2, 1], 9], industrial: [[2, 3, 4], 4], quarry: [[0, 1, 2], 4] };
+  for (const [zone, [list, n]] of Object.entries(outskirts)) {
+    for (let i = 0, ok = 0; i < 200 && ok < n; i++) {
+      const x = rnd(-H + 14, H - 14), z = rnd(-H + 14, H - 14);
+      if (zoneAt(x, z) !== zone || (Math.abs(x) < 16 || Math.abs(z) < 16)) continue;
+      if (placeHouse(pickPlan(list), x, z, Math.floor(rng() * 4) * Math.PI / 2)) ok++;
     }
   }
+  if (zoneAt(CAB.a, CAB.b) !== 'forest') console.warn('[layout] la cabane devrait être en forêt');
 
   // --- épaves de véhicules sur les routes (axes alignés pour que la boîte de collision colle) ---
   const cars = ['vehicles/Vehicle_Pickup', 'vehicles/Vehicle_Truck', 'vehicles/Vehicle_Sports', 'vehicles/Vehicle_Pickup_Armored', 'vehicles/Vehicle_Sports_Armored'];
-  for (let i = 0; i < 12; i++) {
-    const alongX = rng() < 0.5, t = (rng() * 2 - 1) * 44;
+  for (let i = 0; i < 70; i++) {
+    const alongX = rng() < 0.5, t = (rng() * 2 - 1) * (H - 14);
     if (Math.abs(t) < 9) continue;                       // laisser le carrefour libre
     const lane = (rng() < 0.5 ? -1 : 1) * (1.4 + rng() * 0.8);
     const x = alongX ? t : lane, z = alongX ? lane : t;
@@ -129,39 +162,37 @@ export function buildLayout(seed = 1337) {
     if (bx) spot('car', x, z, bx.hw, bx.hd);
   }
 
-  // --- lampadaires le long de l'axe X ---
-  for (let x = -48; x <= 48; x += 16) { if (Math.abs(x) < 6) continue; addCircle('environment/StreetLights', x, 5.1, 0.25, Math.PI); addCircle('environment/StreetLights', x + 8, -5.1, 0.25, 0); }
+  // --- lampadaires le long de l'axe X, dans le village ---
+  for (let x = -64; x <= 64; x += 16) { if (Math.abs(x) < 6) continue; addCircle('environment/StreetLights', x, 5.1, 0.25, Math.PI); addCircle('environment/StreetLights', x + 8, -5.1, 0.25, 0); }
 
-  // --- champs : conteneurs, barils, palettes, cônes, sacs, bornes ---
-  for (let i = 0; i < 7; i++) {
-    for (let tries = 0; tries < 20; tries++) {
-      const x = (rng() * 2 - 1) * (H - 8), z = (rng() * 2 - 1) * (H - 8), yaw = rng() < 0.5 ? 0 : Math.PI / 2;
-      if (!free(x, z, 3.2)) continue;
-      const bx = addBox(rng() < 0.5 ? 'environment/Container_Red' : 'environment/Container_Green', x, z, yaw, 0, 2.6);
-      if (bx) spot('container', x, z, bx.hw, bx.hd);
-      break;
-    }
+  // --- décor propre à chaque zone ---
+  const container = (x, z) => { const bx = addBox(rng() < 0.5 ? 'environment/Container_Red' : 'environment/Container_Green', x, z, rng() < 0.5 ? 0 : Math.PI / 2, 0, 2.6); if (bx) spot('container', x, z, bx.hw, bx.hd); };
+  const smalls = {
+    village:    [['environment/Barrel', 0.4], ['village/Prop_Crate', 0.4], ['environment/TrashBag_1', 0], ['environment/TrashBag_2', 0], ['environment/Pallet', 0], ['environment/CinderBlock', 0.25]],
+    industrial: [['environment/Barrel', 0.4], ['environment/Barrel', 0.4], ['environment/PlasticBarrier', 0.5], ['environment/Pallet', 0], ['environment/TrafficCone_1', 0], ['environment/FireHydrant', 0.3], ['environment/Wheels_Stack', 0.5]],
+    farm:       [['village/Prop_Crate', 0.4], ['environment/Barrel', 0.4], ['environment/Pallet', 0], ['environment/TrashBag_1', 0]],
+    quarry:     [['environment/CinderBlock', 0.25], ['environment/Wheels_Stack', 0.5], ['environment/Barrel', 0.4], ['environment/Pallet', 0]],
+    forest:     [['environment/TrashBag_2', 0], ['village/Prop_Crate', 0.4]],
+  };
+  const smallCount = { village: 40, industrial: 90, farm: 55, quarry: 40, forest: 18 };
+  for (const zone of Object.keys(smallCount)) {
+    const list = smalls[zone];
+    scatter(zone, smallCount[zone], (x, z) => {
+      const [m, r] = list[Math.floor(rng() * list.length)];
+      addCircle(m, x, z, r, rng() * Math.PI * 2);
+      if (m.endsWith('Barrel') && r > 0.3) spot('barrel', x, z, 0.3, 0.3);
+      else if (m.includes('TrashBag')) spot('trash', x, z, 0.3, 0.3);
+    }, 0.8, zone === 'village');
   }
-  const smalls = [['environment/Barrel', 0.4], ['environment/Barrel', 0.4], ['environment/PlasticBarrier', 0.5], ['environment/Pallet', 0], ['environment/TrashBag_1', 0], ['environment/TrashBag_2', 0], ['environment/TrafficCone_1', 0], ['environment/FireHydrant', 0.3], ['environment/CinderBlock', 0.25], ['environment/Wheels_Stack', 0.5]];
-  for (let i = 0; i < 70; i++) {
-    const [m, r] = smalls[Math.floor(rng() * smalls.length)];
-    const x = (rng() * 2 - 1) * (H - 5), z = (rng() * 2 - 1) * (H - 5);
-    if (!free(x, z, r + 0.4, true)) continue;
-    addCircle(m, x, z, r, rng() * Math.PI * 2);
-    if (m.endsWith('Barrel') && r > 0.3) spot('barrel', x, z, 0.3, 0.3);
-    else if (m.includes('TrashBag')) spot('trash', x, z, 0.3, 0.3);
-  }
-  // château d'eau lointain
-  for (const [x, z] of [[-40, -40], [42, 38]]) if (free(x, z, 2)) addCircle('environment/WaterTower', x, z, 1.7);
+  scatter('industrial', 22, container, 3.2); scatter('quarry', 4, container, 3.2); scatter('farm', 3, container, 3.2); scatter('village', 2, container, 3.2);
+  scatter('industrial', 4, (x, z) => addCircle('environment/WaterTower', x, z, 1.7), 2.5); scatter('farm', 2, (x, z) => addCircle('environment/WaterTower', x, z, 1.7), 2.5);
 
-  // --- arbres (tronc = collision) + couronne décorative hors de l'enceinte ---
-  for (let i = 0; i < 90; i++) {
-    const x = (rng() * 2 - 1) * (H - 3), z = (rng() * 2 - 1) * (H - 3);
-    if (!free(x, z, 0.7)) continue;
-    const s = 0.8 + rng() * 0.7, col = { x, z, r: 0.35 * s }; trees.push({ x, z, s, col }); colliders.push(col);
-  }
+  // --- arbres (tronc = collision) ---
+  const addTree = (x, z, lo = 0.8, hi = 1.5) => { const s = rnd(lo, hi), col = { x, z, r: 0.35 * s }; trees.push({ x, z, s, col }); colliders.push(col); };
+  const treeCount = { forest: 520, village: 30, farm: 70, industrial: 28, quarry: 26 };
+  for (const zone of Object.keys(treeCount)) scatter(zone, treeCount[zone], (x, z) => addTree(x, z), 0.7);
   // quelques arbres et rochers à portée de la cabane (premiers matériaux)
-  const near = (list, count, rMin, rMax, rad, make) => {
+  const near = (count, rMin, rMax, rad, make) => {
     for (let i = 0, ok = 0; i < 80 && ok < count; i++) {
       const ang = rng() * Math.PI * 2, d = rMin + rng() * (rMax - rMin), x = cx + Math.cos(ang) * d, z = cz + Math.sin(ang) * d;
       const q = { x, z }; if (Math.abs(x) > H - 4 || Math.abs(z) > H - 4 || pushOut(q, rad, colliders) > 0) continue;
@@ -169,28 +200,33 @@ export function buildLayout(seed = 1337) {
       make(x, z); ok++;
     }
   };
-  near(trees, 7, 7, 15, 1.0, (x, z) => { const s = 0.9 + rng() * 0.6, col = { x, z, r: 0.35 * s }; trees.push({ x, z, s, col }); colliders.push(col); });
+  near(7, 7, 15, 1.0, (x, z) => addTree(x, z, 0.9, 1.5));
   const addRock = (x, z) => { const s = 0.8 + rng() * 0.8, col = { x, z, r: 0.62 * s }; rocks.push({ x, z, s, col }); colliders.push(col); };
-  near(rocks, 3, 8, 16, 1.2, addRock);
-  for (let i = 0, ok = 0; i < 120 && ok < 16; i++) {
-    const x = (rng() * 2 - 1) * (H - 6), z = (rng() * 2 - 1) * (H - 6);
-    if (!free(x, z, 1.2)) continue; addRock(x, z); ok++;
-  }
-  for (let i = 0; i < 160; i++) {
-    const a = rng() * Math.PI * 2, d = H + 4 + rng() * 14;
-    const x = Math.max(-H - 18, Math.min(H + 18, Math.cos(a) * d * 1.05)), z = Math.max(-H - 18, Math.min(H + 18, Math.sin(a) * d * 1.05));
-    if (Math.abs(x) < H + 2 && Math.abs(z) < H + 2) continue;
+  near(3, 8, 16, 1.2, addRock);
+  const rockCount = { quarry: 80, forest: 14, industrial: 8, farm: 10, village: 5 };
+  for (const zone of Object.keys(rockCount)) scatter(zone, rockCount[zone], addRock, 1.2);
+  // couronne d'arbres décoratifs autour de l'enceinte
+  for (let i = 0; i < 520; i++) {
+    const side = Math.floor(rng() * 4), t = rnd(-H - 16, H + 16), o = H + 2 + rng() * 14;
+    const x = side < 2 ? t : (side === 2 ? -o : o), z = side < 2 ? (side === 0 ? -o : o) : t;
     ringTrees.push({ x, z, s: 1 + rng() * 0.9 });
   }
+  // enceinte : clôture métallique sur tout le pourtour (instanciée par morceaux de 1,95 m)
+  const fence = 'village/Prop_MetalFence_Simple.gltf', step = 1.95;
+  for (let x = -H; x <= H; x += step) { items.push({ model: fence, x, z: H, yaw: 0 }, { model: fence, x, z: -H, yaw: Math.PI }); }
+  for (let z = -H; z <= H; z += step) { items.push({ model: fence, x: H, z, yaw: Math.PI / 2 }, { model: fence, x: -H, z, yaw: -Math.PI / 2 }); }
 
-  // --- herbe décorative (aucune collision) ---
-  const grass = [];
-  for (let i = 0; i < 260; i++) {
-    const x = (rng() * 2 - 1) * (H - 1), z = (rng() * 2 - 1) * (H - 1);
-    if (onRoad(x, z, 0.5) || (Math.abs(x - cabin.cx) < 5 && Math.abs(z - cabin.cz) < 5)) continue;      // pas d'herbe dans la cabane
-    grass.push({ model: 'vegetation/Grass_' + (1 + Math.floor(rng() * 4)) + '.glb', x, z, yaw: rng() * Math.PI * 2, scale: 0.9 + rng() * 0.8 });
+  // --- herbe décorative (aucune collision), plus dense en forêt et à la campagne ---
+  const grass = [], grassCount = { village: 150, forest: 700, industrial: 80, farm: 650, quarry: 110 };
+  for (const zone of Object.keys(grassCount)) {
+    for (let i = 0, ok = 0; i < grassCount[zone] * 4 && ok < grassCount[zone]; i++) {
+      const x = rnd(-H + 1, H - 1), z = rnd(-H + 1, H - 1);
+      if (zoneAt(x, z) !== zone || onRoad(x, z, 0.5) || (Math.abs(x - cabin.cx) < 5 && Math.abs(z - cabin.cz) < 5)) continue;      // pas d'herbe dans la cabane
+      if (houses.some(h => Math.abs(h.x - x) < h.ex + 0.5 && Math.abs(h.z - z) < h.ez + 0.5)) continue;
+      grass.push({ model: 'vegetation/Grass_' + (1 + Math.floor(rng() * 4)) + '.glb', x, z, yaw: rng() * Math.PI * 2, scale: 0.9 + rng() * 0.8 }); ok++;
+    }
   }
 
-  const models = new Set(items.map(i => i.model));
-  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng };
+  const models = new Set([...items.map(i => i.model), ...grass.map(g => g.model)]);
+  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
 }

@@ -1,10 +1,11 @@
-// Construction du décor : sol, routes, maisons modulaires, accessoires, arbres, enceinte.
-// Toute la géométrie statique est FUSIONNÉE par matériau (quelques draw calls au lieu de centaines).
+// Construction du décor : sol par zones, routes, maisons modulaires, accessoires, arbres, enceinte.
+// La géométrie statique est FUSIONNÉE par matériau (quelques draw calls au lieu de centaines) et découpée en tuiles chargées à l'approche du joueur.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { instance } from './assets.js';
 import { buildHouseMesh } from './housebuild.js';
 import { WORLD } from './config.js';
+import { groundColor } from './zones.js';
 
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
@@ -60,23 +61,26 @@ export function buildWorld(scene, layout) {
   };
   setDaylight(1);
 
-  // --- sol ---
+  // --- sol : une seule grande dalle, teintée par zone (couleurs de sommet fondues aux frontières, voir zones.js) ---
   const gt = canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = '#6c7a48'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 900; i++) { const v = 90 + Math.random() * 60; g.fillStyle = `rgba(${v - 20},${v + 10},${v - 50},0.35)`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+    g.fillStyle = '#d6d6d6'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) { const v = 150 + Math.random() * 100; g.fillStyle = `rgba(${v},${v},${v},0.35)`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
   });
-  gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(70, 70);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), new THREE.MeshLambertMaterial({ map: gt }));
+  gt.wrapS = gt.wrapT = THREE.RepeatWrapping;
+  const GS = 2 * (H + 40);
+  gt.repeat.set(GS / 6, GS / 6);
+  const gg = new THREE.PlaneGeometry(GS, GS, 112, 112), gp = gg.attributes.position, gc = new Float32Array(gp.count * 3), tmp = [0, 0, 0];
+  for (let i = 0; i < gp.count; i++) { groundColor(gp.getX(i), -gp.getY(i), tmp); gc[i * 3] = tmp[0]; gc[i * 3 + 1] = tmp[1]; gc[i * 3 + 2] = tmp[2]; }
+  gg.setAttribute('color', new THREE.BufferAttribute(gc, 3));
+  const ground = new THREE.Mesh(gg, new THREE.MeshLambertMaterial({ map: gt, vertexColors: true }));
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; scene.add(ground);
 
   // --- pièces statiques ---
-  const root = new THREE.Group();
-  const place = (name, x, z, yaw, scale = 1, y = 0, parent = root) => {
+  const place = (name, x, z, yaw, scale = 1, y = 0, parent = null) => {
     const inst = instance(name); if (!inst) return null;
     const o = inst.object; o.position.set(x, y, z); o.rotation.y = yaw; if (Array.isArray(scale)) o.scale.set(...scale); else if (scale !== 1) o.scale.setScalar(scale);
     parent.add(o); return o;
   };
-  for (const it of layout.items) place(it.model, it.x, it.z, it.yaw, it.scale || 1);
   // pignons : le toit du pack village est ouvert aux deux bouts (triangle vide) ; on bouche chaque bout avec un triangle d'enduit
   const gableM = new THREE.MeshLambertMaterial({ color: 0xc4b89c, side: THREE.DoubleSide });
   const gablesAt = (parent, cx, cz, halfD, halfW, y0, y1) => {
@@ -85,19 +89,51 @@ export function buildWorld(scene, layout) {
       const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), gableM); m.position.set(cx, y0, cz + k * halfD); parent.add(m);
     }
   };
-  for (const q of layout.cabin.pieces) place(q.m, q.x, q.z, q.yaw, q.s || 1, q.y || 0);        // la cabane de départ
-  gablesAt(root, layout.cabin.cx, layout.cabin.cz, 2.8, 2.65, 3.1, 8.2);
+  // la cabane de départ reste toujours chargée
+  const cabinRoot = new THREE.Group();
+  for (const q of layout.cabin.pieces) place(q.m, q.x, q.z, q.yaw, q.s || 1, q.y || 0, cabinRoot);
+  gablesAt(cabinRoot, layout.cabin.cx, layout.cabin.cz, 2.8, 2.65, 3.1, 8.2);
+  scene.add(batch(cabinRoot));
   for (const l of layout.cabin.lights || []) { const pl = new THREE.PointLight(0xffb866, 1.3, 7, 1.6); pl.position.set(l.x, l.y, l.z); scene.add(pl); }   // lampe de la cabane
-  for (const h of layout.houses) {                                    // maisons bâties avec les modules Parts (voir housebuild.js)
-    const g = buildHouseMesh(h.plan), W = h.plan.W, D = h.plan.D;
-    if (h.yaw) { g.rotation.y = Math.PI; g.position.set(h.x + W / 2, 0, h.z + D / 2); } else g.position.set(h.x - W / 2, 0, h.z - D / 2);
-    root.add(g);
-  }
-  const fence = 'village/Prop_MetalFence_Simple.gltf', step = 1.95;
-  for (let x = -H; x <= H; x += step) { place(fence, x, H, 0); place(fence, x, -H, Math.PI); }
-  for (let z = -H; z <= H; z += step) { place(fence, H, z, Math.PI / 2); place(fence, -H, z, -Math.PI / 2); }
-  for (const g of layout.grass) place(g.model, g.x, g.z, g.yaw, g.scale);
-  scene.add(batch(root));
+
+  // --- CHARGEMENT PROGRESSIF : le décor statique est découpé en tuiles (WORLD.chunk m) construites à l'approche du joueur et libérées au loin ---
+  const C = WORLD.chunk, NC = Math.ceil(2 * H / C), LOAD = 2, KEEP = 3;
+  const cidx = (v) => Math.max(0, Math.min(NC - 1, Math.floor((v + H) / C)));
+  const buckets = new Map(), bucket = (x, z) => { const k = cidx(x) + ',' + cidx(z); let b = buckets.get(k); if (!b) buckets.set(k, b = { items: [], houses: [], grass: [] }); return b; };
+  for (const it of layout.items) bucket(it.x, it.z).items.push(it);
+  for (const h of layout.houses) bucket(h.x, h.z).houses.push(h);
+  for (const g of layout.grass) bucket(g.x, g.z).grass.push(g);
+  const loaded = new Map();                                            // clé -> groupe fusionné
+  const buildChunk = (k) => {
+    const b = buckets.get(k); if (!b || loaded.has(k)) return;
+    const root = new THREE.Group();
+    for (const it of b.items) place(it.model, it.x, it.z, it.yaw, it.scale || 1, 0, root);
+    for (const g of b.grass) place(g.model, g.x, g.z, g.yaw, g.scale, 0, root);
+    for (const h of b.houses) {                                         // maisons bâties avec les modules Parts (voir housebuild.js), tournées de h.yaw autour de leur centre
+      const g = buildHouseMesh(h.plan), pivot = new THREE.Group();
+      g.position.set(-h.plan.W / 2, 0, -h.plan.D / 2); pivot.add(g); pivot.rotation.y = h.yaw; pivot.position.set(h.x, 0, h.z); root.add(pivot);
+    }
+    const out = batch(root); scene.add(out); loaded.set(k, out);
+  };
+  const dropChunk = (k) => { const o = loaded.get(k); if (!o) return; scene.remove(o); o.traverse(m => m.geometry && m.geometry.dispose()); loaded.delete(k); };
+  const wanted = (px, pz, R) => { const ci = cidx(px), cj = cidx(pz), out = []; for (let i = ci - R; i <= ci + R; i++) for (let j = cj - R; j <= cj + R; j++) if (i >= 0 && j >= 0 && i < NC && j < NC && buckets.has(i + ',' + j)) out.push([Math.max(Math.abs(i - ci), Math.abs(j - cj)) + Math.hypot(i - ci, j - cj) * 0.01, i + ',' + j]); return out.sort((p, q) => p[0] - q[0]); };
+  // prime : construit tout de suite le voisinage (au chargement) ; update : une tuile par image + libération des tuiles lointaines
+  const prime = (px, pz, R = 1) => { for (const [, k] of wanted(px, pz, R)) buildChunk(k); };
+  const update = (px, pz) => {
+    const ci = cidx(px), cj = cidx(pz), here = ci + ',' + cj;
+    if (buckets.has(here) && !loaded.has(here)) buildChunk(here);
+    else { const nxt = wanted(px, pz, LOAD).find(([, k]) => !loaded.has(k)); if (nxt) buildChunk(nxt[1]); }
+    for (const k of [...loaded.keys()]) { const [i, j] = k.split(',').map(Number); if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) > KEEP) dropChunk(k); }
+  };
+  const chunksLoaded = () => loaded.size;
+  // pilotage autonome : la caméra (via onBeforeRender) indique où se trouve le joueur, une boucle dédiée charge / libère les tuiles
+  const cam = [layout.spawn.x, layout.spawn.z];
+  const probe = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.01), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+  probe.position.y = -50; probe.frustumCulled = false; probe.onBeforeRender = (r, sc, c) => { cam[0] = c.position.x; cam[1] = c.position.z; };
+  scene.add(probe);
+  prime(cam[0], cam[1], 1);
+  const tick = () => { update(cam[0], cam[1]); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
 
   // --- arbres (instanciés) : tronc + deux cônes. layout.trees d'abord, puis les arbres de l'enceinte. ---
   const trunkG = new THREE.CylinderGeometry(0.12, 0.2, 2.4, 6).translate(0, 1.2, 0);
@@ -131,5 +167,5 @@ export function buildWorld(scene, layout) {
   const restoreRock = (i) => { const r = layout.rocks[i]; if (!r) return; d.position.set(r.x, r.s * 0.38, r.z); d.rotation.set(i * 0.7, i * 2.1, i * 0.4); d.scale.set(r.s * 0.95, r.s * 0.7, r.s * 0.85); d.updateMatrix(); rocks.setMatrixAt(i, d.matrix); rocks.instanceMatrix.needsUpdate = true; };
   const removeRock = (i) => { rocks.setMatrixAt(i, zero); rocks.instanceMatrix.needsUpdate = true; };
 
-  return { ground, setDaylight, fellTree, removeRock, restoreTree, restoreRock };
+  return { ground, setDaylight, fellTree, removeRock, restoreTree, restoreRock, prime, update, chunksLoaded };
 }
