@@ -25,13 +25,22 @@ L'utilisateur ne veut **pas** un jeu de vagues mais un **jeu de survivant d'apoc
 **Étape 4 — abris et construction**
 - [x] Récolte du bois : frapper les arbres (couteau / hache) ; un arbre s'épuise et devient souche.
 - [x] Récolte de pierre : casser les rochers avec une pioche (la pioche est dans le coffre à outils, près de la cabane) ; 1 coup = pierre.
-- [x] Mode construction (bouton marteau) : mur en bois (2 bois), mur en pierre (3 pierres), porte (3 bois), feu de camp (3 bois), aimantés sur une grille de 2 m ; aperçu vert / rouge.
+- [x] Mode construction (bouton marteau) : mur en bois (2 bois), mur en pierre (3 pierres), porte (3 bois), feu de camp (3 bois + 1 allumette), **piège à ours** (5e pièce, 2026-11-27), aimantés sur une grille de 2 m (feu et piège : points sur grille de 0,5 m) ; aperçu vert / rouge.
 - [x] Mur en pierre (3 pierres, 360 PV) : dure 3 fois plus longtemps que le mur en bois (120 PV).
 - [x] Les constructions ont des PV ; les zombies bloqués les attaquent ; une pièce détruite disparaît. Portes ouvrables / fermables (bouton Utiliser).
 - [x] Feu de camp : lumière et soin lent à proximité.
-**Limites actuelles / Étape 5 — à venir** (pas de grille d'inventaire, pas d'intérieurs dans les maisons du village — sauvegarde automatique à la place du lit) : armes à usure, objets à lancer (distraction), réparation des murs, établi.
+- [x] **Piège à ours** : sans collision ; un zombie qui entre dans le rayon `trapR` prend `trapDmg` et est étourdi `trapStun` s ; le piège casse après `hp` déclenchements (`updateTraps` dans `survival.js`, événement `trap`).
+**Limites actuelles / Étape 5 — à venir** (pas d'intérieurs dans les maisons du village — sauvegarde automatique à la place du lit) : armes à usure, objets à lancer (distraction), réparation des murs, établi. (Fait depuis : inventaire à emplacements + écran d'inventaire, 2026-11-26.)
 **Étape 6 — à venir** : intérieurs de maisons, véhicules, survivants, sauvegarde multi-emplacements.
 - [x] Sauvegarde automatique (localStorage `zs3d_save`) : position, besoins, inventaire, constructions, arbres coupés, butin fouillé, heure. Bouton CONTINUER.
+
+### Inventaire à emplacements, interface sans emoji, commandes (2026-11-26/27)
+- `config.js` : `SURVIVAL.slots = {base: 8, bag: 20}`, `ITEMS[id].stack` (bois 5, pierre 4, conserve 2, eau 2, bandage 3, allumette 5 ; munitions et sac à dos sans pile), `SURVIVAL.dropGap`, `SURVIVAL.trap*`.
+- `survival.js` : `slotsMax/slotsUsed/slotsOf/room/bagCells/capInventory/dropItem/nearbyPickups/takePickup/updatePickups/equip/useItem` ; le surplus tombe au sol en un tas (`pk.n`, `pk.away`).
+- `inventory.js` (`createInventory(sim, flush)`) : écran Au sol / Équipement / Sac ; actions `use/drop1/dropAll/take/equip` ; le monde est figé tant qu'il est ouvert (`game.js`).
+- `icons.js` : `ICON`, `ico(id, cls)` → images du pack UI + SVG de `assets/ui/icons/` ; plus aucun emoji dans l'interface.
+- Feuilles CSS dans l'ordre : `style.css` → `ui-skin.css` (habillage pack) → `ui-inventory.css` → `ui-controls.css` (disposition des boutons, en dernier). `#bottom{z-index:3}` + `pointer-events:auto` sur la barre du bas (sinon `#lookZone` la recouvre).
+- Commandes : joystick flottant à gauche, glisser à droite pour viser, gros bouton d'action (aussi visée en glissant), Utiliser contextuel, Recharger (arme à feu seulement), Sprint verrouillable, sac / marteau / pause en haut à droite, barre rapide 1-3 (bandage / conserve / eau), toucher la case d'arme = arme suivante. Pause : `#btnSound`.
 
 ### Vrais modèles du dossier `assets` (2026-11-26) — demande d'Alec : des modèles, pas du code
 - [x] **Cabane meublée** avec `assets/models/interiors` (Cozy Interiors, GLB) : lit simple, table de chevet, armoire, table + chaise de cuisine, tapis, lampe sur pied (vraie lumière ponctuelle). Chaque meuble a son collider ; la porte reste dégagée. `assets.js` : `paletteMat()` applique la palette PNG 8x8 (`NearestFilter`, sans mipmaps ; matériau « Emissive » = lampe, « Glass » = verre).
@@ -44,48 +53,55 @@ L'utilisateur ne veut **pas** un jeu de vagues mais un **jeu de survivant d'apoc
 - [x] **Arbres penchés** : `restoreTree` / `fellTree` réutilisaient l'objet `d` dont la rotation x/z venait des rochers (`rotation.set(i*0.7, i*2.1, i*0.4)`) ; les arbres, redessinés au démarrage par `syncWorld`, restaient inclinés. Rotation remise à `(0, i*1.7, 0)`.
 - [x] 404 au chargement : les FBX cherchaient `House_texture_atlas.png` à côté d'eux ; `LoadingManager.setURLModifier` les renvoie vers `Texture/`.
 - [x] Équilibrage : 24 zombies au départ et 26 le jour avec un simple couteau étaient trop ; `popStart` 12, `popDay` 12, `popNight` 36.
-- [ ] Reste à traiter : barre d'objets qui cache les jambes du joueur, trous (fenêtres sans vitre) dans les murs de la cabane, couteau un peu flottant dans la main.
+- [ ] Reste à traiter : barre d'objets qui cache les jambes du joueur, trous (fenêtres sans vitre) dans les murs de la cabane, couteau un peu flottant dans la main, herbe sombre/pointue, textures de murs étirées, caméra qui traverse les murs de la cabane.
 
 ### Fichiers touchés / ajoutés
 - `config.js` : + `SURVIVAL`, `ITEMS`, `PIECES`, `LOOT`, armes de mêlée ; − `WAVE`.
 - `layout.js` : + cabane (`cabin`, `spawn`), `lootSpots`, arbres avec leur collider.
 - `logic.js` : + `rayBoxes` / `blockedBetween` / `distToBox` (rayon contre boîtes : balles, coups, vue, caméra).
-- `sim.js` : cœur (joueur, mêlée / tir, zombies). `survival.js` (nouveau) : temps, besoins, inventaire, butin, construction, sauvegarde (greffé sur `Sim`).
+- `sim.js` : cœur (joueur, mêlée / tir, zombies). `survival.js` (nouveau) : temps, besoins, inventaire, butin, construction, pièges, sauvegarde (greffé sur `Sim`).
 - `world.js` : cabane, ciel / lumières pilotés par l'heure, arbres abattables. `view.js` : pièces construites, aperçu, lampe, animations de mêlée.
-- `ui.js`, `input.js`, `index.html`, `css/style.css` : HUD survie, bouton Utiliser, mode construction, barre rapide.
+- `ui.js`, `input.js`, `index.html`, `css/*.css` : HUD survie, bouton Utiliser, mode construction, barre rapide, inventaire.
 - `audio.js` : coups, abattage, construction, porte, manger / boire / bandage.
 - `tests/sim3d.mjs` : tests adaptés + nouveaux tests (cabane, besoins, butin, construction, zombies contre murs, sauvegarde).
 
 ## Principe d'architecture
 Deux couches strictement séparées :
 1. **Simulation** (`config`, `logic`, `layout`, `sim`, `survival`) : aucune dépendance à three.js ni au DOM → testable sous Node (`npm run test:3d`).
-2. **Rendu / interface** (`assets`, `world`, `view`, `fx`, `audio`, `input`, `ui`, `game`, `main`) : lit l'état de la simulation, consomme ses événements (`sim.drain()`), n'écrit jamais dedans.
+2. **Rendu / interface** (`assets`, `world`, `view`, `fx`, `audio`, `input`, `ui`, `game`, `main`, `orient`, `inventory`, `icons`) : lit l'état de la simulation, consomme ses événements (`sim.drain()`), n'écrit jamais dedans.
 
-La simulation émet des événements `{type, ...}` : `shot, hit, kill, hurt, death, gameover, reload, reloaded, empty, swap, recoil, swing, chop, treeFelled, rockGone, loot, pickup, pickupAdd, use, build, buildMode, door, pieceHit, pieceBreak, tip, phase`.
+La simulation émet des événements `{type, ...}` : `shot, hit, kill, hurt, death, gameover, reload, reloaded, empty, swap, recoil, swing, chop, treeFelled, rockGone, loot, pickup, pickupAdd, use, build, buildMode, door, pieceHit, pieceBreak, tip, phase, drop, trap`.
 
 ## Arborescence
 ```
 3d/
-  index.html            importmap three@0.160.0 (CDN jsdelivr), canvas, HUD, écrans
+  index.html            importmap three@0.160.0 (CDN jsdelivr), canvas, HUD, inventaire, écrans
   css/style.css         HUD mobile (paysage + portrait), écrans
+  css/ui-skin.css       habillage avec les images des packs UI (après style.css)
+  css/ui-inventory.css  écran d'inventaire
+  css/ui-controls.css   disposition et tailles des boutons tactiles (en dernier)
   js/
     config.js           TOUT l'équilibrage : caméra, joueur, armes, zombies, survie, constructions, butin, position de l'arme en main
     logic.js            maths pures : raySphere, rayBoxes, pushOut (cercles + boîtes), cameraRig, rng, angles
     layout.js           plan de la ville (routes en croix, maisons FBX, épaves, conteneurs, arbres, rochers, cabane meublée) + colliders
     sim.js              classe Sim : joueur, mêlée / tir, zombies (IA), population, objets lâchés
-    survival.js         (mixin de Sim) horloge jour/nuit, besoins, inventaire, fouille, construction, sauvegarde
+    survival.js         (mixin de Sim) horloge jour/nuit, besoins, inventaire à emplacements, fouille, construction, pièges, sauvegarde
     assets.js           GLTFLoader + FBXLoader, palette des meubles, atlas des maisons, matériaux Lambert partagés, instance() (SkeletonUtils.clone), placeholder()
     world.js            sol, ciel, brume, lumières, assemblage + FUSION des pièces statiques par matériau, arbres instanciés, enceinte
     view.js             classe View : renderer, caméra, acteurs animés (joueur, zombies), objets, constructions, effets, rendu
     fx.js               traînées de balles, lueur de bouche, sang (pools)
     audio.js            sons synthétisés WebAudio
-    input.js            joystick flottant, glisser pour viser, boutons, clavier/souris
+    input.js            joystick flottant, glisser pour viser, boutons, clavier/souris, sprint verrouillable
     ui.js               HUD + écrans (menu, pause, game over)
+    inventory.js        écran d'inventaire (Au sol / Équipement / Sac), actions via clic délégué
+    icons.js            ICON / ico() : images des icônes (pack UI + SVG propres)
+    orient.js           écran « tournez votre téléphone » (paysage obligatoire)
     game.js             boot, boucle principale, branchement sim ↔ vue ↔ UI ↔ sons, sauvegarde et record (localStorage)
     main.js             point d'entrée
-tests/sim3d.mjs         22 tests de la simulation ; tests/p1.mjs : 8 tests (capacité, sac à dos, allumettes, butin, modèles)
+tests/sim3d.mjs         22 tests de la simulation ; tests/p1.mjs : 8 tests (emplacements, sac à dos, allumettes, butin, piège, modèles)
 tools/obj2glb.py        convertisseur OBJ+MTL → GLB (props du pack survivant, végétation)
 assets/models/          characters, weapons, vehicles, environment, village, props, vegetation, interiors (CC0 Quaternius / Cozy Interiors)
+assets/ui/              packs d'interface + icons/*.svg dessinés
 assets/sources/         household_fbx, medieval_houses (FBX, chargés au démarrage), post_apocalyptic (OBJ), melee_weapons, …
 ```
 
@@ -94,8 +110,8 @@ assets/sources/         household_fbx, medieval_houses (FBX, chargés au démarr
 - Zombies : `Zombie_Basic`, `Zombie_Arm` (rapide), `Zombie_Ribcage` (très rapide, fragile), `Zombie_Chubby` (lent, costaud). Anims : `Idle, Walk, Run, Idle_Attack/Run_Attack/Punch, HitReact, Death`.
 - Armes : `weapons/Axe, Pistol, Shotgun, SMG, Rifle` ; bâtte et couteau sont déjà dans le modèle du joueur.
 - Ville : `environment/Street_*`, `vehicles/*`, `environment/*` (barils, conteneurs, lampadaires…), `village/*` (clôture d'enceinte, pièces de la cabane), maisons : `sources/medieval_houses/House_Full_ordinar/*.fbx`.
-- Objets ramassables : `props/Bandages.glb`, `props/Can_Closed.glb`, `props/WaterBottle_1.glb`. Construction : `village/Prop_WoodenFence_Single` (mur bois), `village/Wall_UnevenBrick_Straight` (mur pierre), `village/Door_1_Flat`, `props/Bonfire` + `Bonfire_Fire`. Outils : `weapons/Axe`, `props/Shovel` (pioche). Cabane : `Wall_Plaster_*`, `Floor_WoodDark`, `Roof_RoundTiles_6x6`, `environment/Chest`, meubles `interiors/*`.
-- Pistes non exploitées : Tent, Torch, Radio, GasCan, BearTrap, revolvers et fusils de `assets/models/props` ; armes de mêlée et ruines de `assets/sources` (voir `assets/README_ASSETS.md`).
+- Objets ramassables : `props/Bandages.glb`, `props/Can_Closed.glb`, `props/WaterBottle_1.glb`, `props/WoodLog.glb`, `props/Matchbox.glb`, `props/Backpack.glb`. Construction : `village/Prop_WoodenFence_Single` (mur bois), `village/Wall_UnevenBrick_Straight` (mur pierre), `village/Door_1_Flat`, `props/Bonfire` + `Bonfire_Fire`, `props/BearTrap_Open.glb` (piège, échelle 0,27). Outils : `weapons/Axe`, `props/Shovel` (pioche). Cabane : `Wall_Plaster_*`, `Floor_WoodDark`, `Roof_RoundTiles_6x6`, `environment/Chest`, meubles `interiors/*`.
+- Pistes non exploitées : Tent, Torch, Radio, GasCan, `BearTrap_Closed`, revolvers et fusils de `assets/models/props` ; armes de mêlée et ruines de `assets/sources` (voir `assets/README_ASSETS.md`).
 
 ## Boucle de jeu
 (Ancienne boucle par vagues : supprimée par la refonte survie, voir ci-dessus.)
