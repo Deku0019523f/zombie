@@ -5,6 +5,9 @@ import { CAMERA, PLAYER, WEAPONS, WEAPON_ORDER, ASSIST, HEAD_MULT, ZOMBIES, ALER
 import { clamp, lerpAngle, wrapAngle, pushOut, raySphere, normalize3, cameraRig, rayBoxes, blockedBetween } from './logic.js';
 import { survivalMethods } from './survival.js';
 
+// Saut / accroupi / visée (commandes façon CODM). Valeurs de réglage ici (pas dans config.js).
+const MOVE = { jumpV: 5.4, grav: 16, jumpCost: 12, crouchSpeed: 0.55, adsSpeed: 0.7, crouchDrop: 0.45, crouchSight: 0.6, crouchHear: 0.5, dodgeY: 0.5 };
+
 export class Sim {
   constructor(layout, rng = Math.random) {
     this.layout = layout; this.rng = rng; this.events = [];
@@ -18,7 +21,7 @@ export class Sim {
   reset(save = null) {
     const sp = this.layout.spawn;
     this.t = 0; this.nextId = 1; this.events = [];
-    this.player = { x: sp.x, z: sp.z, hp: PLAYER.hp, stamina: PLAYER.stamina, face: sp.yaw, moving: false, speed: 0, sprinting: false, hurtT: 0, dead: false, deadT: 0, regenLock: 0, hunger: S.hungerStart, thirst: S.thirstStart, bleed: false };
+    this.player = { x: sp.x, z: sp.z, y: 0, vy: 0, crouch: false, ads: false, hp: PLAYER.hp, stamina: PLAYER.stamina, face: sp.yaw, moving: false, speed: 0, sprinting: false, hurtT: 0, dead: false, deadT: 0, regenLock: 0, hunger: S.hungerStart, thirst: S.thirstStart, bleed: false };
     this.yaw = sp.yaw; this.pitch = 0.14;
     this.inv = { wood: 0, stone: 0, food: 0, water: 1, bandage: 0, ammo: 0 };       // le strict minimum : une bouteille d'eau…
     this.weapons = { knife: { ammo: 0 } }; this.cur = 'knife';                       // … et un couteau
@@ -32,7 +35,9 @@ export class Sim {
 
   get alive() { return this.zombies.filter(z => !z.dead).length; }
   get camera() {
-    const c = cameraRig(this.player.x, this.player.z, this.yaw, this.pitch, CAMERA);
+    const P = this.player, c = cameraRig(P.x, P.z, this.yaw, this.pitch, CAMERA);
+    const off = (P.y || 0) - (P.crouch ? MOVE.crouchDrop : 0);          // la caméra monte avec le saut et descend en position accroupie
+    if (off) { c.pos = [c.pos[0], c.pos[1] + off, c.pos[2]]; c.pivot = [c.pivot[0], c.pivot[1] + off, c.pivot[2]]; }
     const dx = c.pos[0] - c.pivot[0], dy = c.pos[1] - c.pivot[1], dz = c.pos[2] - c.pivot[2], L = Math.hypot(dx, dy, dz) || 1;
     const h = rayBoxes(c.pivot[0], c.pivot[1], c.pivot[2], dx / L, dy / L, dz / L, L, this.cols);   // la caméra ne traverse pas les murs
     if (h) { const t = Math.max(0.5, h.t - 0.25); c.pos = [c.pivot[0] + dx / L * t, c.pivot[1] + dy / L * t, c.pivot[2] + dz / L * t]; }
@@ -69,17 +74,30 @@ export class Sim {
     const m = Math.hypot(mx, my);
     if (m > 1) { mx /= m; my /= m; }
     const mag = Math.min(1, m);
-    P.sprinting = !!inp.sprint && mag > 0.2 && P.stamina > 4;
+    // accroupi (bascule) : impossible en l'air ; sprinter ou sauter redresse. Visée (bascule) : armes à feu seulement.
+    if (inp.crouch && P.y < 0.05) P.crouch = !P.crouch;
+    if (inp.ads) P.ads = !P.ads;
+    if (WEAPONS[this.cur].melee || this.reloadT > 0) P.ads = false;
+    if (inp.sprint && mag > 0.2) P.crouch = false;
+    P.sprinting = !!inp.sprint && mag > 0.2 && P.stamina > 4 && !P.ads;
     if (P.sprinting) { P.stamina = Math.max(0, P.stamina - PLAYER.drain * dt); P.regenLock = 0.7; }
     else { P.regenLock = Math.max(0, P.regenLock - dt); if (P.regenLock === 0) P.stamina = Math.min(PLAYER.stamina, P.stamina + PLAYER.regen * dt); }
-    const speed = (P.sprinting ? PLAYER.sprint : PLAYER.speed) * mag;
+    // saut : au sol seulement, coûte de l'endurance ; l'atterrissage fait un peu de bruit
+    if (inp.jump && P.y <= 0.001 && P.vy === 0 && P.stamina >= MOVE.jumpCost && !this.build.on) {
+      P.vy = MOVE.jumpV; P.crouch = false; P.stamina -= MOVE.jumpCost; P.regenLock = 0.7; this.emit({ type: 'jump' });
+    }
+    if (P.y > 0 || P.vy > 0) {
+      P.vy -= MOVE.grav * dt; P.y += P.vy * dt;
+      if (P.y <= 0) { P.y = 0; P.vy = 0; this.noise(P.x, P.z, 6); this.emit({ type: 'land' }); }
+    }
+    const speed = (P.sprinting ? PLAYER.sprint : PLAYER.speed) * mag * (P.crouch ? MOVE.crouchSpeed : 1) * (P.ads ? MOVE.adsSpeed : 1);
     const vx = (sy * my + -cy * mx) * speed, vz = (cy * my + sy * mx) * speed;
     const p = { x: P.x + vx * dt, z: P.z + vz * dt };
     p.x = clamp(p.x, -H, H); p.z = clamp(p.z, -H, H);
     pushOut(p, PLAYER.radius, this.cols);
     P.x = p.x; P.z = p.z; P.speed = speed; P.moving = mag > 0.1;
     // Le corps suit la direction de marche mais ne tourne jamais le dos à la caméra (on garde le regard vers l'avant en reculant).
-    const aiming = inp.fire || this.reloadT > 0 || this.build.on || this.swingT > 0;
+    const aiming = inp.fire || this.reloadT > 0 || this.build.on || this.swingT > 0 || P.ads;
     let target = P.face;
     if (aiming) target = this.yaw;
     else if (P.moving) { const am = Math.atan2(vx, vz); target = Math.abs(wrapAngle(am - this.yaw)) > Math.PI / 2 ? am + Math.PI : am; }
@@ -90,7 +108,7 @@ export class Sim {
   // ---------------------------------------------------------------- armes
   owned() { return WEAPON_ORDER.filter(w => this.weapons[w]); }
 
-  setWeapon(id) { this.cur = id; this.reloadT = 0; this.fireCD = 0.2; this.swingT = 0; this.swingDone = true; this.emit({ type: 'swap', w: id }); }
+  setWeapon(id) { this.cur = id; this.reloadT = 0; this.fireCD = 0.2; this.swingT = 0; this.swingDone = true; this.player.ads = false; this.emit({ type: 'swap', w: id }); }
 
   updateWeapon(dt, inp) {
     this.fireCD = Math.max(0, this.fireCD - dt); this.swingT = Math.max(0, this.swingT - dt);
@@ -178,7 +196,7 @@ export class Sim {
   // ---------------------------------------------------------------- armes à feu
   muzzle() {
     const P = this.player, sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
-    return [P.x + sy * 0.55 - cy * 0.2, 1.38, P.z + cy * 0.55 + sy * 0.2];
+    return [P.x + sy * 0.55 - cy * 0.2, 1.38 + (P.y || 0) - (P.crouch ? MOVE.crouchDrop : 0), P.z + cy * 0.55 + sy * 0.2];
   }
 
   hitSpheres(z) {
@@ -213,7 +231,8 @@ export class Sim {
     const aim = this.aimPoint(cam, W.range);
     const base = normalize3([aim[0] - mz[0], aim[1] - mz[1], aim[2] - mz[2]]);
     const ay = Math.atan2(base[0], base[2]), ap = Math.asin(clamp(base[1], -1, 1));
-    const spread = W.spread * (P.moving ? 1.5 : 1) * (P.sprinting ? 1.4 : 1);
+    // dispersion : plus large en courant / en l'air, plus serrée accroupi ou en visant
+    const spread = W.spread * (P.moving ? 1.5 : 1) * (P.sprinting ? 1.4 : 1) * (P.crouch ? 0.7 : 1) * (P.ads ? 0.5 : 1) * (P.y > 0.05 ? 1.8 : 1);
     let anyHit = false;
     for (let i = 0; i < W.pellets; i++) {
       const y2 = ay + (this.rng() * 2 - 1) * spread, p2 = ap + (this.rng() * 2 - 1) * spread;
@@ -224,7 +243,7 @@ export class Sim {
     }
     if (anyHit) this.hits++;
     this.noise(P.x, P.z, ALERT_RADIUS);                       // un coup de feu s'entend de très loin
-    this.emit({ type: 'recoil', amount: W.kick });
+    this.emit({ type: 'recoil', amount: W.kick * (P.ads ? 0.7 : 1) });
   }
 
   hitscan(o, d, W) {
@@ -318,12 +337,12 @@ export class Sim {
       if (d > S.despawn && z.state !== 'chase') { Z.splice(i, 1); continue; }
       if (P.dead) { z.anim = 'idle'; continue; }
 
-      // ---- perception : vue (bloquée par les murs), ouïe (course = bruyant, immobile = discret), bruits
+      // ---- perception : vue (bloquée par les murs), ouïe (course = bruyant, immobile = discret, accroupi = encore plus), bruits
       if (z.state !== 'chase') {
-        const sight = (this.isNight() ? S.sightNight : S.sightDay) * (P.sprinting ? 1.6 : P.moving ? 1 : 0.5);
+        const sight = (this.isNight() ? S.sightNight : S.sightDay) * (P.sprinting ? 1.6 : P.moving ? 1 : 0.5) * (P.crouch ? MOVE.crouchSight : 1);
         let seen = z.alerted;
         if (!seen && d < sight && !blockedBetween(z.x, z.z, P.x, P.z, cols)) seen = true;
-        if (!seen && d < S.hearing * (P.sprinting ? 1.5 : P.moving ? 1 : 0.3)) seen = true;
+        if (!seen && d < S.hearing * (P.sprinting ? 1.5 : P.moving ? 1 : 0.3) * (P.crouch ? MOVE.crouchHear : 1)) seen = true;
         if (seen) { z.state = 'chase'; z.alerted = false; z.lostT = 0; z.target = null; }
         else { this.idleZombie(z, T, dt, cols, H); continue; }
       }
@@ -337,7 +356,7 @@ export class Sim {
       if (d < T.range && !blockedBetween(z.x, z.z, P.x, P.z, cols, 1.0)) {
         z.anim = 'attack'; z.atkT += dt;
         z.face = lerpAngle(z.face, Math.atan2(dx, dz), Math.min(1, 12 * dt));
-        if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; if (d < T.range + 0.5) this.hurtPlayer(T.dmg, z); }
+        if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; if (d < T.range + 0.5 && (P.y || 0) < MOVE.dodgeY) this.hurtPlayer(T.dmg, z); }   // un saut bien placé esquive le coup
         if (z.atkT >= T.cycle) { z.atkT = 0; z.hitDone = false; }
         continue;
       }
