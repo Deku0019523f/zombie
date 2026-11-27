@@ -215,6 +215,7 @@ export const survivalMethods = {
   addPiece(kind, x, z, yaw) {
     const D = PIECES[kind], pc = { id: this.nextPid++, kind, x, z, yaw, hp: D.hp, max: D.hp, open: false };
     let col;
+    if (kind === 'trap') { col = { x, z, hw: 0, hd: 0, off: true, piece: pc }; pc.col = col; this.pieces.push(pc); return pc; }   // le piège ne bloque rien : pas de collision
     if (kind === 'fire') col = { x, z, r: 0.45, piece: pc };
     else { const ax = Math.abs(Math.sin(yaw)) < 0.5; col = { x, z, hw: ax ? 1 : 0.2, hd: ax ? 0.2 : 1, h: D.h, piece: pc }; }
     pc.col = col; this.cols.push(col); this.pieces.push(pc); return pc;
@@ -231,7 +232,7 @@ export const survivalMethods = {
   touchedPiece(x, z, r) {
     let best = null, bd = 1e9;
     for (const pc of this.pieces) {
-      if (pc.col.off) continue;
+      if (pc.col.off || pc.kind === 'trap') continue;
       const d = pc.kind === 'fire' ? Math.hypot(x - pc.x, z - pc.z) - pc.col.r : distToBox(x, z, pc.col);
       if (d < r && d < bd) { bd = d; best = pc; }
     }
@@ -242,17 +243,18 @@ export const survivalMethods = {
     const k = this.build.piece, P = this.player, g = S.grid, D = PIECES[k];
     const tx = P.x + Math.sin(this.yaw) * S.reach, tz = P.z + Math.cos(this.yaw) * S.reach;
     let x, z, yaw = 0;
-    if (k === 'fire') { x = Math.round(tx * 2) / 2; z = Math.round(tz * 2) / 2; }
+    const dot = k === 'fire' || k === 'trap';                                                  // pièces « ponctuelles » (pas de mur)
+    if (dot) { x = Math.round(tx * 2) / 2; z = Math.round(tz * 2) / 2; }
     else if (Math.abs(Math.cos(this.yaw)) >= Math.abs(Math.sin(this.yaw))) { x = Math.floor(tx / g) * g + g / 2; z = Math.round(tz / g) * g; }
     else { x = Math.round(tx / g) * g; z = Math.floor(tz / g) * g + g / 2; yaw = Math.PI / 2; }
     let ok = true, why = '';
     if (!this.canAfford(D.cost)) { ok = false; why = 'Pas assez de ' + Object.keys(D.cost).filter(c => (this.inv[c] || 0) < D.cost[c]).map(c => ITEMS[c].name.toLowerCase()).join(', '); }
     else if (this.pieces.some(p => Math.abs(p.x - x) < 0.3 && Math.abs(p.z - z) < 0.3)) { ok = false; why = 'Emplacement occupé'; }
     else {
-      const ax = Math.abs(Math.sin(yaw)) < 0.5, pts = k === 'fire' ? [[0, 0]] : [-0.5, 0, 0.5].map(o => (ax ? [o, 0] : [0, o]));
-      for (const [ox, oz] of pts) { const p = { x: x + ox, z: z + oz }; if (pushOut(p, k === 'fire' ? 0.5 : 0.2, this.cols) > 0) { ok = false; why = 'Un obstacle bloque'; break; } }
+      const ax = Math.abs(Math.sin(yaw)) < 0.5, pts = dot ? [[0, 0]] : [-0.5, 0, 0.5].map(o => (ax ? [o, 0] : [0, o]));
+      for (const [ox, oz] of pts) { const p = { x: x + ox, z: z + oz }; if (pushOut(p, dot ? 0.5 : 0.2, this.cols) > 0) { ok = false; why = 'Un obstacle bloque'; break; } }
       if (ok) {
-        const hw = k === 'fire' ? 0.45 : ax ? 1 : 0.2, hd = k === 'fire' ? 0.45 : ax ? 0.2 : 1;
+        const hw = dot ? 0.45 : ax ? 1 : 0.2, hd = dot ? 0.45 : ax ? 0.2 : 1;
         if (distToBox(P.x, P.z, { x, z, hw, hd }) < PLAYER.radius + 0.15) { ok = false; why = 'Écartez-vous'; }
       }
     }
@@ -275,8 +277,25 @@ export const survivalMethods = {
     }
   },
 
+  // Piège à ours : un zombie qui marche dessus prend des dégâts et reste clé quelques secondes ; le piège casse après `hp` déclenchements.
+  updateTraps() {
+    for (const pc of [...this.pieces]) {
+      if (pc.kind !== 'trap') continue;
+      for (const z of this.zombies) {
+        if (z.dead || (z.trapT || 0) > this.t) continue;
+        if (Math.hypot(z.x - pc.x, z.z - pc.z) > S.trapR) continue;
+        z.trapT = this.t + S.trapStun + 1;
+        this.damageZombie(z, S.trapDmg, false, [z.x, 0.4, z.z]);
+        if (!z.dead) z.stagger = Math.max(z.stagger || 0, S.trapStun);      // après damageZombie, qui remet un court étourdissement
+        this.emit({ type: 'trap', x: pc.x, z: pc.z, id: pc.id });
+        pc.hp--; if (pc.hp <= 0) { this.removePiece(pc); this.emit({ type: 'pieceBreak', id: pc.id, kind: 'trap', x: pc.x, z: pc.z }); break; }
+      }
+    }
+  },
+
   updateFires(dt) {
     const P = this.player;
+    this.updateTraps();
     for (const pc of this.pieces) {
       if (pc.kind !== 'fire') continue;
       if (!P.bleed && P.hp < PLAYER.hp && Math.hypot(P.x - pc.x, P.z - pc.z) < S.fireRadius) P.hp = Math.min(PLAYER.hp, P.hp + S.fireHeal * dt);
