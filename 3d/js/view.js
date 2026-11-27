@@ -243,6 +243,8 @@ export class View {
       else if (e.type === 'rockGone') this.world.removeRock(e.i);
       else if (e.type === 'chop') this.fx.splash([e.x, 1.2, e.z], 3, false);
       else if (e.type === 'trap') this.fx.splash([e.x, 0.4, e.z], 6);
+      else if (e.type === 'crash') this.fx.splash([e.x, 0.8, e.z], Math.min(10, 3 + e.power));
+      else if (e.type === 'vehicleWreck') this.fx.splash([e.x, 1.0, e.z], 12);
       else if (e.type === 'pieceBreak') this.fx.splash([e.x, 1.0, e.z], 8);
     }
   }
@@ -254,7 +256,7 @@ export class View {
 
     // joueur : saut (hauteur), accroupi (silhouette écrasée)
     const pa = this.player;
-    pa.root.position.set(P.x, P.y || 0, P.z); pa.root.rotation.y = P.face;
+    pa.root.position.set(P.x, P.y || 0, P.z); pa.root.rotation.y = P.face; pa.root.visible = !P.driving;   // au volant, le joueur est caché dans le véhicule
     const sy = P.crouch ? 0.8 : 1; pa.root.scale.y += (sy - pa.root.scale.y) * Math.min(1, dt * 14);
     if (this.bag) this.bag.visible = sim.hasBag();
     const W = WEAPONS[sim.cur], gun = !W.melee, sfx = gun ? '_Gun' : '';
@@ -266,6 +268,16 @@ export class View {
     else if (P.moving) pa.play(alt((P.speed > 4.2 ? 'Run' : 'Walk') + sfx, 'Walk'), { speed: Math.max(0.7, P.speed / 3.6) });
     else pa.play(alt('Idle' + sfx, 'Idle'));
     pa.update(dt); this.aimWeapon();
+
+    // véhicules (le modèle regarde vers +z comme la simulation ; roues avant braquées non animées)
+    if (!this.vviews) this.vviews = new Map();
+    for (const V of sim.vehicles) {
+      let g = this.vviews.get(V.id);
+      if (!g) { const inst = instance(V.model); g = new THREE.Group(); if (inst) g.add(inst.object); this.scene.add(g); this.vviews.set(V.id, g); }
+      g.position.set(V.x, 0, V.z); g.rotation.set(0, V.yaw, 0);
+      if (V.wrecked) { g.rotation.z = 0.05; g.visible = true; }
+      if (V.v && !V.wrecked) g.rotation.x = -V.v * 0.0025;        // léger tangage à l'accélération
+    }
 
     // constructions
     const cs = new Set();

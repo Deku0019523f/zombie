@@ -88,6 +88,9 @@ export async function boot() {
         case 'build': A.build(); break;
         case 'door': A.door(e.open); break;
         case 'trap': A.pieceBreak(); ui.hitMarker(true); ui.banner('Piège déclenché', null, 900); break;
+        case 'crash': A.pieceBreak(); break;
+        case 'vehicle': A.door(e.on); if (e.on) ui.banner(e.name, 'Joystick : haut = accélérer, bas = freiner, côtés = tourner', 2600); break;
+        case 'vehicleWreck': A.pieceBreak(); ui.banner('VÉHICULE HORS D’USAGE', null, 2000); break;
         case 'pieceHit': A.pieceHit(); break;
         case 'pieceBreak': A.pieceBreak(); break;
         case 'use': ({ food: A.eat, water: A.drink, bandage: A.bandage })[e.id]?.(); break;
