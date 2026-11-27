@@ -1,7 +1,7 @@
 # RAPPORT — Zombie Survival / Dernier Rempart
 
 > Mémoire du projet. À mettre à jour après chaque étape importante, sans supprimer les infos déjà présentes.
-> Dernière mise à jour : 2026-11-26 (soir)
+> Dernière mise à jour : 2026-11-27
 
 ## 0. Deux jeux dans un seul dépôt (une seule branche : `main`)
 - **Jeu 2D (v3.1.0)** : canvas pixel art vue de dessus — `index.html`, `js/`, `css/`. Documenté aux sections 1 à 12 ci-dessous. **Depuis la section 14, la page d'accueil à la racine redirige vers le jeu 3D** (le 2D a été retiré de la racine à la demande de l'utilisateur).
@@ -87,7 +87,7 @@ Voir `plan.md` (2D) et `3d/plan.md` (3D) pour le détail. Principe : la **logiqu
 - Traduire le titre EN (« LAST BULWARK » actuellement) ou garder « DERNIER REMPART » partout : à trancher
 - Musique d'ambiance, décor en vraies images
 - Mode PWA (installable, plein écran, hors-ligne), classement en ligne, vibration (`navigator.vibrate`)
-- (3D) voir les sections 13 et 14 et `PLAN_RATTRAPAGE.md` : tente, piège, torche, intérieurs Cozy, grenades, etc. (sac à dos / capacité / allumettes : faits, section 14.1)
+- (3D) voir les sections 13 et 14 et `PLAN_RATTRAPAGE.md` : tente, torche, intérieurs Cozy, grenades, etc. (sac à dos / capacité / allumettes / piège à ours : faits, section 14.1)
 
 ## 6. Modifications importantes effectuées
 - 2026-10-28 (1) : refonte du fichier HTML unique en projet multifichier (modules ES), correction des bugs, ajout armes/zombies/pickups/vagues/sons/record/FR-EN. Premier push GitHub.
@@ -107,7 +107,8 @@ Voir `plan.md` (2D) et `3d/plan.md` (3D) pour le détail. Principe : la **logiqu
 - 2026-11-23/24 : **v4.0.0-alpha** écrite en 4 commits sur une branche `3d` : simulation 3D testable, rendu three.js, HUD tactile, mode paysage obligatoire (`orient.js`). Voir section 13.
 - 2026-11-24 : **branche `3d` fusionnée dans `main`** (PR n°1, commit de fusion `ead3230`) à la demande de l'utilisateur, qui ne veut qu'une seule branche.
 - 2026-11-24/25 : voir **section 14** (v5 survie par une autre session, lot 2 d'assets, plan de rattrapage, P1, interface).
-- 2026-11-26 (soir) : **inventaire v2 + boutons + interface sans emoji** (section 14.1, dernière puce).
+- 2026-11-26 (soir) : **inventaire v2 + boutons + interface sans emoji** (section 14.1, avant-dernière puce).
+- 2026-11-27 : **correctif des commandes** (barre du bas intouchable) et **P1 (3/n) piège à ours** (section 14.1, dernières puces).
 
 ## 7. Problèmes rencontrés et solutions
 | Problème | Solution |
@@ -147,6 +148,9 @@ Voir `plan.md` (2D) et `3d/plan.md` (3D) pour le détail. Principe : la **logiqu
 | (3D) Boutons ronds du pack (déjà dessinés avec leur pictogramme) + emoji par-dessus = double image ; emoji bleus ⏸ / 🔊 qui jurent | Plus aucun emoji dans l'interface : pause / son / fermer = images du pack seules ; autres boutons = SVG (`assets/ui/icons/`) ; icônes d'objets/armes via `3d/js/icons.js` |
 | (3D) Capacité par objet (v5.2) peu lisible, hors modèle des jeux de survie | Remplacée par des **emplacements** avec piles par objet (section 14.1) |
 | (3D) `sim.js` ajoute des ressources sans passer par `giveItem` (récolte) | `capInventory()` après coup à chaque tick : le surplus tombe au sol en un tas (`away`) ; pas de réécriture de `sim.js` |
+| (3D) Barre du bas (cases 1-3, arme) impossible à toucher : `#lookZone` (z-index 1) la recouvrait ; `#hud > * {pointer-events:none}` désactive aussi les enfants interactifs | `#bottom{z-index:3}` + `pointer-events:auto` explicite sur `#hotbar .slot` / `.hslot` (vérifié avec `elementFromPoint` et des appuis simulés) |
+| (3D) Piège : `damageZombie` remet un court étourdissement qui écrasait celui du piège | `stagger` fixé **après** l'appel à `damageZombie` dans `updateTraps` |
+| (3D) Modèle `props/BearTrap.glb` inexistant | Le fichier s'appelle `BearTrap_Open.glb` (`BearTrap_Closed.glb` existe aussi, inutilisé) |
 
 ## 8. Dépendances installées
 Aucune dépendance npm. (`serve` est lancé à la demande par `npm start` via `npx`.)
@@ -157,7 +161,7 @@ Aucune dépendance npm. (`serve` est lancé à la demande par `npm start` via `n
 npm start        # serveur local (les modules ES exigent http://, pas file://)
 npm test         # test de fumée headless du jeu 2D (6 min de jeu simulées)
 npm run test:3d  # tests de la simulation 3D (sans navigateur) = node tests/sim3d.mjs
-node tests/p1.mjs   # tests de l'inventaire à emplacements (7 tests, vérifiés localement avec un logic.js factice)
+node tests/p1.mjs   # tests des emplacements d'inventaire et du piège à ours (8 tests, vérifiés localement avec un logic.js factice)
 python3 -m http.server 8000   # alternative sans Node
 ```
 Jeu 3D : `http://localhost:3000/` (redirige vers `3d/`) (Internet requis pour three.js). Déploiement possible tel quel sur GitHub Pages (branche `main`, racine).
@@ -172,7 +176,7 @@ Notes de mise au point :
 - Environnement : `git push` bloqué par le proxy (403) → envoi via le connecteur GitHub (`push_files`), fichiers texte uniquement.
 
 ## 11. État actuel du projet
-**Jeu 3D (`3d/`, sur `main`, v5.3.0-survie)** : voir la section 14. Tests de simulation 3D (`tests/sim3d.mjs`, 22 tests) écrits par l'autre session ; **les dernières modifications n'ont pas toutes été exécutées ici** : le bac à sable n'a ni three.js ni réseau ni copie complète du code. Vérifié localement : la logique des emplacements (`tests/p1.mjs`, Node) et l'interface (inventaire, HUD, boutons) dans Chromium à 800×360 avec une simulation factice. **Jamais lancé ensemble** : vraie simulation + rendu three.js. L'utilisateur teste sur téléphone.
+**Jeu 3D (`3d/`, sur `main`, v5.4.0-survie)** : voir la section 14. Tests de simulation 3D (`tests/sim3d.mjs`, 22 tests) écrits par l'autre session ; **les dernières modifications n'ont pas toutes été exécutées ici** : le bac à sable n'a ni three.js ni réseau ni copie complète du code. Vérifié localement : la logique des emplacements et du piège (`tests/p1.mjs`, Node) et l'interface (inventaire, HUD, boutons) dans Chromium à 800×360 avec une simulation factice. **Jamais lancé ensemble** : vraie simulation + rendu three.js. L'utilisateur teste sur téléphone.
 
 Jeu 2D (ancienne racine, v3.1.0) : mode Ville, campagne, atelier… (sections 4 et 12) ; tests OK à l'époque ; plus servi depuis la racine.
 
@@ -191,7 +195,7 @@ La v4 était un jeu à vagues (4 armes débloquées par caisses, score, record).
 **Hypothèses de la v4 à contrôler sur téléphone** : routes orientées le long de Z ; façade des murs vers +z ; arme attachée à l'os `Middle1.L` avec la pose du couteau ; échelle des personnages ×1,1 ; matériaux Lambert (normales/ORM ignorées).
 
 ## 14. Jeu 3D — v5 « survie » (état actuel) et suite
-### 14.1 Historique 2026-11-24 → 26
+### 14.1 Historique 2026-11-24 → 27
 - 2026-11-24/25 : l'utilisateur veut **un seul jeu sur `main`** (le 2D est retiré de la racine ; `index.html` racine redirige vers `3d/`). Un autre chantier (autre session) a transformé le jeu en **survie v5.0.0** : départ dans une cabane (couteau + 1 eau), cycle jour/nuit (14 min réelles/jour), faim/soif/saignement, inventaire (bois, pierre, conserve, eau, bandage, munitions), barre rapide 3 emplacements, fouille de points de butin (`LOOT`), récolte au corps à corps (arbres/rochers, pioche pour la pierre), construction sur grille de 2 m (mur bois/pierre, porte, feu de camp), zombies qui voient/entendent, sauvegarde `zs3d_save`, record `zs3d_best`. Code : `survival.js` (mixin greffé sur `Sim.prototype`), `sim.js`, `view.js`, `ui.js`, `game.js`, `layout.js`.
 - 2026-11-25 : **lot 2 d'assets** reçu (Cozy Interiors, mobilier FBX, ruines, POLY Lite Survival, post-apocalyptique, armes de mêlée, maisons médiévales…) → rangé dans `assets/` et documenté dans **`assets/README_ASSETS.md`** (tableaux, axes/échelles, conversion, licences, usage dans le jeu). Livré en 3 archives (≤ 30 Mio) ; l'utilisateur les a placées dans le dépôt.
 - 2026-11-25 : **`PLAN_RATTRAPAGE.md`** (racine) : P0 vérifications, **P1 gains rapides avec assets déjà en GLB**, P2 intérieurs Cozy, P3 conversion post-apo/mêlée, P4 assets Blender seuls, P5 fonctions du jeu de référence (viser, survivants, chien, rampants, véhicules). L'utilisateur a testé P0 lui-même.
@@ -202,19 +206,22 @@ La v4 était un jeu à vagues (4 armes débloquées par caisses, score, record).
   - **Emplacements** (`SURVIVAL.slots = {base: 8, bag: 20}`) : chaque objet empilable (`ITEMS[id].stack` : bois 5, pierre 4, conserve 2, eau 2, bandage 3, allumette 5) occupe `ceil(n/pile)` cases ; **munitions** = pochette à part (pas de place) ; sac à dos = 20 cases. Le surplus (récolte, fouille) tombe au sol en **un seul tas** (`pk.n`, `pk.away` : on ne le reprend qu'après s'être éloigné). Fonctions `survival.js` : `slotsMax/slotsUsed/slotsOf/room/bagCells/capInventory/dropItem/nearbyPickups/takePickup/updatePickups (remplace celle de sim.js)/equip/useItem`. Événements nouveaux : `drop`, `pickup {n}`.
   - **Écran d'inventaire** (`3d/js/inventory.js`, `3d/css/ui-inventory.css`, bouton sac en haut à droite, touche I/Tab, Échap ferme) : 3 colonnes **Au sol** (ramasser) / **Équipement** (armes, équiper, sac) / **Sac** (grille de cases avec quantité, pochette de munitions) ; barre du bas : description + Utiliser / Jeter 1 / Tout / Ramasser / Équiper. **Le monde est figé** tant qu'il est ouvert.
   - **Boutons** : zones tactiles élargies de 7 px (`::after`), retour immédiat (enfoncé, vibration 8 ms), disposition en arc de pouce autour du bouton d'action (tailles 52–58 px, 100 px pour l'action), **sprint verrouillable** (un toucher = on court, second toucher ou lâcher le joystick = stop, halo orange), Utiliser/Recharger partagent la même place, cases de la barre rapide éteintes si l'objet manque, HUD haut-gauche : sac `x/y`, bois, pierre, allumettes, munitions.
-  - **Plus aucun emoji dans l'interface** (demande de l'utilisateur) : pause / son / muet / fermer = images du pack UI survival ; icônes d'objets et d'armes = **images** via `3d/js/icons.js` (pack : couteau, arme, balles, trousse, conserve, bidon ; sinon **SVG dessinés** dans `assets/ui/icons/` : sac, marteau, échange, sprint, recharger, main, flamme, bois, pierre, porte, sang, soleil, lune, batte, batte à clous, guitare, lance, hache, pioche, fusil, jeter, allumette). Les anciens champs `icon` emoji ont été retirés des données… **sauf dans `config.js` poussé** (WEAPONS / ITEMS gardent des `icon` emoji, plus affichés nulle part : à nettoyer).
+  - **Plus aucun emoji dans l'interface** (demande de l'utilisateur) : pause / son / muet / fermer = images du pack UI survival ; icônes d'objets et d'armes = **images** via `3d/js/icons.js` (pack : couteau, arme, balles, trousse, conserve, bidon ; sinon **SVG dessinés** dans `assets/ui/icons/` : sac, marteau, échange, sprint, recharger, main, flamme, bois, pierre, porte, sang, soleil, lune, batte, batte à clous, guitare, lance, hache, pioche, fusil, jeter, allumette, piège). Les anciens champs `icon` emoji ont été retirés des données… **sauf dans `config.js` poussé** (WEAPONS / ITEMS gardent des `icon` emoji, plus affichés nulle part : à nettoyer).
   - Vérifié dans Chromium (800×360, DPR 2) avec une simulation factice : HUD, inventaire, actions (jeter 1 / ramasser). **Pas testé** avec la vraie simulation ni three.js.
+- 2026-11-27 **Commandes revues** (demande : boutons inutiles ou non fonctionnels, s'inspirer des jeux du genre) : retrait des boutons ⇄ (changer d'arme) et mute du HUD (le son est dans la pause `#btnSound`, l'arme se change en touchant la case d'arme du bas ou X/molette) ; `#bottom{z-index:3}` corrige la barre du bas intouchable ; nouvelle feuille **`3d/css/ui-controls.css`** (chargée en dernier) ; bouton Utiliser contextuel (main + libellé) ; Recharger visible seulement avec une arme à feu ; touches 1-3 = objets rapides, 1-5 = pièces en mode construction.
+- 2026-11-27 **P1 (3/n) — piège à ours** (config 5.4.0) : 5e pièce de construction `PIECES.trap` (bois/pierre, `PIECE_ORDER` : wall, stone, door, fire, trap ; `SURVIVAL.trapDmg/trapStun/trapR`). `survival.js` : `addPiece` sans collision pour le piège (`col.off`), `computeGhost` en mode « point » (grille 0,5 m, comme le feu), `updateTraps()` appelée par `updateFires` : un zombie dans le rayon prend `trapDmg` et reste étourdi `trapStun` s, événement `trap`, le piège se casse après `hp` déclenchements (`pieceBreak`). `view.js` : modèle `props/BearTrap_Open.glb` à l'échelle 0,27 (≈ 0,8 m), fantôme cylindrique, éclaboussure sur `trap`. `game.js` : préchargement + bannière « Piège déclenché ». `index.html` : 5e bouton de construction (`trap.svg`). `input.js` : `Digit[1-5]`. Test dans `tests/p1.mjs` (8 tests OK en local, avec logic.js factice). **Non testé avec la vraie simulation ni three.js.** Modèle « fermé » (`BearTrap_Closed.glb`) non utilisé.
 
 ### 14.2 Fichiers 3D (état)
-`3d/index.html`, `3d/css/style.css`, `3d/css/ui-skin.css`, `3d/css/ui-inventory.css`, `3d/js/{config,logic,layout,sim,survival,assets,world,view,fx,audio,input,ui,game,main,orient,inventory,icons}.js`, `3d/plan.md`, `3d/README.md`, `tests/sim3d.mjs`, `tests/p1.mjs`, `tools/obj2glb.py`, `assets/models/**`, `assets/ui/**` (dont `assets/ui/icons/*.svg`), `assets/README_ASSETS.md`, `PLAN_RATTRAPAGE.md`.
+`3d/index.html`, `3d/css/style.css`, `3d/css/ui-skin.css`, `3d/css/ui-inventory.css`, `3d/css/ui-controls.css`, `3d/js/{config,logic,layout,sim,survival,assets,world,view,fx,audio,input,ui,game,main,orient,inventory,icons}.js`, `3d/plan.md`, `3d/README.md`, `tests/sim3d.mjs`, `tests/p1.mjs`, `tools/obj2glb.py`, `assets/models/**`, `assets/ui/**` (dont `assets/ui/icons/*.svg`), `assets/README_ASSETS.md`, `PLAN_RATTRAPAGE.md`.
 
 ### 14.3 Événements de la simulation
-`shot, hit, kill, hurt, death, gameover, reload, reloaded, empty, swap, recoil, swing, chop, treeFelled, rockGone, loot, pickup, pickupAdd, use, build, buildMode, door, pieceHit, pieceBreak, tip, phase, drop`. Les armes se déclarent dans `WEAPONS` ; `WEAPON_ORDER` fixe l'ordre de changement et le préchargement ; le butin (`LOOT`) accepte un id d'arme.
+`shot, hit, kill, hurt, death, gameover, reload, reloaded, empty, swap, recoil, swing, chop, treeFelled, rockGone, loot, pickup, pickupAdd, use, build, buildMode, door, pieceHit, pieceBreak, tip, phase, drop, trap`. Les armes se déclarent dans `WEAPONS` ; `WEAPON_ORDER` fixe l'ordre de changement et le préchargement ; le butin (`LOOT`) accepte un id d'arme.
 
 ### 14.4 Limites / à vérifier sur téléphone
 - Taille et prise de la pioche, de la lance, de la batte à clous et de la guitare (réglages `fit` dans `config.js`).
-- Inventaire : lisibilité, taille des cases (44 px), défilement des listes ; boutons : emplacement de chacun sous le pouce ; icônes SVG (à juger à l'œil, peuvent être remplacées par de meilleures).
-- Les tests `npm run test:3d` doivent être relancés par l'utilisateur ; `tests/p1.mjs` (emplacements) aussi. `tests/sim3d.mjs` peut contenir des assertions sur l'ancien comportement du ramassage (`updatePickups` de `sim.js`, désormais remplacé par celui de `survival.js`) : à vérifier.
+- Inventaire : lisibilité, taille des cases (44 px), défilement des listes ; boutons : emplacement de chacun sous le pouce ; icônes SVG (à juger à l'œil, peuvent être remplacées par de meilleures). Le libellé « Fouiller » déborde un peu sur les boutons voisins.
+- Piège à ours : échelle du modèle (0,27) et dégâts/étourdissement/rayon (`SURVIVAL.trap*`) à régler en jeu ; le 5e bouton de construction doit tenir dans la barre à 800×360 (vu OK en capture avec une simulation factice).
+- Les tests `npm run test:3d` doivent être relancés par l'utilisateur ; `tests/p1.mjs` aussi. `tests/sim3d.mjs` peut contenir des assertions sur l'ancien comportement du ramassage (`updatePickups` de `sim.js`, désormais remplacé par celui de `survival.js`) : à vérifier.
 - `ui.js` n'utilise plus `sim.capOf` ; si un autre fichier l'appelle encore, erreur à signaler.
 - Licences : Bunker Exodus interdit de redistribuer les fichiers comme pack (dépôt public = à voir) ; UI survival : licence inconnue ; lot 2 : voir `assets/README_ASSETS.md`.
 - Ménage restant : fichiers « 5 » parasites (`assets/textures/5`, `assets/models/vegetation/5`), doublons à la racine (`README_ASSETS.md`, `obj2glb.py`), `assets/README_ASSETS.md` qui cite encore une seule archive ; emojis `icon` restants dans `config.js`.
@@ -224,7 +231,7 @@ La v4 était un jeu à vagues (4 armes débloquées par caisses, score, record).
 Ordre P0→P1→P2 ; garder `assets/sources/` public ou non ; style moderne (Cozy) ou médiéval pour les intérieurs ; intérieurs avant armes/objets ; garder les barres CSS ou utiliser les cadres de barre de vie du pack UI survival.
 
 ### 14.6 Prochaines étapes
-1. P1 suite : tente, piège à ours (5e bouton de construction, `Digit[1-5]`), torche en main la nuit, nourriture variée (cultures), armes à feu variées (props Revolver/Shotgun/Pistol…), objets lançables (bruit qui attire les zombies), décor (sang, palettes, barrières, panneaux). Penser : `addCircle` de `layout.js` ajoute `.gltf` (les `.glb` demandent une variante) ; tout nouveau modèle doit être préchargé (`game.js`) et couvert par un test d'existence (`tests/assets.mjs`).
+1. P1 suite : tente (`Tent.glb`), torche en main la nuit (`Torch`/`WoodenTorch.glb`, il existe déjà une PointLight de nuit), nourriture variée (cultures), armes à feu variées (props Revolver/Shotgun/Pistol…), objets lançables (attention : `noise()` fait poursuivre le joueur, à concevoir), décor (sang, palettes, barrières, panneaux). Penser : `addCircle` de `layout.js` ajoute `.gltf` (les `.glb` demandent une variante) ; tout nouveau modèle doit être préchargé (`game.js`) et couvert par un test d'existence (`tests/assets.mjs`). (Fait : mêlée, allumettes, sac, emplacements, piège à ours.)
 2. Corriger les défauts vus sur les captures (herbe, murs, couteau, caméra dans la cabane).
 3. P2 intérieurs Cozy (palette 8×8, NearestFilter, LOD), P3 conversion post-apo/mêlée, P4 Blender, P5 jeu de référence.
-4. Mettre à jour `3d/plan.md` (pas encore mis à jour pour `inventory.js`, `icons.js`, `ui-inventory.css`) et `assets/README_ASSETS.md` à chaque étape.
+4. Mettre à jour `3d/plan.md` (pas encore mis à jour pour `inventory.js`, `icons.js`, `ui-inventory.css`, `ui-controls.css`) et `assets/README_ASSETS.md` à chaque étape.
