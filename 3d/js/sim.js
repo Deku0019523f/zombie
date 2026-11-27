@@ -4,6 +4,7 @@
 import { CAMERA, PLAYER, WEAPONS, WEAPON_ORDER, ASSIST, HEAD_MULT, ZOMBIES, ALERT_RADIUS, RUN_ABOVE, SURVIVAL as S, PICKUP } from './config.js';
 import { clamp, lerpAngle, wrapAngle, pushOut, raySphere, normalize3, cameraRig, rayBoxes, blockedBetween } from './logic.js';
 import { survivalMethods } from './survival.js';
+import { vehicleMethods } from './vehicles.js';
 
 // Saut / accroupi / visée (commandes façon CODM). Valeurs de réglage ici (pas dans config.js).
 const MOVE = { jumpV: 5.4, grav: 16, jumpCost: 12, crouchSpeed: 0.55, adsSpeed: 0.7, crouchDrop: 0.45, crouchSight: 0.6, crouchHear: 0.5, dodgeY: 0.5 };
@@ -28,14 +29,14 @@ export class Sim {
     this.fireCD = 0; this.reloadT = 0; this.reloadTotal = 0; this.swingT = 0; this.swingDone = true;
     this.zombies = []; this.pickups = []; this.cols = this.layout.colliders.slice();
     this.kills = 0; this.clock = S.startHour * 3600; this.over = false; this.shots = 0; this.hits = 0;
-    this.initSurvival();
+    this.initSurvival(); this.initVehicles();
     if (save && this.restore(save)) return;
     for (let i = 0; i < S.popStart; i++) this.spawnZombie(this.pickType(), {});
   }
 
   get alive() { return this.zombies.filter(z => !z.dead).length; }
   get camera() {
-    const P = this.player, c = cameraRig(P.x, P.z, this.yaw, this.pitch, CAMERA);
+    const P = this.player, c = cameraRig(P.x, P.z, this.yaw, this.pitch, this.driving ? { ...CAMERA, dist: 7.5, pivotY: 1.9, shoulder: 0 } : CAMERA);
     const off = (P.y || 0) - (P.crouch ? MOVE.crouchDrop : 0);          // la caméra monte avec le saut et descend en position accroupie
     if (off) { c.pos = [c.pos[0], c.pos[1] + off, c.pos[2]]; c.pivot = [c.pivot[0], c.pivot[1] + off, c.pivot[2]]; }
     const dx = c.pos[0] - c.pivot[0], dy = c.pos[1] - c.pivot[1], dz = c.pos[2] - c.pivot[2], L = Math.hypot(dx, dy, dz) || 1;
@@ -55,8 +56,8 @@ export class Sim {
       return;
     }
     this.tickClock(dt);
-    this.updateBuildMode(inp);
-    this.updatePlayer(dt, inp); this.updateWeapon(dt, inp);
+    if (this.driving) this.updateDriving(dt, inp);
+    else { this.updateBuildMode(inp); this.updatePlayer(dt, inp); this.updateWeapon(dt, inp); }
     this.updateInteract(inp); this.updateItems(inp);
     this.updateNeeds(dt);
     if (P.dead) return;
@@ -148,7 +149,7 @@ export class Sim {
     this.setWeapon(list[(i + dir + list.length) % list.length]);
   }
 
-  // ---------------------------------------------------------------- mêêlee : zombies, arbres (bois), rochers (pierre)
+  // ---------------------------------------------------------------- mêwëlee : zombies, arbres (bois), rochers (pierre)
   startSwing(W) {
     this.fireCD = W.interval; this.swingT = W.interval; this.swingDone = false;
     this.emit({ type: 'swing', w: this.cur, anim: W.anim });
@@ -356,7 +357,7 @@ export class Sim {
       if (d < T.range && !blockedBetween(z.x, z.z, P.x, P.z, cols, 1.0)) {
         z.anim = 'attack'; z.atkT += dt;
         z.face = lerpAngle(z.face, Math.atan2(dx, dz), Math.min(1, 12 * dt));
-        if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; if (d < T.range + 0.5 && (P.y || 0) < MOVE.dodgeY) this.hurtPlayer(T.dmg, z); }   // un saut bien placé esquive le coup
+        if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; if (d < T.range + 0.5 && (P.y || 0) < MOVE.dodgeY) this.hurtPlayer(T.dmg, z); }   // un saut bien placé évite le coup
         if (z.atkT >= T.cycle) { z.atkT = 0; z.hitDone = false; }
         continue;
       }
@@ -468,4 +469,4 @@ export class Sim {
   }
 }
 
-Object.assign(Sim.prototype, survivalMethods);
+Object.assign(Sim.prototype, survivalMethods, vehicleMethods);
