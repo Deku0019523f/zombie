@@ -2,7 +2,7 @@
 export const VERSION = '5.4.0-survie';
 export const MODELS = '../assets/models/';
 
-export const WORLD = { half: 56, fogNear: 22, fogFar: 85 };
+export const WORLD = { half: 168, chunk: 48, fogNear: 22, fogFar: 85 };
 
 export const CAMERA = {
   fov: 64,
@@ -81,7 +81,7 @@ export const SURVIVAL = {
   regen: 0.5,                // PV/s si bien nourri et sans saignement
   bleedDmg: 1.5, bleedChance: 0.3,
   bandageHeal: 15, foodGain: 35, waterGain: 40,
-  popDay: 26, popNight: 38, popStart: 24, popMax: 42,
+  popDay: 40, popNight: 58, popStart: 36, popMax: 64,
   spawnMin: 30, spawnMax: 48, despawn: 75, spawnEvery: 4,
   sightDay: 13, sightNight: 10, hearing: 6, loseDist: 38,
   lootRespawn: 480,          // s réelles avant qu'un point de butin se remplisse à nouveau
