@@ -38,6 +38,7 @@ export class View {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.1, 150);
+    this.baseFov = CAMERA.fov; this.zoom = 1;
     this.world = buildWorld(this.scene, sim.layout);
     this.fx = new Fx(this.scene);
     this.shadowTex = shadowTexture();
@@ -55,7 +56,8 @@ export class View {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     // en portrait on élargit le champ vertical pour garder la même largeur utile
-    this.camera.fov = w / h < 1 ? CAMERA.fov + 12 : CAMERA.fov;
+    this.baseFov = w / h < 1 ? CAMERA.fov + 12 : CAMERA.fov;
+    this.camera.fov = this.baseFov * this.zoom;
     this.camera.updateProjectionMatrix();
   }
 
@@ -250,9 +252,10 @@ export class View {
     const sim = this.sim, P = sim.player; this.t += dt;
     if (this.weaponId !== sim.cur) this.setWeapon(sim.cur);
 
-    // joueur
+    // joueur : saut (hauteur), accroupi (silhouette écrasée)
     const pa = this.player;
-    pa.root.position.set(P.x, 0, P.z); pa.root.rotation.y = P.face;
+    pa.root.position.set(P.x, P.y || 0, P.z); pa.root.rotation.y = P.face;
+    const sy = P.crouch ? 0.8 : 1; pa.root.scale.y += (sy - pa.root.scale.y) * Math.min(1, dt * 14);
     if (this.bag) this.bag.visible = sim.hasBag();
     const W = WEAPONS[sim.cur], gun = !W.melee, sfx = gun ? '_Gun' : '';
     const alt = (n, f) => (pa.has(n) ? n : f);
@@ -302,8 +305,13 @@ export class View {
     }
     for (const [id, g] of this.pviews) if (!pseen.has(id)) { this.scene.remove(g); this.pviews.delete(id); }
 
-    // caméra
+    // caméra (visée = zoom : champ de vision réduit de 28 %)
     this.kick = Math.max(0, this.kick - dt * 0.5);
+    const zt = mode !== 'menu' && P.ads ? 0.72 : 1;
+    if (Math.abs(this.zoom - zt) > 0.002) {
+      this.zoom += (zt - this.zoom) * Math.min(1, dt * 12);
+      this.camera.fov = this.baseFov * this.zoom; this.camera.updateProjectionMatrix();
+    }
     if (mode === 'menu') {
       this.orbit += dt * 0.15; const r = 9;
       this.camera.position.set(P.x + Math.sin(this.orbit) * r, 2.6, P.z + Math.cos(this.orbit) * r);
