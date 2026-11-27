@@ -68,7 +68,7 @@ export function createInput() {
     else if (e.code === 'KeyB') st.build = true;
     else if (e.code === 'KeyI' || e.code === 'Tab') st.inv = true;
     else if (e.code === 'Escape' || e.code === 'KeyP') st.pause = true;
-    else if (/^Digit[1-4]$/.test(e.code)) { st.slot = +e.code.slice(5); st.piece = st.slot; }
+    else if (/^Digit[1-5]$/.test(e.code)) { st.slot = +e.code.slice(5); st.piece = st.slot; }
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
   window.addEventListener('blur', () => { keys.clear(); mouseFire = false; });

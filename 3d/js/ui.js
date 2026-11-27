@@ -1,7 +1,7 @@
 // Interface (HUD, écrans) : lit l'état de la simulation, n'écrit jamais dedans.
 import { WEAPONS, PLAYER, PIECES, PIECE_ORDER } from './config.js';
 import { ico, ICON } from './icons.js';
-const NAMES = { wall: 'Mur en bois', stone: 'Mur en pierre', door: 'Porte', fire: 'Feu de camp' };
+const NAMES = { wall: 'Mur en bois', stone: 'Mur en pierre', door: 'Porte', fire: 'Feu de camp', trap: 'Piège à ours' };
 const RES = { wood: 'bois', stone: 'pierre', match: 'allumette' };
 
 const $ = (id) => document.getElementById(id);
@@ -48,7 +48,6 @@ export const ui = {
     // emplacements utilisés / disponibles, bois, pierre, allumettes, munitions (les munitions ne prennent pas de place)
     const res = `<span>${ico('backpack')}${sim.slotsUsed()}/${sim.slotsMax()}</span><span>${ico('wood')}${inv.wood || 0}</span><span>${ico('stone')}${inv.stone || 0}</span><span>${ico('match')}${inv.match || 0}</span><span>${ico('ammo')}${inv.ammo || 0}</span>`;
     if (cache.res !== res) { cache.res = res; $('hudRes').innerHTML = res; }
-
     setText('hc1', String(inv.bandage || 0)); setText('hc2', String(inv.food || 0)); setText('hc3', String(inv.water || 0));
     [['1', 'bandage'], ['2', 'food'], ['3', 'water']].forEach(([n, id]) => { const el = document.querySelector(`.hslot[data-slot="${n}"]`); const none = !(inv[id] > 0); if (cache['n' + n] !== none) { cache['n' + n] = none; el.classList.toggle('none', none); } });
     setText('hudWeapon', W.name);
