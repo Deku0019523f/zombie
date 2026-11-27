@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { instance } from './assets.js';
+import { buildHouseMesh } from './housebuild.js';
 import { WORLD } from './config.js';
 
 function canvasTex(w, h, draw) {
@@ -87,10 +88,10 @@ export function buildWorld(scene, layout) {
   for (const q of layout.cabin.pieces) place(q.m, q.x, q.z, q.yaw, q.s || 1, q.y || 0);        // la cabane de départ
   gablesAt(root, layout.cabin.cx, layout.cabin.cz, 2.8, 2.65, 3.1, 8.2);
   for (const l of layout.cabin.lights || []) { const pl = new THREE.PointLight(0xffb866, 1.3, 7, 1.6); pl.position.set(l.x, l.y, l.z); scene.add(pl); }   // lampe de la cabane
-  const floorM = new THREE.MeshLambertMaterial({ color: 0x6b5238 });
-  for (const h of layout.houses) {
-    place(h.model, h.x, h.z, h.yaw);                                  // maison du pack médiéval (FBX), porte retirée
-    if (h.floor) { const f = new THREE.Mesh(new THREE.PlaneGeometry(h.floor.w, h.floor.d).rotateX(-Math.PI / 2), floorM); f.position.set(h.floor.x, 0.03, h.floor.z); root.add(f); }
+  for (const h of layout.houses) {                                    // maisons bâties avec les modules Parts (voir housebuild.js)
+    const g = buildHouseMesh(h.plan), W = h.plan.W, D = h.plan.D;
+    if (h.yaw) { g.rotation.y = Math.PI; g.position.set(h.x + W / 2, 0, h.z + D / 2); } else g.position.set(h.x - W / 2, 0, h.z - D / 2);
+    root.add(g);
   }
   const fence = 'village/Prop_MetalFence_Simple.gltf', step = 1.95;
   for (let x = -H; x <= H; x += step) { place(fence, x, H, 0); place(fence, x, -H, Math.PI); }

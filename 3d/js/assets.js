@@ -24,9 +24,9 @@ function houseMat(m) {
 }
 async function loadFbx(n) {
   const o = await fbxLoader.loadAsync(MODELS + '../' + encodeURI(n));
-  const doors = []; o.traverse(m => { if (m.isMesh && /^DOOR/i.test(m.name)) doors.push(m); }); doors.forEach(m => m.parent.remove(m));   // la porte pleine est retirée : le passage reste ouvert
   o.scale.multiplyScalar(0.01); o.updateMatrixWorld(true);
   o.traverse(m => { if (m.isMesh) m.material = Array.isArray(m.material) ? m.material.map(houseMat) : houseMat(m.material); });
+  if (n.includes('/Parts/')) return { scene: o, animations: [] };     // modules de maison : l'origine (coin du module) est conservée, housebuild.js les assemble
   const b = new THREE.Box3().setFromObject(o);
   o.position.x -= (b.min.x + b.max.x) / 2; o.position.z -= (b.min.z + b.max.z) / 2; o.position.y -= b.min.y;
   const w = new THREE.Group(); w.add(o);
