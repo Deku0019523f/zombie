@@ -201,6 +201,9 @@ export class View {
       inst.object.scale.setScalar(0.45); g.add(inst.object);
       const l = new THREE.PointLight(0xff9a3c, 2.2, 13, 1.5); l.position.y = 1.1; g.add(l); g.userData.light = l;
       const f = instance('props/Bonfire_Fire.glb'); if (f) { f.object.scale.setScalar(0.45); g.add(f.object); }
+    } else if (pc.kind === 'trap') {
+      const inst = instance('props/BearTrap_Open.glb') || placeholder(0x777777, 0.3, 0.5);   // modèle ~3 × 0,7 × 3,5 unités → ~0,8 m
+      inst.object.scale.setScalar(0.27); g.add(inst.object);
     } else if (pc.kind === 'door') {
       const inst = instance('village/Door_1_Flat.gltf') || placeholder(0x7a5230, 2.2, 0.3);
       const pivot = new THREE.Group(); pivot.add(this.fit(inst.object, 1.9, 2.2)); g.add(pivot); g.userData.pivot = pivot;
@@ -209,15 +212,15 @@ export class View {
       const inst = instance(name) || placeholder(pc.kind === 'stone' ? 0x888888 : 0x8a5a2b, 2.2, 0.3);
       g.add(this.fit(inst.object, 2.0, PIECES[pc.kind].h));
     }
-    g.position.set(pc.x, 0, pc.z); g.rotation.y = pc.kind === 'fire' ? 0 : pc.yaw;
+    g.position.set(pc.x, 0, pc.z); g.rotation.y = (pc.kind === 'fire' || pc.kind === 'trap') ? 0 : pc.yaw;
     this.scene.add(g); return g;
   }
   ghostView(gh) {
     if (!gh) { if (this.ghost) this.ghost.visible = false; return; }
     if (!this.ghost || this.ghost.userData.kind !== gh.kind) {
       if (this.ghost) this.scene.remove(this.ghost);
-      const D = PIECES[gh.kind], fire = gh.kind === 'fire';
-      const m = new THREE.Mesh(fire ? new THREE.CylinderGeometry(0.45, 0.45, 0.5, 14).translate(0, 0.25, 0) : new THREE.BoxGeometry(2, D.h, 0.3).translate(0, D.h / 2, 0),
+      const D = PIECES[gh.kind], dot = gh.kind === 'fire' || gh.kind === 'trap';
+      const m = new THREE.Mesh(dot ? new THREE.CylinderGeometry(0.45, 0.45, gh.kind === 'trap' ? 0.2 : 0.5, 14).translate(0, gh.kind === 'trap' ? 0.1 : 0.25, 0) : new THREE.BoxGeometry(2, D.h, 0.3).translate(0, D.h / 2, 0),
         new THREE.MeshBasicMaterial({ color: 0x44ff66, transparent: true, opacity: 0.45, depthWrite: false }));
       m.userData.kind = gh.kind; this.scene.add(m); this.ghost = m;
     }
@@ -237,6 +240,7 @@ export class View {
       else if (e.type === 'treeFelled') this.world.fellTree(e.i);
       else if (e.type === 'rockGone') this.world.removeRock(e.i);
       else if (e.type === 'chop') this.fx.splash([e.x, 1.2, e.z], 3, false);
+      else if (e.type === 'trap') this.fx.splash([e.x, 0.4, e.z], 6);
       else if (e.type === 'pieceBreak') this.fx.splash([e.x, 1.0, e.z], 8);
     }
   }
