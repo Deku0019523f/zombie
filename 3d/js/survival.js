@@ -198,9 +198,17 @@ export const survivalMethods = {
       const d = distToBox(P.x, P.z, { x: sp.x, z: sp.z, hw: sp.hw, hd: sp.hd });
       if (d < 1.6 && d < bd) { bd = d; best = { kind: 'loot', sp, label: 'Fouiller' }; }
     }
+    if (this.driving) best = { kind: 'exit', label: 'Descendre' };
+    else for (const V of this.vehicles) {
+      if (V.wrecked) continue;
+      const d = this.vehicleDist(V, P.x, P.z);
+      if (d < 1.7 && d < bd) { bd = d; best = { kind: 'vehicle', V, label: 'Conduire' }; }
+    }
     this.prompt = this.build.on ? null : best;
     if (!inp.use || !this.prompt) return;
-    if (best.kind === 'door') {
+    if (best.kind === 'exit') this.exitVehicle();
+    else if (best.kind === 'vehicle') this.enterVehicle(best.V);
+    else if (best.kind === 'door') {
       best.pc.open = !best.pc.open; best.pc.col.off = best.pc.open;
       this.emit({ type: 'door', open: best.pc.open, id: best.pc.id });
     } else this.search(best.sp);
@@ -312,6 +320,7 @@ export const survivalMethods = {
       felled: this.trees.filter(t => t.felled).map(t => t.i), mined: this.rocks.filter(r => r.gone).map(r => r.i),
       looted: this.spots.filter(s => s.searched).map(s => ({ id: s.id, age: Math.round(this.t - s.at) })),
       pieces: this.pieces.map(p => ({ kind: p.kind, x: p.x, z: p.z, yaw: p.yaw, hp: p.hp, open: p.open })),
+      vehicles: this.vehicles.map(V => ({ x: V.x, z: V.z, yaw: V.yaw, hp: V.hp, wrecked: V.wrecked })),
     };
   },
   restore(d) {
@@ -324,6 +333,7 @@ export const survivalMethods = {
     for (const l of d.looted || []) { const s = this.spots[l.id]; if (s) { s.searched = true; s.at = this.t - l.age; } }
     for (const p of [...this.pieces]) this.removePiece(p);
     for (const p of d.pieces || []) { const pc = this.addPiece(p.kind, p.x, p.z, p.yaw); pc.hp = p.hp; pc.open = !!p.open; pc.col.off = pc.open; }
+    (d.vehicles || []).forEach((o, i) => { const V = this.vehicles[i]; if (V) { V.x = o.x; V.z = o.z; V.yaw = o.yaw; V.hp = o.hp; V.wrecked = !!o.wrecked; V.v = 0; this.syncVehicleCols(V); } });
     this._prev = {}; for (const id in ITEMS) this._prev[id] = this.inv[id] || 0;
     this.nightFlag = this.isNight();
     return true;

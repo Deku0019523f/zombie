@@ -47,7 +47,11 @@ export function buildLayout(seed = 1337) {
     items.push({ model: model + '.gltf', x, z, yaw, scale });
     if (r > 0) colliders.push({ x, z, r });
   };
+  // sentier dégagé entre la cabane et la route principale (pour y rouler)
+  const TRK = CAB.a + CAB.n / 2;
+  const onTrack = (x, z, r = 0) => Math.abs(x - TRK) < 4 + r && z > CAB.b + CAB.n - 1 && z < 5;
   const free = (x, z, r, roadOk = false) => {
+    if (onTrack(x, z, r)) return false;
     if (Math.abs(x) > H - 3 || Math.abs(z) > H - 3) return false;
     if (x > CAB.a - 3 - r && x < CAB.a + CAB.n + 3 + r && z > CAB.b - 3 - r && z < CAB.b + CAB.n + 3 + r) return false;   // la cabane et ses abords restent dégagés
     if (!roadOk && onRoad(x, z, 1)) return false;
@@ -113,6 +117,7 @@ export function buildLayout(seed = 1337) {
     if (Math.abs(cxw) + ex > H - 8 || Math.abs(czw) + ez > H - 8) return false;
     if (cxw + ex > CAB.a - 6 && cxw - ex < CAB.a + CAB.n + 6 && czw + ez > CAB.b - 6 && czw - ez < CAB.b + CAB.n + 6) return false;
     if ((cxw + ex > -5.5 && cxw - ex < 5.5) || (czw + ez > -5.5 && czw - ez < 5.5)) return false;   // jamais sur la route
+    if (cxw + ex > TRK - 4 && cxw - ex < TRK + 4 && czw + ez > CAB.b && czw - ez < 6) return false;   // ni sur le sentier de la cabane
     if (houses.some(h => Math.abs(h.x - cxw) < h.ex + ex + 1.5 && Math.abs(h.z - czw) < h.ez + ez + 1.5)) return false;
     const c = Math.cos(phi), sn = Math.sin(phi);
     const T = (lx, lz) => { const u = lx - W / 2, v = lz - D / 2; return [cxw + u * c + v * sn, czw - u * sn + v * c]; };   // repère maison -> monde
@@ -162,6 +167,19 @@ export function buildLayout(seed = 1337) {
     if (bx) spot('car', x, z, bx.hw, bx.hd);
   }
 
+  // --- véhicules utilisables (voir vehicles.js) : un pick-up devant la cabane, les autres garés sur les routes ---
+  const vehicles = [], vModels = ['vehicles/Vehicle_Pickup.gltf', 'vehicles/Vehicle_Sports.gltf', 'vehicles/Vehicle_Truck.gltf', 'vehicles/Vehicle_Pickup_Armored.gltf', 'vehicles/Vehicle_Sports_Armored.gltf', 'vehicles/Vehicle_Truck_Armored.gltf'];
+  const addVehicle = (model, x, z, yaw) => vehicles.push({ id: vehicles.length, model, x, z, yaw });
+  addVehicle(vModels[0], TRK, CAB.b + CAB.n + 11, 0);
+  for (let i = 0, ok = 0; i < 400 && ok < 22; i++) {
+    const alongX = rng() < 0.5, t = (rng() * 2 - 1) * (H - 16);
+    if (Math.abs(t) < 12) continue;
+    const lane = (rng() < 0.5 ? -1 : 1) * 2;
+    const x = alongX ? t : lane, z = alongX ? lane : t, yaw = (alongX ? Math.PI / 2 : 0) + (rng() < 0.5 ? 0 : Math.PI);
+    if (!free(x, z, 3.2, true) || vehicles.some(v => Math.hypot(v.x - x, v.z - z) < 14)) continue;
+    addVehicle(vModels[1 + Math.floor(rng() * 5)], x, z, yaw); ok++;
+  }
+
   // --- lampadaires le long de l'axe X, dans le village ---
   for (let x = -64; x <= 64; x += 16) { if (Math.abs(x) < 6) continue; addCircle('environment/StreetLights', x, 5.1, 0.25, Math.PI); addCircle('environment/StreetLights', x + 8, -5.1, 0.25, 0); }
 
@@ -195,7 +213,7 @@ export function buildLayout(seed = 1337) {
   const near = (count, rMin, rMax, rad, make) => {
     for (let i = 0, ok = 0; i < 80 && ok < count; i++) {
       const ang = rng() * Math.PI * 2, d = rMin + rng() * (rMax - rMin), x = cx + Math.cos(ang) * d, z = cz + Math.sin(ang) * d;
-      const q = { x, z }; if (Math.abs(x) > H - 4 || Math.abs(z) > H - 4 || pushOut(q, rad, colliders) > 0) continue;
+      const q = { x, z }; if (Math.abs(x) > H - 4 || Math.abs(z) > H - 4 || onTrack(x, z, rad) || pushOut(q, rad, colliders) > 0) continue;
       if (x > a - 2 && x < a + n + 2 && z > b - 2 && z < b + n + 2) continue;
       make(x, z); ok++;
     }
@@ -227,6 +245,6 @@ export function buildLayout(seed = 1337) {
     }
   }
 
-  const models = new Set([...items.map(i => i.model), ...grass.map(g => g.model)]);
-  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
+  const models = new Set([...items.map(i => i.model), ...grass.map(g => g.model), ...vehicles.map(v => v.model)]);
+  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, vehicles, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
 }
