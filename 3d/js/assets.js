@@ -9,7 +9,7 @@ const cache = new Map();
 const mats = new Map();
 const loader = new GLTFLoader();
 const fbxMgr = new THREE.LoadingManager();      // les FBX cherchent leur atlas à côté d'eux : on les renvoie vers le vrai fichier (sinon 404)
-fbxMgr.setURLModifier(u => /House_texture_atlas\.png$/i.test(u) ? MODELS + '../sources/medieval_houses/Texture/House_texture_atlas.png' : u);
+fbxMgr.setURLModifier(u => /House_texture_atlas\.png$/i.test(u) ? MODELS + '../sources/medieval_houses/Texture/House_texture_atlas.png' : /T_Buildings_Textures\.png$/i.test(u) ? MODELS + '../nouveau/psx_buildings/T_Buildings_Textures.png' : u);
 const fbxLoader = new FBXLoader(fbxMgr);
 
 // Modèles FBX de assets/sources/… (exportés en centimètres, sans texture liée) : mis à l'échelle en mètres, centrés en x/z, posés sur y = 0.
@@ -33,11 +33,25 @@ async function loadFbx(n) {
   return { scene: w, animations: [] };
 }
 
+// Bâtiments PSX (nouveau/psx_buildings) : un FBX de 5 bâtiments (cm) ; « fichier.fbx#Building_E » en détache un, posé sur y = 0 et centré.
+const psxP = new Map();
+async function loadPsx(file, part) {
+  if (!psxP.has(file)) psxP.set(file, fbxLoader.loadAsync(MODELS + '../' + encodeURI(file)).then(o => { o.updateMatrixWorld(true); return o; }));
+  const pack = await psxP.get(file);
+  let src = null; pack.traverse(m => { if (m.isMesh && m.name === part) src = m; });
+  if (!src) throw new Error('bâtiment absent du pack : ' + part);
+  const g = src.geometry.clone(); g.applyMatrix4(src.matrixWorld); g.scale(0.01, 0.01, 0.01); g.computeBoundingBox();
+  const bb = g.boundingBox; g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+  const w = new THREE.Group(); w.add(new THREE.Mesh(g, src.material));
+  return { scene: w, animations: [] };
+}
+
 // Pack d'armes de mêlée (assets/sources/melee_weapons) : UN seul FBX de 28 armes (cm, longueur sur l'axe y) + sa couleur de base.
 // Un nom « fichier.fbx#War_Pick » désigne une seule arme du pack : on la détache, on cuit sa position dans sa géométrie.
 let packP = null, packTex = null;
 async function loadPart(n) {
   const [file, part] = n.split('#');
+  if (file.startsWith('nouveau/psx_buildings')) return loadPsx(file, part);
   packP = packP || fbxLoader.loadAsync(MODELS + '../' + encodeURI(file)).then(o => { o.updateMatrixWorld(true); return o; });
   const pack = await packP;
   let src = null; pack.traverse(m => { if (m.isMesh && m.name === part) src = m; });
