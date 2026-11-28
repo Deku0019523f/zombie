@@ -25,7 +25,7 @@ function houseMat(m) {
 async function loadFbx(n) {
   const o = await fbxLoader.loadAsync(MODELS + '../' + encodeURI(n));
   o.scale.multiplyScalar(0.01); o.updateMatrixWorld(true);
-  o.traverse(m => { if (m.isMesh) m.material = Array.isArray(m.material) ? m.material.map(houseMat) : houseMat(m.material); });
+  if (!n.startsWith('nouveau/')) o.traverse(m => { if (m.isMesh) m.material = Array.isArray(m.material) ? m.material.map(houseMat) : houseMat(m.material); });   // packs « nouveau » : on garde leurs propres matériaux
   if (n.includes('/Parts/')) return { scene: o, animations: [] };     // modules de maison : l'origine (coin du module) est conservée, housebuild.js les assemble
   const b = new THREE.Box3().setFromObject(o);
   o.position.x -= (b.min.x + b.max.x) / 2; o.position.z -= (b.min.z + b.max.z) / 2; o.position.y -= b.min.y;
@@ -90,7 +90,7 @@ export async function loadAll(names, onProgress) {
     while (i < queue.length) {
       const n = queue[i++];
       try {
-        const g = n.includes('#') ? await loadPart(n) : n.startsWith('sources/') ? await loadFbx(n) : await loader.loadAsync(MODELS + n);
+        const g = n.includes('#') ? await loadPart(n) : (n.startsWith('sources/') || (n.startsWith('nouveau/') && n.endsWith('.fbx'))) ? await loadFbx(n) : await loader.loadAsync(MODELS + n);
         g.scene.traverse(o => {
           if (!o.isMesh) return;
           const f = n.startsWith('interiors/') ? paletteMat : share;
@@ -113,6 +113,19 @@ export function instance(n) {
   const g = cache.get(n);
   if (!g) return null;
   return { object: cloneSkinned(g.scene), clips: g.animations };
+}
+
+// Morceaux (géométrie + matériau, transformations incluses) d'un modèle chargé : sert à l'instanciation (arbres, rochers, cultures).
+const lamC = new Map();
+// les FBX Quaternius stockent des couleurs sRGB que le chargeur traite comme linéaires puis convertit → trop sombres : on les relit comme linéaires
+const fixCol = (c) => { const h = c.getHexString(); return new THREE.Color().setRGB(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255, THREE.LinearSRGBColorSpace); };
+const lam = (s) => { const k = s.color.getHexString() + (s.map ? s.map.uuid : ''); if (!lamC.has(k)) lamC.set(k, new THREE.MeshLambertMaterial({ color: fixCol(s.color), map: s.map || null, name: s.name })); return lamC.get(k); };   // Standard sombre sans envmap → Lambert
+export function parts(n) {
+  const g = cache.get(n); if (!g) return [];
+  g.scene.updateMatrixWorld(true);
+  const out = [];
+  g.scene.traverse(m => { if (m.isMesh) { const geo = m.geometry.clone(); geo.applyMatrix4(m.matrixWorld); out.push({ geometry: geo, material: Array.isArray(m.material) ? m.material.map(lam) : lam(m.material) }); } });   // multi-matériaux : groupes de la géométrie conservés
+  return out;
 }
 
 // Forme de secours si un fichier manque : le jeu reste jouable.

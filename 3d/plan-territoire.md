@@ -13,12 +13,14 @@
 - Sentier dégagé entre la cabane et la route ; un pick-up garé devant la cabane ; 22 autres sur les routes (points bleus sur la carte).
 - Limites : pas de carburant (usure seulement), pas de son de moteur, joueur à l'abri des zombies au volant, étages des maisons inaccessibles.
 
-## Phase 3 — À FAIRE : PNJ avec métiers
-- Gangs (hostiles, camps avec barricades / cônes / barrières), police (postes de contrôle), marchand (étal avec parasol / tables, interface d'échange), autres métiers possibles (fermier, mécanicien, soigneur).
-- Personnages disponibles : Lis, Sam, Shaun, Matt, GermanShepherd (chien).
+## Phase 3 — FAIT : PNJ avec métiers (`npcs.js`, `trade.js`)
+- Gangs (5 camps hostiles : 3 pillards, 2 tireurs, 1 chien ; barricades / cônes / fûts), police (2 postes de contrôle sur l'axe est-ouest), marchands (étals avec échange par troc : général, ferme, armes).
+- Personnages utilisés : Lis, Sam, Shaun, Matt, GermanShepherd (chien).
+- Limites : gangs non hostiles à la police / aux zombies ; marchands et policiers non attaquables.
 
-## Phase 4 — À FAIRE : intégrer tous les assets de `assets/nouveau` (licences : dépôt à passer en privé)
-- Quaternius (arbres, rochers, cultures, buissons) à la place des arbres / rochers faits en code ; props Cenji ; maisons Kenney (échelle ~x8-10) ; props industriels abandonnés dans la zone industrielle.
+## Phase 4 — EN COURS : intégrer les assets de `assets/nouveau` (licences : dépôt à passer en privé)
+- FAIT (4a) : Quaternius Ultimate Nature : rochers réels (7 variantes instanciées, cassables), buissons (3 variantes), souches, champs de blé/maïs (6 champs en zone ferme), arbres détaillés remplaçant les arbres simples dans 34 m autour du joueur (pool de 36).
+- Reste : props Cenji (butin / rues), maisons Kenney (échelle ~x8-10), props industriels (zone industrielle), psx_buildings / modular_terrain.
 - Poids mobile : textures à réduire (512 px), vérifier la fluidité sur téléphone.
 
 ## Rappel
