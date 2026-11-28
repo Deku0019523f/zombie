@@ -2,7 +2,7 @@
 // La géométrie statique est FUSIONNÉE par matériau (quelques draw calls au lieu de centaines) et découpée en tuiles chargées à l'approche du joueur.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { instance } from './assets.js';
+import { instance, parts, has } from './assets.js';
 import { buildHouseMesh } from './housebuild.js';
 import { WORLD } from './config.js';
 import { groundColor } from './zones.js';
@@ -147,13 +147,13 @@ export function buildWorld(scene, layout) {
   scene.add(trunks, canopies);
   // arbre abattu : la couronne disparaît, il reste une souche
   const fellTree = (i) => {
-    const t = all[i]; if (!t) return;
+    const t = all[i]; if (!t) return; felledSet.add(i); hidden.delete(i); lastSwap = [1e9, 1e9];
     d.position.set(t.x, 0, t.z); d.rotation.set(0, i * 1.7, 0); d.scale.set(t.s * 1.25, t.s * 0.16, t.s * 1.25); d.updateMatrix();
     trunks.setMatrixAt(i, d.matrix); canopies.setMatrixAt(i, zero); trunks.instanceMatrix.needsUpdate = canopies.instanceMatrix.needsUpdate = true;
   };
 
   const restoreTree = (i) => {
-    const t = all[i]; if (!t) return;
+    const t = all[i]; if (!t) return; felledSet.delete(i);
     d.position.set(t.x, 0, t.z); d.rotation.set(0, i * 1.7, 0); d.scale.setScalar(t.s);   // rotation x/z remise à 0 : `d` sert aussi aux rochers (3 axes), sinon les arbres restent penchés
     d.updateMatrix();
     trunks.setMatrixAt(i, d.matrix); canopies.setMatrixAt(i, d.matrix); trunks.instanceMatrix.needsUpdate = canopies.instanceMatrix.needsUpdate = true;
@@ -164,8 +164,55 @@ export function buildWorld(scene, layout) {
   const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), rockM, Math.max(1, layout.rocks.length));
   layout.rocks.forEach((r, i) => { d.position.set(r.x, r.s * 0.38, r.z); d.rotation.set(i * 0.7, i * 2.1, i * 0.4); d.scale.set(r.s * 0.95, r.s * 0.7, r.s * 0.85); d.updateMatrix(); rocks.setMatrixAt(i, d.matrix); });
   rocks.frustumCulled = false; scene.add(rocks);
-  const restoreRock = (i) => { const r = layout.rocks[i]; if (!r) return; d.position.set(r.x, r.s * 0.38, r.z); d.rotation.set(i * 0.7, i * 2.1, i * 0.4); d.scale.set(r.s * 0.95, r.s * 0.7, r.s * 0.85); d.updateMatrix(); rocks.setMatrixAt(i, d.matrix); rocks.instanceMatrix.needsUpdate = true; };
-  const removeRock = (i) => { rocks.setMatrixAt(i, zero); rocks.instanceMatrix.needsUpdate = true; };
+  const Q = 'nouveau/quaternius_ultimate_nature/';
+  // rochers réels Quaternius : 7 variantes instanciées (remplacent les dodécaèdres si les modèles sont chargés)
+  const rockVar = [1, 2, 3, 4, 5, 6, 7].map(i => parts(Q + 'Rock_' + i + '.fbx')).filter(p => p.length);
+  const realRocks = rockVar.length ? rockVar.map(ps => ps.map(p => ({ mesh: new THREE.InstancedMesh(p.geometry, p.material, layout.rocks.length), p }))) : null;
+  const rockV = (i) => i % (realRocks ? realRocks.length : 1);
+  const setRock = (i, hide) => {
+    const r = layout.rocks[i]; if (!r) return;
+    if (!realRocks) { d.position.set(r.x, r.s * 0.38, r.z); d.rotation.set(i * 0.7, i * 2.1, i * 0.4); d.scale.set(r.s * 0.95, r.s * 0.7, r.s * 0.85); d.updateMatrix(); rocks.setMatrixAt(i, hide ? zero : d.matrix); rocks.instanceMatrix.needsUpdate = true; return; }
+    d.position.set(r.x, 0, r.z); d.rotation.set(0, i * 2.1, 0); d.scale.setScalar(r.s * 0.9); d.updateMatrix();
+    realRocks.forEach((vs, v) => vs.forEach(o => { o.mesh.setMatrixAt(i, v === rockV(i) && !hide ? d.matrix : zero); o.mesh.instanceMatrix.needsUpdate = true; }));
+  };
+  if (realRocks) { rocks.count = 0; realRocks.forEach(vs => vs.forEach(o => { o.mesh.frustumCulled = false; scene.add(o.mesh); })); layout.rocks.forEach((_, i) => setRock(i, false)); }
+  const restoreRock = (i) => setRock(i, false);
+  const removeRock = (i) => setRock(i, true);
+
+  // --- décor Quaternius statique : buissons, souches, champs (une InstancedMesh par morceau de modèle) ---
+  const scatter = (file, list, fn) => {
+    const ps = parts(Q + file); if (!ps.length || !list.length) return;
+    for (const p of ps) { const im = new THREE.InstancedMesh(p.geometry, p.material, list.length); im.frustumCulled = false; list.forEach((e, k) => { fn(d, e); d.updateMatrix(); im.setMatrixAt(k, d.matrix); }); scene.add(im); }
+  };
+  const put = (x, z, s, yaw) => { d.position.set(x, 0, z); d.rotation.set(0, yaw, 0); d.scale.setScalar(s); };
+  for (let v = 0; v < 3; v++) scatter(['Bush_1.fbx', 'Bush_2.fbx', 'BushBerries_1.fbx'][v], layout.bushes.filter(b => b.v === v), (_, e) => put(e.x, e.z, e.s, e.yaw));
+  scatter('TreeStump_Moss.fbx', layout.stumps.filter(s => s.moss), (_, e) => put(e.x, e.z, e.s, e.yaw));
+  scatter('TreeStump.fbx', layout.stumps.filter(s => !s.moss), (_, e) => put(e.x, e.z, e.s, e.yaw));
+  for (const crop of ['wheat', 'corn']) scatter(crop === 'wheat' ? 'Wheat.fbx' : 'Corn_1.fbx', layout.fields.filter(f => f.crop === crop).flatMap(f => f.plants), (_, e) => put(e.x, e.z, e.s, e.yaw));
+
+  // --- arbres détaillés autour du joueur : les arbres bon marché proches sont remplacés par de vrais modèles (pool réutilisé) ---
+  const treeFiles = ['CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'BirchTree_1', 'BirchTree_2'].map(n => Q + n + '.fbx');
+  const treeParts = treeFiles.map(f => parts(f));
+  const POOL = 36, NEAR = 34, hidden = new Set(), felledSet = new Set();
+  const pool = treeParts.some(p => p.length) ? treeParts.map(ps => ps.map(p => ({ im: new THREE.InstancedMesh(p.geometry, p.material, POOL), p }))) : null;
+  if (pool) pool.forEach(vs => vs.forEach(o => { o.im.count = 0; o.im.frustumCulled = false; scene.add(o.im); }));
+  const swapTrees = (px, pz) => {
+    if (!pool) return;
+    const cand = [];
+    for (let i = 0; i < all.length; i++) { if (felledSet.has(i)) continue; const t = all[i], dx = t.x - px, dz = t.z - pz, q = dx * dx + dz * dz; if (q < NEAR * NEAR) cand.push([q, i]); }
+    cand.sort((a, b) => a[0] - b[0]); cand.length = Math.min(cand.length, POOL);
+    const want = new Set(cand.map(c => c[1]));
+    for (const i of hidden) if (!want.has(i)) { hidden.delete(i); restoreTree(i); }
+    const cnt = pool.map(() => 0);
+    for (const [, i] of cand) {
+      const t = all[i], v = i % pool.length; if (!pool[v].length) continue;
+      if (!hidden.has(i)) { hidden.add(i); d.position.set(t.x, 0, t.z); d.rotation.set(0, i * 1.7, 0); d.scale.setScalar(0.0001); d.updateMatrix(); trunks.setMatrixAt(i, d.matrix); canopies.setMatrixAt(i, d.matrix); trunks.instanceMatrix.needsUpdate = canopies.instanceMatrix.needsUpdate = true; }
+      put(t.x, t.z, t.s * 0.95, i * 1.7); d.updateMatrix(); pool[v].forEach(o => o.im.setMatrixAt(cnt[v], d.matrix)); cnt[v]++;
+    }
+    pool.forEach((vs, v) => vs.forEach(o => { o.im.count = cnt[v]; o.im.instanceMatrix.needsUpdate = true; }));
+  };
+  let lastSwap = [1e9, 1e9];
+  setInterval(() => { if (Math.hypot(cam[0] - lastSwap[0], cam[1] - lastSwap[1]) > 4) { lastSwap = [cam[0], cam[1]]; swapTrees(cam[0], cam[1]); } }, 400);
 
   return { ground, setDaylight, fellTree, removeRock, restoreTree, restoreRock, prime, update, chunksLoaded };
 }

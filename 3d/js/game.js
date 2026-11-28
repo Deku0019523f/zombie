@@ -29,6 +29,7 @@ export async function boot() {
     'props/Bandages.glb', 'props/Can_Closed.glb', 'props/WaterBottle_1.glb', 'props/Bonfire.glb', 'props/Bonfire_Fire.glb', 'props/Shovel.glb',
     BACKPACK_VIEW.model, 'props/WoodLog.glb', 'props/Matchbox.glb', 'props/BearTrap_Open.glb',
     ...(layout.cabin.models || []), ...NPC_MODELS, 'weapons/Pistol.gltf',
+    ...['Rock_1','Rock_2','Rock_3','Rock_4','Rock_5','Rock_6','Rock_7','Bush_1','Bush_2','BushBerries_1','TreeStump','TreeStump_Moss','Wheat','Corn_1','CommonTree_1','CommonTree_2','CommonTree_3','BirchTree_1','BirchTree_2'].map(n => `nouveau/quaternius_ultimate_nature/${n}.fbx`),
   ];
   const failed = await loadAll(list, (p, n) => ui.loading(p, 'Chargement… ' + Math.round(p * 100) + ' %'));
   if (!has(PLAYER.model)) {
