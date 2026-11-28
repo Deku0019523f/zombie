@@ -18,8 +18,12 @@
 - Personnages utilisés : Lis, Sam, Shaun, Matt, GermanShepherd (chien).
 - Limites : gangs non hostiles à la police / aux zombies ; marchands et policiers non attaquables.
 
-## Phase 4 — EN COURS : intégrer les assets de `assets/nouveau` (licences : dépôt à passer en privé)
-- FAIT (4a) : Quaternius Ultimate Nature : rochers réels (7 variantes instanciées, cassables), buissons (3 variantes), souches, champs de blé/maïs (6 champs en zone ferme), arbres détaillés remplaçant les arbres simples dans 34 m autour du joueur (pool de 36).
-- FAIT (4b) : maisons de banlieue Kenney (décor, x7, non enterables, une caisse de fouille à côté), mobilier urbain Cenji par zone (bennes, bancs, générateurs, palettes… ; bennes / caisses / distributeurs = points de fouille), props de l'usine abandonnée (transformateur, cuve IBC, perceuse, enclume…) en zone industrielle et carrière.
-- Reste : psx_buildings, modular_terrain, Kenney modular, Cenji winter (pas de zone hivernale ni de bâtiments à assembler pour l'instant).
-- Poids mobile : textures à réduire (512 px), vérifier la fluidité sur téléphone.
+## Phase 4 — FAIT (en grande partie) : assets de `assets/nouveau` (licences : dépôt à passer en privé)
+- 4a Quaternius Ultimate Nature : rochers réels (7 variantes instanciées, cassables), buissons (3 variantes), souches, champs de blé/maïs (6 champs en zone ferme), arbres détaillés remplaçant les arbres simples dans 34 m autour du joueur (pool de 36).
+- 4b Maisons de banlieue Kenney (décor, x7, non enterables, une caisse de fouille à côté), mobilier urbain Cenji par zone (bennes, bancs, générateurs, palettes… ; bennes / caisses / distributeurs = points de fouille), props de l'usine abandonnée (transformateur, cuve IBC, perceuse, enclume…) en zone industrielle et carrière.
+- 4c Bâtiments PSX (grands entrepôts et tour, décor non enterable, 4 en zone industrielle + 2 en carrière, caisse de fouille devant) ; 5 petits camps de randonneurs en forêt (props d'hiver Cenji : feu de camp, bois fouillable, banc, lanterne, panneau) ; carrefour central gardé dégagé.
+- Non utilisés : modular_terrain (OBJ), Kenney modular buildings, reste de Cenji winter (pas de zone neige ni de bâtiments à assembler pour l'instant).
+- Poids mobile : fluidité sur téléphone non mesurée ; textures PSX 1024 px (1,4 Mo).
+
+## Rappel
+- Révoquer le jeton GitHub une fois le travail terminé.

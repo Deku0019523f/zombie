@@ -321,6 +321,17 @@ export function buildLayout(seed = 1337) {
   const xrng = makeRng(seed + 9090), xr = (lo, hi) => lo + xrng() * (hi - lo), xpick = (a) => a[Math.floor(xrng() * a.length)];
   const KN = '../nouveau/kenney_city_suburban/', AI = '../nouveau/abandoned_industrial_sampler/GLB/Props/AIK_';
   const cj = (m, x, z, yaw, r = 0, scale = 1) => { items.push({ model: CJ + m + '.glb', x, z, yaw, scale }); if (r > 0) colliders.push({ x, z, r }); };
+  // bâtiments PSX (grands entrepôts / tour, décor non enterable) en zone industrielle et en carrière : [modèle, largeur x, longueur z]
+  const PSX = 'nouveau/psx_buildings/PSX_Buildings.fbx#Building_', PD = { E: [12, 20], D: [15, 15], B: [15, 15], C: [12, 12], A: [12, 12] };
+  for (const [zone, list] of [['industrial', ['E', 'D', 'B', 'C']], ['quarry', ['A', 'C']]]) for (const k of list) {
+    for (let i = 0; i < 1500; i++) {
+      const x = xr(-H + 20, H - 20), z = xr(-H + 20, H - 20), yaw = Math.floor(xr(0, 4)) * Math.PI / 2, q = Math.round(yaw / (Math.PI / 2)) % 2 !== 0, hw = (q ? PD[k][1] : PD[k][0]) / 2, hd = (q ? PD[k][0] : PD[k][1]) / 2;
+      if (zoneAt(x, z) !== zone || Math.abs(x) < 24 || Math.abs(z) < 24 || !free(x, z, Math.hypot(hw, hd) * 0.8 + 1) || camps.some(c => Math.hypot(c.x - x, c.z - z) < 30)) continue;
+      items.push({ model: PSX + k, x, z, yaw, scale: 1 }); colliders.push({ x, z, hw: hw - 0.3, hd: hd - 0.3, h: 7 });
+      if (free(x + Math.sin(yaw) * (hd + 1.5), z + Math.cos(yaw) * (hd + 1.5), 0.6)) { const lx = x + Math.sin(yaw) * (hd + 1.5), lz = z + Math.cos(yaw) * (hd + 1.5); cj('Crate_Stack', lx, lz, yaw, 0.7); spot('container', lx, lz, 0.7, 0.7); }
+      break;
+    }
+  }
   // maisons de banlieue (non enterables, 2 à 3 fois plus grandes que le modèle d'origine) dans les quartiers du village entre les deux rues
   const SUB = { 1: [1.3, 0.92], 2: [1.31, 1.41], 3: [1.71, 0.92], 4: [1.29, 0.92], 5: [1.31, 1.31], 6: [1.3, 1.32], 7: [1.3, 0.92], 9: [1.3, 0.92], 12: [1.3, 1.01] };
   const SS = 7;
@@ -348,7 +359,7 @@ export function buildLayout(seed = 1337) {
   for (const zone of Object.keys(dress)) gscatterX(zone, dressCount[zone]);
   function gscatterX(zone, count) {
     for (let i = 0, ok = 0; i < count * 8 && ok < count; i++) {
-      const x = xr(-H + 8, H - 8), z = xr(-H + 8, H - 8); if (zoneAt(x, z) !== zone || !free(x, z, 1.3, zone === 'village')) continue;
+      const x = xr(-H + 8, H - 8), z = xr(-H + 8, H - 8); if (zoneAt(x, z) !== zone || !free(x, z, 1.3, zone === 'village') || (Math.abs(x) < 14 && Math.abs(z) < 14)) continue;   // carrefour central dégagé
       const [m, r, kind] = xpick(dress[zone]); cj(m, x, z, xr(0, 6.28), r); if (kind) spot(kind, x, z, Math.max(0.4, r), Math.max(0.4, r)); ok++;
     }
   }
@@ -357,6 +368,16 @@ export function buildLayout(seed = 1337) {
   for (const [zone, count] of [['industrial', 45], ['quarry', 14]]) for (let i = 0, ok = 0; i < count * 8 && ok < count; i++) {
     const x = xr(-H + 8, H - 8), z = xr(-H + 8, H - 8); if (zoneAt(x, z) !== zone || !free(x, z, 1.3)) continue;
     const [m, r] = xpick(aik); items.push({ model: AI + m + '.glb', x, z, yaw: xr(0, 6.28), scale: 1 }); if (r > 0) colliders.push({ x, z, r }); if (/IBC|Drum|Locker|Transformer/.test(m)) spot('barrel', x, z, Math.max(0.5, r), Math.max(0.5, r)); ok++;
+  }
+
+  // petits camps de randonneurs (Cenji hiver) en forêt : feu de camp, bois, banc, lanterne, panneau ; le bois est fouillable
+  const WN = '../nouveau/cenji_winter_nature/';
+  const wp = (m, x, z, yaw, r = 0) => { items.push({ model: WN + m + '.glb', x, z, yaw, scale: 1 }); if (r > 0) colliders.push({ x, z, r }); };
+  for (let c = 0, tries = 0; c < 5 && tries < 400; tries++) {
+    const x = xr(-H + 20, H - 20), z = xr(-H + 20, H - 20); if (zoneAt(x, z) !== 'forest' || !free(x, z, 4) || Math.hypot(x - cx, z - cz) < 35) continue;
+    c++; const yw = xr(0, 6.28), fx = Math.sin(yw), fz = Math.cos(yw);
+    wp('PROP_09_CampfireRingSnowy', x, z, yw, 0.9); wp('PROP_11_FirewoodStackSnowy', x + fx * 2.4, z + fz * 2.4, yw, 0.7); spot('trash', x + fx * 2.4, z + fz * 2.4, 0.7, 0.7);
+    wp('PROP_08_WinterBench', x - fz * 2.2, z + fx * 2.2, yw + Math.PI / 2, 0.8); wp('PROP_10_LanternPost', x + fz * 2.2, z - fx * 2.2, 0, 0.3); wp('PROP_04_WinterSignpost', x - fx * 3.4, z - fz * 3.4, yw, 0.3);
   }
 
   const models = new Set([...items.map(i => i.model), ...grass.map(g => g.model), ...vehicles.map(v => v.model)]);
