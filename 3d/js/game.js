@@ -7,6 +7,8 @@ import { View } from './view.js';
 import { createInput } from './input.js';
 import { createInventory } from './inventory.js';
 import { createMap } from './map.js';
+import { createTrade } from './trade.js';
+import { NPC_MODELS } from './npcs.js';
 import { ui } from './ui.js';
 import * as audio from './audio.js';
 
@@ -26,7 +28,7 @@ export async function boot() {
     ...layout.models, ...layout.houseModels, ...HOUSE, ...[1, 2, 3, 4].map(i => `vegetation/Grass_${i}.glb`),
     'props/Bandages.glb', 'props/Can_Closed.glb', 'props/WaterBottle_1.glb', 'props/Bonfire.glb', 'props/Bonfire_Fire.glb', 'props/Shovel.glb',
     BACKPACK_VIEW.model, 'props/WoodLog.glb', 'props/Matchbox.glb', 'props/BearTrap_Open.glb',
-    ...(layout.cabin.models || []),
+    ...(layout.cabin.models || []), ...NPC_MODELS, 'weapons/Pistol.gltf',
   ];
   const failed = await loadAll(list, (p, n) => ui.loading(p, 'Chargement… ' + Math.round(p * 100) + ' %'));
   if (!has(PLAYER.model)) {
@@ -45,8 +47,9 @@ export async function boot() {
   const flush = () => { const ev = sim.drain(); view.handle(ev); react(ev); ui.update(sim); };
   const inv = createInventory(sim, flush);
   const map = createMap(sim);
+  const trade = createTrade(sim, flush);
   const closeInv = () => { if (inv.isOpen()) inv.show(false); input.clear(); };
-  const toggleInv = () => { if (mode !== 'play' || paused || sim.player.dead || sim.over) return; if (inv.isOpen()) closeInv(); else { input.clear(); inv.show(true); } };
+  const toggleInv = () => { if (trade.isOpen()) return; if (mode !== 'play' || paused || sim.player.dead || sim.over) return; if (inv.isOpen()) closeInv(); else { input.clear(); inv.show(true); } };
 
   const begin = (save) => {
     audio.unlock(); sim.reset(save); input.clear(); inv.show(false); mode = 'play'; paused = false; ui.hud(true); ui.pause(false);
@@ -58,7 +61,7 @@ export async function boot() {
   const cont = () => begin(saveGet());
   const doSave = () => { if (mode === 'play' && !sim.player.dead && !sim.over) saveSet(sim.serialize()); };
   let saveT = 0;
-  const setPause = (p) => { if (mode !== 'play') return; if (p) { doSave(); inv.show(false); } paused = p; ui.pause(p); input.clear(); if (document.pointerLockElement) document.exitPointerLock(); };
+  const setPause = (p) => { if (mode !== 'play') return; if (p) { doSave(); inv.show(false); trade.close(); } paused = p; ui.pause(p); input.clear(); if (document.pointerLockElement) document.exitPointerLock(); };
 
   document.getElementById('btnContinue').addEventListener('click', cont);
   document.getElementById('btnStart').addEventListener('click', start);
@@ -91,6 +94,8 @@ export async function boot() {
         case 'crash': A.pieceBreak(); break;
         case 'vehicle': A.door(e.on); if (e.on) ui.banner(e.name, 'Joystick : haut = accélérer, bas = freiner, côtés = tourner', 2600); break;
         case 'vehicleWreck': A.pieceBreak(); ui.banner('VÉHICULE HORS D’USAGE', null, 2000); break;
+        case 'trade': A.door(true); trade.open(e.id); break;
+        case 'trade-done': A.pickup(); ui.banner('Échange conclu', null, 900); break;
         case 'pieceHit': A.pieceHit(); break;
         case 'pieceBreak': A.pieceBreak(); break;
         case 'use': ({ food: A.eat, water: A.drink, bandage: A.bandage })[e.id]?.(); break;
@@ -114,11 +119,11 @@ export async function boot() {
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    const frozen = paused || inv.isOpen() || map.isOpen();            // inventaire ou carte ouverts : le monde s'arrête
+    const frozen = paused || inv.isOpen() || map.isOpen() || trade.isOpen();            // inventaire ou carte ouverts : le monde s'arrête
     if (mode === 'play' && !paused) {
       const inp = input.poll();
       if (input.takeInv()) toggleInv();
-      if (inv.isOpen() || map.isOpen()) input.takeLook();   // monde figé : on ignore les autres touches
+      if (inv.isOpen() || map.isOpen() || trade.isOpen()) input.takeLook();   // monde figé : on ignore les autres touches
       else if (inp.pause) setPause(true);
       else {
         const lk = input.takeLook();

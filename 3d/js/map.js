@@ -30,6 +30,8 @@ export function createMap(sim) {
   g.strokeStyle = '#000a'; g.lineWidth = 2; g.strokeRect(1, 1, S - 2, S - 2);
   const star = (ctx, x, y, r) => { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); ctx.stroke(); };
   g.fillStyle = '#2d7dff'; for (const v of L.vehicles) g.fillRect(X(v.x) - 3, Y(v.z) - 3, 6, 6);     // véhicules utilisables (position de départ)
+  const camp = { gang: '#ff7a1a', police: '#9fd4ff', merchant: '#3fd36a' };                    // camps de gang, postes de police, marchands
+  for (const c of L.camps || []) { g.fillStyle = camp[c.role]; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); g.arc(X(c.x), Y(c.z), 5, 0, 7); g.fill(); g.stroke(); }
   g.fillStyle = '#ffcc33'; g.strokeStyle = '#000'; g.lineWidth = 1.5; star(g, X(L.cabin.cx), Y(L.cabin.cz), 9);
 
   // --- éléments d'interface ---
@@ -40,7 +42,7 @@ export function createMap(sim) {
   big.innerHTML = '<h3>CARTE DU TERRITOIRE</h3><canvas id="bigMapC" width="672" height="672"></canvas><div id="bigMapLeg"></div><button id="bigMapX" aria-label="Fermer">×</button>';
   document.body.appendChild(big);
   const bc = big.querySelector('#bigMapC'), leg = big.querySelector('#bigMapLeg');
-  leg.innerHTML = Object.values(ZONES).map(z => `<span><i style="background:${z.map}"></i>${z.name}</span>`).join('') + '<span><i style="background:#ffcc33"></i>Cabane</span><span><i style="background:#2d7dff"></i>Véhicule</span><span><i style="background:#e33"></i>Vous</span>';
+  leg.innerHTML = Object.values(ZONES).map(z => `<span><i style="background:${z.map}"></i>${z.name}</span>`).join('') + '<span><i style="background:#ffcc33"></i>Cabane</span><span><i style="background:#2d7dff"></i>Véhicule</span><span><i style="background:#ff7a1a"></i>Camp de gang</span><span><i style="background:#9fd4ff"></i>Police</span><span><i style="background:#3fd36a"></i>Marchand</span><span><i style="background:#e33"></i>Vous</span>';
   const btn = document.createElement('button'); btn.id = 'btnMap'; btn.className = 'round sm'; btn.setAttribute('aria-label', 'Carte'); btn.textContent = '🗺';
   const tr = document.getElementById('topRight'); if (tr) tr.insertBefore(btn, tr.firstChild);
 
