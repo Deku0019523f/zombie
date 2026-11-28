@@ -245,6 +245,7 @@ export function buildLayout(seed = 1337) {
     }
   }
 
+
   // --- PNJ : camps de gang, postes de police, étals de marchand (rng à part : ne décale pas le reste du plan) ---
   const nrng = makeRng(seed + 777), nr = (lo, hi) => lo + nrng() * (hi - lo);
   const npcs = [], camps = [], CJ = '../nouveau/cenji_urban_props/';
@@ -295,6 +296,26 @@ export function buildLayout(seed = 1337) {
   stallAt(['forest'], 'general', (x, z) => { const d = Math.hypot(x - cabin.cx, z - cabin.cz); return d > 24 && d < 55; });
   stallAt(['farm'], 'farm'); stallAt(['industrial'], 'arms', campFar); stallAt(['quarry'], 'arms', campFar);
 
+
+  // --- décor naturel Quaternius : buissons, souches, champs de blé / maïs (rng à part) ---
+  const grng = makeRng(seed + 4242), gr = (lo, hi) => lo + grng() * (hi - lo);
+  const bushes = [], stumps = [], fields = [];
+  const gscatter = (zone, count, fn, r) => { for (let i = 0, ok = 0; i < count * 8 && ok < count; i++) { const x = gr(-H + 8, H - 8), z = gr(-H + 8, H - 8); if (zoneAt(x, z) === zone && free(x, z, r)) { fn(x, z); ok++; } } };
+  const bushCount = { forest: 120, village: 40, farm: 40, industrial: 10, quarry: 12 };
+  for (const zone of Object.keys(bushCount)) gscatter(zone, bushCount[zone], (x, z) => bushes.push({ x, z, s: gr(0.8, 1.4), yaw: gr(0, 6.28), v: Math.floor(gr(0, 3)) }), 0.8);
+  const stumpCount = { forest: 40, quarry: 12, farm: 8 };
+  for (const zone of Object.keys(stumpCount)) gscatter(zone, stumpCount[zone], (x, z) => { stumps.push({ x, z, s: gr(0.8, 1.2), yaw: gr(0, 6.28), moss: zone === 'forest' }); colliders.push({ x, z, r: 0.5 }); }, 1.0);
+  // champs : carrés plantés, un modèle par plante (blé serré, maïs plus espacé)
+  for (let f = 0; f < 6; f++) {
+    const crop = f % 2 ? 'corn' : 'wheat', side = crop === 'wheat' ? 10 : 11, step = crop === 'wheat' ? 0.75 : 1.2;
+    let p = null;
+    for (let i = 0; i < 400 && !p; i++) { const x = gr(-H + 20, H - 20), z = gr(-H + 20, H - 20); if (zoneAt(x, z) === 'farm' && Math.abs(x) > 24 && Math.abs(z) > 24 && free(x, z, side * 0.75) && fields.every(q => Math.hypot(q.x - x, q.z - z) > 18)) p = [x, z]; }
+    if (!p) continue;
+    const plants = [], n2 = Math.floor(side / step);
+    for (let i = 0; i < n2; i++) for (let j = 0; j < n2; j++) plants.push({ x: p[0] + (i - (n2 - 1) / 2) * step + gr(-0.12, 0.12), z: p[1] + (j - (n2 - 1) / 2) * step + gr(-0.12, 0.12), s: gr(0.9, 1.3), yaw: gr(0, 6.28) });
+    fields.push({ x: p[0], z: p[1], side, crop, plants });
+  }
+
   const models = new Set([...items.map(i => i.model), ...grass.map(g => g.model), ...vehicles.map(v => v.model)]);
-  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, vehicles, npcs, camps, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
+  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, vehicles, npcs, camps, bushes, stumps, fields, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
 }
