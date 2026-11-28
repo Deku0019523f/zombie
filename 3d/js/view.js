@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { CAMERA, PLAYER, ZOMBIES, WEAPONS, WEAPON_HAND, PIECES, BACKPACK_VIEW } from './config.js';
 import { instance, placeholder } from './assets.js';
 import { buildWorld } from './world.js';
+import { NPC_TYPES } from './npcs.js';
 import { Fx, shadowTexture } from './fx.js';
 
 const _qh = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qa = new THREE.Quaternion(), _ax = new THREE.Vector3(1, 0, 0);
@@ -42,7 +43,7 @@ export class View {
     this.world = buildWorld(this.scene, sim.layout);
     this.fx = new Fx(this.scene);
     this.shadowTex = shadowTexture();
-    this.zviews = new Map(); this.pviews = new Map(); this.piecev = new Map(); this.ghost = null; this.swingAnim = 0; this.lastDay = -1;
+    this.zviews = new Map(); this.nviews = new Map(); this.pviews = new Map(); this.piecev = new Map(); this.ghost = null; this.swingAnim = 0; this.lastDay = -1;
     this.torch = new THREE.PointLight(0xffe2a8, 0, 16, 1.6); this.scene.add(this.torch);
     for (const t of sim.trees) if (t.felled) this.world.fellTree(t.i);
     for (const r of sim.rocks) if (r.gone) this.world.removeRock(r.i);
@@ -161,6 +162,41 @@ export class View {
     }
   }
 
+  // ---------------------------------------------------------------- PNJ (gangs, police, marchands, chiens)
+  makeNpc(n) {
+    const T = NPC_TYPES[n.type];
+    const a = new Actor(instance(T.model) || placeholder(0x3399cc, T.h, T.radius), T.scale);
+    a.root.add(this.blob(T.radius + 0.25));
+    for (const nm of WEAPON_HAND.hide) { const o = a.model.getObjectByName(nm); if (o) o.visible = (nm === T.builtin); }
+    if (T.gun) {                                            // arme à feu dans la main (orientée comme celle du joueur, voir aimNpcGun)
+      const hand = a.model.getObjectByName(WEAPON_HAND.bone) || a.model.getObjectByName(WEAPON_HAND.bone.replace(/[.]/g, ''));
+      const w = instance(WEAPONS.pistol.model);
+      if (hand && w) { w.object.position.set(...WEAPON_HAND.pos); hand.add(w.object); a.hand = hand; a.gunObj = w.object; }
+    }
+    a.play(T.dog ? 'Idle' : T.gun ? 'Idle_Gun' : 'Idle', { rand: true });
+    this.scene.add(a.root); return a;
+  }
+  aimNpcGun(a) {
+    if (!a.gunObj) return;
+    a.root.updateMatrixWorld(true);
+    a.hand.getWorldQuaternion(_qh); a.root.getWorldQuaternion(_qr);
+    a.gunObj.quaternion.copy(_qh.invert().multiply(_qr).multiply(_qf));
+  }
+  npcAnim(a, n) {
+    const T = NPC_TYPES[n.type], gun = !!T.gun, has = (c) => a.has(c);
+    switch (n.anim) {
+      case 'walk': a.play(gun ? 'Walk_Gun' : 'Walk', { speed: 0.9 }); break;
+      case 'walkgun': a.play('Walk_Gun', { speed: 1.2 }); break;
+      case 'run': a.play(T.dog || !gun ? 'Run' : 'Run_Gun', { speed: Math.max(0.8, T.speed / 3.2) }); break;
+      case 'aim': a.play(has('Idle_Gun') ? 'Idle_Gun' : 'Idle'); break;
+      case 'attack': a.play(T.dog ? 'Attack' : has('Slash') ? 'Slash' : 'Punch', { speed: 1.3 }); break;
+      case 'hit': a.play(T.dog ? 'HitReact_Left' : 'HitReact', { loop: false, fade: 0.05 }); break;
+      case 'death': a.play('Death', { loop: false, fade: 0.08 }); break;
+      case 'wave': a.play(has('Wave') ? 'Wave' : 'Idle'); break;
+      default: a.play(gun && has('Idle_Gun') ? 'Idle_Gun' : 'Idle');
+    }
+  }
+
   // ---------------------------------------------------------------- objets ramassables
   // [modèle, échelle, couleur de l'anneau] — les modèles de props/ sont en grandes unités (bûche 3,8 ; sac 3,3 ; allumettes 1,1).
   makePickup(pk) {
@@ -181,6 +217,7 @@ export class View {
     for (const g of this.piecev.values()) this.scene.remove(g); this.piecev.clear();
     for (const g of this.pviews.values()) this.scene.remove(g); this.pviews.clear();
     for (const a of this.zviews.values()) this.scene.remove(a.root); this.zviews.clear();
+    for (const a of this.nviews.values()) this.scene.remove(a.root); this.nviews.clear();
     for (const t of this.sim.trees) t.felled ? this.world.fellTree(t.i) : this.world.restoreTree(t.i);
     for (const r of this.sim.rocks) r.gone ? this.world.removeRock(r.i) : this.world.restoreRock(r.i);
     this.weaponId = null;
@@ -307,6 +344,20 @@ export class View {
       this.zombieAnim(a, z); a.update(dt);
     }
     for (const [id, a] of this.zviews) if (!seen.has(id)) { this.scene.remove(a.root); this.zviews.delete(id); }
+
+    // PNJ
+    const nseen = new Set();
+    for (const n of sim.npcs) {
+      const near = Math.hypot(n.x - P.x, n.z - P.z) < 70;
+      let a = this.nviews.get(n.id);
+      if (!a) { if (!near) continue; a = this.makeNpc(n); this.nviews.set(n.id, a); }
+      nseen.add(n.id); a.root.visible = near;
+      if (!near) continue;
+      a.root.position.set(n.x, n.dead && n.deadT > 3.5 ? -Math.min(1, (n.deadT - 3.5) * 0.5) * 0.9 : 0, n.z);
+      a.root.rotation.y = n.face;
+      this.npcAnim(a, n); a.update(dt); this.aimNpcGun(a);
+    }
+    for (const [id, a] of this.nviews) if (!nseen.has(id)) { this.scene.remove(a.root); this.nviews.delete(id); }
 
     // objets
     const pseen = new Set();
