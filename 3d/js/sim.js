@@ -5,6 +5,7 @@ import { CAMERA, PLAYER, WEAPONS, WEAPON_ORDER, ASSIST, HEAD_MULT, ZOMBIES, ALER
 import { clamp, lerpAngle, wrapAngle, pushOut, raySphere, normalize3, cameraRig, rayBoxes, blockedBetween } from './logic.js';
 import { survivalMethods } from './survival.js';
 import { vehicleMethods } from './vehicles.js';
+import { npcMethods, NPC_TYPES } from './npcs.js';
 
 // Saut / accroupi / visée (commandes façon CODM). Valeurs de réglage ici (pas dans config.js).
 const MOVE = { jumpV: 5.4, grav: 16, jumpCost: 12, crouchSpeed: 0.55, adsSpeed: 0.7, crouchDrop: 0.45, crouchSight: 0.6, crouchHear: 0.5, dodgeY: 0.5 };
@@ -29,7 +30,7 @@ export class Sim {
     this.fireCD = 0; this.reloadT = 0; this.reloadTotal = 0; this.swingT = 0; this.swingDone = true;
     this.zombies = []; this.pickups = []; this.cols = this.layout.colliders.slice();
     this.kills = 0; this.clock = S.startHour * 3600; this.over = false; this.shots = 0; this.hits = 0;
-    this.initSurvival(); this.initVehicles();
+    this.initSurvival(); this.initVehicles(); this.initNpcs();
     if (save && this.restore(save)) return;
     for (let i = 0; i < S.popStart; i++) this.spawnZombie(this.pickType(), {});
   }
@@ -61,11 +62,11 @@ export class Sim {
     this.updateInteract(inp); this.updateItems(inp);
     this.updateNeeds(dt);
     if (P.dead) return;
-    this.updateZombies(dt); this.updatePickups(dt); this.updatePopulation(dt); this.updateFires(dt); this.updateLootRespawn();
+    this.updateZombies(dt); this.updateNpcs(dt); this.updatePickups(dt); this.updatePopulation(dt); this.updateFires(dt); this.updateLootRespawn();
   }
 
   // ---------------------------------------------------------------- bruit : les zombies proches viennent voir
-  noise(x, z, r) { for (const zb of this.zombies) if (!zb.dead && Math.hypot(zb.x - x, zb.z - z) < r) zb.alerted = true; }
+  noise(x, z, r) { for (const zb of this.zombies) if (!zb.dead && Math.hypot(zb.x - x, zb.z - z) < r) zb.alerted = true; if (this.npcs) this.alertGang(x, z, r * 0.6); }
 
   // ---------------------------------------------------------------- joueur
   updatePlayer(dt, inp) {
@@ -149,7 +150,7 @@ export class Sim {
     this.setWeapon(list[(i + dir + list.length) % list.length]);
   }
 
-  // ---------------------------------------------------------------- mêwëlee : zombies, arbres (bois), rochers (pierre)
+  // ---------------------------------------------------------------- mêlée : zombies, PNJ hostiles, arbres (bois), rochers (pierre)
   startSwing(W) {
     this.fireCD = W.interval; this.swingT = W.interval; this.swingDone = false;
     this.emit({ type: 'swing', w: this.cur, anim: W.anim });
@@ -164,15 +165,15 @@ export class Sim {
 
   meleeHit(W) {
     const P = this.player; let best = null, bs = 1e9;
-    for (const z of this.zombies) {
+    for (const z of this.targets()) {
       if (z.dead) continue;
-      const T = ZOMBIES[z.type], c = this.inCone(z.x, z.z, W.range + T.radius, W.arc);
+      const T = ZOMBIES[z.type] || NPC_TYPES[z.type], c = this.inCone(z.x, z.z, W.range + T.radius, W.arc);
       if (!c || blockedBetween(P.x, P.z, z.x, z.z, this.cols)) continue;
       if (c.d + c.ang < bs) { bs = c.d + c.ang; best = z; }
     }
     this.noise(P.x, P.z, W.noise);
     if (best) {
-      const T = ZOMBIES[best.type];
+      const T = ZOMBIES[best.type] || NPC_TYPES[best.type];
       this.damageZombie(best, W.dmg * (0.9 + this.rng() * 0.2), false, [best.x, T.h * 0.62, best.z]);
       if (!best.dead) { best.stagger = T.stagger * 1.3; best.atkT = 0; best.hitDone = false; }
       return;
@@ -201,7 +202,7 @@ export class Sim {
   }
 
   hitSpheres(z) {
-    const T = ZOMBIES[z.type];
+    const T = ZOMBIES[z.type] || NPC_TYPES[z.type];
     return [
       { k: 'head', y: T.h - 0.2, r: 0.22 },
       { k: 'torso', y: T.h * 0.62, r: Math.max(0.42, T.radius + 0.06) },
@@ -213,9 +214,9 @@ export class Sim {
   aimPoint(cam, range) {
     let best = null, bestAng = ASSIST;
     const mz = this.muzzle();
-    for (const z of this.zombies) {
+    for (const z of this.targets()) {
       if (z.dead) continue;
-      const T = ZOMBIES[z.type], y = T.h * 0.62;
+      const T = ZOMBIES[z.type] || NPC_TYPES[z.type], y = T.h * 0.62;
       const vx = z.x - cam.pos[0], vy = y - cam.pos[1], vz = z.z - cam.pos[2];
       const l = Math.hypot(vx, vy, vz) || 1;
       const ang = Math.acos(clamp((vx * cam.dir[0] + vy * cam.dir[1] + vz * cam.dir[2]) / l, -1, 1));
@@ -251,7 +252,7 @@ export class Sim {
     const wall = rayBoxes(o[0], o[1], o[2], d[0], d[1], d[2], W.range, this.cols);   // les murs arrêtent les balles
     const maxT = wall ? wall.t : W.range;
     const cand = [];
-    for (const z of this.zombies) {
+    for (const z of this.targets()) {
       if (z.dead) continue;
       let bt = -1, bk = null;
       for (const s of this.hitSpheres(z)) {
@@ -275,6 +276,7 @@ export class Sim {
   }
 
   damageZombie(z, dmg, head, pt) {
+    if (z.npc) return this.damageNpc(z, dmg, head, pt);
     const T = ZOMBIES[z.type];
     z.hp -= dmg; z.alerted = true; z.state = 'chase'; z.target = null;
     this.emit({ type: 'hit', id: z.id, pt, head, dmg, kill: z.hp <= 0 });
@@ -338,7 +340,7 @@ export class Sim {
       if (d > S.despawn && z.state !== 'chase') { Z.splice(i, 1); continue; }
       if (P.dead) { z.anim = 'idle'; continue; }
 
-      // ---- perception : vue (bloquée par les murs), ouïe (course = bruyant, immobile = discret, accroupi = encore plus), bruits
+      // ---- perception : vue (bloquée par les murs),ouïe (course = bruyant, immobile = discret, accroupi = encore plus), bruits
       if (z.state !== 'chase') {
         const sight = (this.isNight() ? S.sightNight : S.sightDay) * (P.sprinting ? 1.6 : P.moving ? 1 : 0.5) * (P.crouch ? MOVE.crouchSight : 1);
         let seen = z.alerted;
@@ -357,7 +359,7 @@ export class Sim {
       if (d < T.range && !blockedBetween(z.x, z.z, P.x, P.z, cols, 1.0)) {
         z.anim = 'attack'; z.atkT += dt;
         z.face = lerpAngle(z.face, Math.atan2(dx, dz), Math.min(1, 12 * dt));
-        if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; if (d < T.range + 0.5 && (P.y || 0) < MOVE.dodgeY) this.hurtPlayer(T.dmg, z); }   // un saut bien placé évite le coup
+        if (!z.hitDone && z.atkT >= T.hitAt) { z.hitDone = true; if (d < T.range + 0.5 && (P.y || 0) < MOVE.dodgeY) this.hurtPlayer(T.dmg, z); }   // un saut bien placé esquive le coup
         if (z.atkT >= T.cycle) { z.atkT = 0; z.hitDone = false; }
         continue;
       }
@@ -469,4 +471,4 @@ export class Sim {
   }
 }
 
-Object.assign(Sim.prototype, survivalMethods, vehicleMethods);
+Object.assign(Sim.prototype, survivalMethods, vehicleMethods, npcMethods);
