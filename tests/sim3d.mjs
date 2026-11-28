@@ -49,7 +49,7 @@ t('layout : déterministe, cabane 6x6, maisons hors des routes, points de butin'
   assert.equal(a.cabin.n, 6);
   assert.ok(a.houses.length >= 8 && a.colliders.length > 40);
   for (const h of a.houses) assert.ok(Math.abs(h.z) > 6.5 && Math.abs(h.x) > 8);
-  for (const m of a.models) assert.ok(/\.(gltf|glb)$/.test(m), m);
+  for (const m of a.models) assert.ok(/\.(gltf|glb)$|\.fbx#/.test(m), m);
   for (const k of ['cabin', 'tools', 'house', 'container', 'car', 'barrel', 'trash']) assert.ok(a.lootSpots.some(s => s.kind === k), 'point de butin manquant : ' + k);
 });
 
