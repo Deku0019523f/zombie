@@ -316,6 +316,49 @@ export function buildLayout(seed = 1337) {
     fields.push({ x: p[0], z: p[1], side, crop, plants });
   }
 
+
+  // --- habillage Cenji / Kenney / usine abandonnée (rng à part) : maisons de banlieue décoratives, mobilier urbain, fouilles ---
+  const xrng = makeRng(seed + 9090), xr = (lo, hi) => lo + xrng() * (hi - lo), xpick = (a) => a[Math.floor(xrng() * a.length)];
+  const KN = '../nouveau/kenney_city_suburban/', AI = '../nouveau/abandoned_industrial_sampler/GLB/Props/AIK_';
+  const cj = (m, x, z, yaw, r = 0, scale = 1) => { items.push({ model: CJ + m + '.glb', x, z, yaw, scale }); if (r > 0) colliders.push({ x, z, r }); };
+  // maisons de banlieue (non enterables, 2 à 3 fois plus grandes que le modèle d'origine) dans les quartiers du village entre les deux rues
+  const SUB = { 1: [1.3, 0.92], 2: [1.31, 1.41], 3: [1.71, 0.92], 4: [1.29, 0.92], 5: [1.31, 1.31], 6: [1.3, 1.32], 7: [1.3, 0.92], 9: [1.3, 0.92], 12: [1.3, 1.01] };
+  const SS = 7;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    if (xrng() < 0.3) continue;
+    const x = sx * (26 + i * 15 + xr(-1, 1)), z = sz * (26 + j * 15 + xr(-1, 1)), t = xpick(Object.keys(SUB)), yaw = Math.floor(xr(0, 4)) * Math.PI / 2;
+    const q = Math.round(yaw / (Math.PI / 2)) % 2 !== 0, hw = (q ? SUB[t][1] : SUB[t][0]) * SS / 2, hd = (q ? SUB[t][0] : SUB[t][1]) * SS / 2;
+    if (!free(x, z, Math.max(hw, hd) + 1) || Math.abs(x) > V - 4 || Math.abs(z) > V - 4) continue;
+    items.push({ model: KN + 'house_type' + String(t).padStart(2, '0') + '.glb', x, z, yaw, scale: SS });
+    colliders.push({ x, z, hw: hw - 0.2, hd: hd - 0.2, h: 5 });
+    // caisse de ravitaillement à côté de la maison : point de fouille
+    const cxs = x + Math.cos(yaw) * (hw + 1.2), czs = z - Math.sin(yaw) * (hw + 1.2);
+    if (free(cxs, czs, 0.6)) { cj('Crate_Wood', cxs, czs, xr(0, 6), 0.5); spot('house', cxs, czs, 0.5, 0.5); }
+    if (xrng() < 0.5) { const bx = x + xr(-2, 2), bz = z + (hd + 2.2) * (xrng() < 0.5 ? 1 : -1); if (free(bx, bz, 0.5)) cj(xpick(['Bench_Timber_Slat', 'Planter_Decorative', 'Mailbox_Public']), bx, bz, xr(0, 6), 0.5); }
+  }
+  // mobilier urbain, bennes (fouille), caisses, selon la zone
+  const dress = {
+    village:    [['Dumpster_Closed_Detailed', 1.0, 'trash'], ['Dumpster_Open_Detailed', 1.0, 'trash'], ['Bench_Concrete_Modern', 0.7], ['Newspaper_Box', 0.3], ['Vending_Machine_Detailed', 0.5, 'barrel'], ['Bus_Shelter_Compact', 1.0], ['Park_Trash_Bin', 0.3], ['Fire_Hydrant', 0.3], ['Shopping_Cart', 0.4], ['Planter_Street_Large', 0.6]],
+    industrial: [['Generator_Portable', 0.6], ['Cable_Spool', 0.7], ['Dumpster_Closed_Detailed', 1.0, 'trash'], ['Pallet_Wood', 0], ['Utility_Box_Large', 0.5], ['Transformer_Box', 0.7], ['Tool_Chest_Rolling', 0.5, 'barrel'], ['Crate_Plastic', 0.4], ['Rebar_Bundle', 0.5], ['Jackhammer', 0], ['Worklight_Twin_Tripod', 0.3]],
+    farm:       [['Wheelbarrow', 0.5], ['Bucket', 0], ['Picnic_Table', 0.9], ['Crate_Wood', 0.5, 'barrel'], ['Barrel_Wood', 0.4], ['Cardboard_Box_Stack', 0.5], ['Ladder_Folded', 0]],
+    quarry:     [['Generator_Portable', 0.6], ['Cement_Bag_Stack', 0.6], ['Rebar_Bundle', 0.5], ['Worklight_Twin_Tripod', 0.3], ['Sawhorse_Road', 0.5], ['Jackhammer', 0], ['Crate_Wood', 0.5, 'barrel']],
+    forest:     [['Picnic_Table', 0.9], ['Trash_Bag_Pile', 0], ['Crate_Wood', 0.5, 'barrel']],
+  };
+  const dressCount = { village: 50, industrial: 70, farm: 30, quarry: 30, forest: 12 };
+  for (const zone of Object.keys(dress)) gscatterX(zone, dressCount[zone]);
+  function gscatterX(zone, count) {
+    for (let i = 0, ok = 0; i < count * 8 && ok < count; i++) {
+      const x = xr(-H + 8, H - 8), z = xr(-H + 8, H - 8); if (zoneAt(x, z) !== zone || !free(x, z, 1.3, zone === 'village')) continue;
+      const [m, r, kind] = xpick(dress[zone]); cj(m, x, z, xr(0, 6.28), r); if (kind) spot(kind, x, z, Math.max(0.4, r), Math.max(0.4, r)); ok++;
+    }
+  }
+  // usine abandonnée : accessoires du pack industriel dans la zone industrielle et la carrière
+  const aik = [['LG_Transformer', 0.8], ['LG_IBC', 0.7], ['LG_DrillPress', 0.6], ['LG_Duct_Fallen', 0.8], ['MD_Anvil', 0.4], ['MD_Bench_Locker', 0.8], ['MD_Drum_200L', 0.4], ['MD_Tarp_Heap', 0.6], ['MD_Tyre_Truck', 0.4], ['SM_CableSpool_Small', 0], ['SM_GlassShards', 0]];
+  for (const [zone, count] of [['industrial', 45], ['quarry', 14]]) for (let i = 0, ok = 0; i < count * 8 && ok < count; i++) {
+    const x = xr(-H + 8, H - 8), z = xr(-H + 8, H - 8); if (zoneAt(x, z) !== zone || !free(x, z, 1.3)) continue;
+    const [m, r] = xpick(aik); items.push({ model: AI + m + '.glb', x, z, yaw: xr(0, 6.28), scale: 1 }); if (r > 0) colliders.push({ x, z, r }); if (/IBC|Drum|Locker|Transformer/.test(m)) spot('barrel', x, z, Math.max(0.5, r), Math.max(0.5, r)); ok++;
+  }
+
   const models = new Set([...items.map(i => i.model), ...grass.map(g => g.model), ...vehicles.map(v => v.model)]);
   return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, vehicles, npcs, camps, bushes, stumps, fields, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
 }

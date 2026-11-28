@@ -20,8 +20,6 @@
 
 ## Phase 4 — EN COURS : intégrer les assets de `assets/nouveau` (licences : dépôt à passer en privé)
 - FAIT (4a) : Quaternius Ultimate Nature : rochers réels (7 variantes instanciées, cassables), buissons (3 variantes), souches, champs de blé/maïs (6 champs en zone ferme), arbres détaillés remplaçant les arbres simples dans 34 m autour du joueur (pool de 36).
-- Reste : props Cenji (butin / rues), maisons Kenney (échelle ~x8-10), props industriels (zone industrielle), psx_buildings / modular_terrain.
+- FAIT (4b) : maisons de banlieue Kenney (décor, x7, non enterables, une caisse de fouille à côté), mobilier urbain Cenji par zone (bennes, bancs, générateurs, palettes… ; bennes / caisses / distributeurs = points de fouille), props de l'usine abandonnée (transformateur, cuve IBC, perceuse, enclume…) en zone industrielle et carrière.
+- Reste : psx_buildings, modular_terrain, Kenney modular, Cenji winter (pas de zone hivernale ni de bâtiments à assembler pour l'instant).
 - Poids mobile : textures à réduire (512 px), vérifier la fluidité sur téléphone.
-
-## Rappel
-- Révoquer le jeton GitHub une fois le travail terminé.
