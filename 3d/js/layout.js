@@ -245,6 +245,56 @@ export function buildLayout(seed = 1337) {
     }
   }
 
+  // --- PNJ : camps de gang, postes de police, étals de marchand (rng à part : ne décale pas le reste du plan) ---
+  const nrng = makeRng(seed + 777), nr = (lo, hi) => lo + nrng() * (hi - lo);
+  const npcs = [], camps = [], CJ = '../nouveau/cenji_urban_props/';
+  const addNpc = (type, x, z, yaw, kind) => npcs.push({ id: npcs.length, type, x, z, yaw, kind });
+  const prop = (m, x, z, yaw, r = 0, scale = 1) => { items.push({ model: CJ + m + '.glb', x, z, yaw, scale }); if (r > 0) colliders.push({ x, z, r }); };
+  const farFromVeh = (x, z, d) => !vehicles.some(v => Math.hypot(v.x - x, v.z - z) < d);
+  const findSpot = (zones, r, ok = () => true, tries = 500, roadOk = false) => {
+    for (let i = 0; i < tries; i++) {
+      const x = nr(-H + 20, H - 20), z = nr(-H + 20, H - 20);
+      if (zones.includes(zoneAt(x, z)) && free(x, z, r, roadOk) && farFromVeh(x, z, r + 3) && ok(x, z)) return [x, z];
+    }
+    return null;
+  };
+  const farFromCab = (d) => (x, z) => Math.hypot(x - cabin.cx, z - cabin.cz) > d;
+  const campFar = (x, z) => camps.every(c => Math.hypot(c.x - x, c.z - z) > 60);
+  // camp de gang : enceinte de barricades, fûts, caisses ; 3 pillards au corps à corps, 2 tireurs, 1 chien
+  const gangCamp = (zones, far = 0) => {
+    const p = findSpot(zones, 9, (x, z) => campFar(x, z) && farFromCab(Math.max(far, 70))(x, z) && Math.hypot(x, z) > 60); if (!p) return;
+    const [x, z] = p, a0 = nr(0, 6.28); camps.push({ role: 'gang', x, z });
+    for (let k = 0; k < 7; k++) { const a = a0 + k * Math.PI * 2 / 7; if (k === 0) continue; prop('Barricade_Striped', x + Math.sin(a) * 6.5, z + Math.cos(a) * 6.5, a + Math.PI / 2, 0.8); }
+    for (let k = 0; k < 3; k++) prop('Oil_Drum', x + nr(-3, 3), z + nr(-3, 3), nr(0, 6), 0.4);
+    prop('Crate_Stack', x + 2.5, z - 1.5, nr(0, 6), 0.7); prop('Crate_Stack', x - 2.2, z + 2, nr(0, 6), 0.7); prop('Traffic_Cone_Worn', x + 1, z + 3, 0, 0, 1);
+    const spots = [[2, 1], [-2, 2], [0, -3], [3, 3], [-3, -1], [1, 4]].map(([dx, dz]) => [x + dx, z + dz]);
+    ['gang_melee', 'gang_melee', 'gang_melee', 'gang_gun', 'gang_gun', 'gang_dog'].forEach((t, k) => addNpc(t, spots[k][0], spots[k][1], nr(0, 6.28)));
+  };
+  gangCamp(['industrial']); gangCamp(['industrial']); gangCamp(['quarry']); gangCamp(['farm']); gangCamp(['forest'], 55);
+  // poste de police sur l'axe est-ouest du village : deux barricades laissant passer un véhicule, cônes, deux agents
+  for (const sx of [-1, 1]) {
+    for (let t = 20; t <= 66; t += 2) {
+      const x = sx * t;
+      if (!free(x, 0, 3.6, true) || !free(x + sx * 2.2, 4.9, 1, true) || !free(x + sx * 2.2, -4.9, 1, true) || !farFromVeh(x, 0, 6)) continue;
+      camps.push({ role: 'police', x, z: 0 });
+      for (const s of [-1, 1]) { prop('Barricade_Striped', x, s * 3.1, Math.PI / 2, 0.8); prop('Traffic_Cone_Clean', x - sx * 2.5, s * 1.7, 0); prop('Traffic_Cone_Clean', x - sx * 4.5, s * 2.2, 0); addNpc('police', x + sx * 2.2, s * 4.9, s < 0 ? 0 : Math.PI); }
+      break;
+    }
+  }
+  // étal de marchand : table(s) devant lui, parasol, caisses ; il fait face à `yaw`
+  const stall = (x, z, yaw, kind) => {
+    const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    camps.push({ role: 'merchant', x, z });
+    addNpc('merchant', x, z, yaw, kind);
+    prop('Cafe_Table', x + fx * 1.3, z + fz * 1.3, yaw, 0.55); prop('Cafe_Table', x + fx * 1.3 + rx * 1.3, z + fz * 1.3 + rz * 1.3, yaw, 0.55);
+    prop('Cafe_Umbrella_Stand', x - rx * 1.3, z - rz * 1.3, 0, 0.4); prop('Crate_Stack', x - fx * 1.4, z - fz * 1.4, yaw, 0.7);
+    prop('Sandwich_Board', x + fx * 2.3 - rx * 0.9, z + fz * 2.3 - rz * 0.9, yaw + 0.4, 0.35);
+  };
+  const stallAt = (zones, kind, ok) => { const p = findSpot(zones, 3.2, ok); if (p) stall(p[0], p[1], Math.floor(nr(0, 4)) * Math.PI / 2, kind); };
+  stallAt(['village'], 'general', (x, z) => Math.abs(x) > 12 && Math.abs(z) > 12);
+  stallAt(['forest'], 'general', (x, z) => { const d = Math.hypot(x - cabin.cx, z - cabin.cz); return d > 24 && d < 55; });
+  stallAt(['farm'], 'farm'); stallAt(['industrial'], 'arms', campFar); stallAt(['quarry'], 'arms', campFar);
+
   const models = new Set([...items.map(i => i.model), ...grass.map(g => g.model), ...vehicles.map(v => v.model)]);
-  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, vehicles, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
+  return { half: H, items, houses, colliders, trees, ringTrees, rocks, lootSpots, cabin, spawn, grass, vehicles, npcs, camps, models: [...models], houseModels: planModels(), isFree: free, onRoad, rng, zoneAt };
 }
